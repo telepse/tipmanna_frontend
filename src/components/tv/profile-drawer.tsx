@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
+import { PROFILE_DRAWER_Z_INDEX } from "@/lib/drawer-z-index";
 
 import { TermsPrivacyLabel } from "@/components/auth/terms-privacy-label";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -383,7 +383,8 @@ export const ProfileDrawer = ({
       onOpenChange={setIsProfileDrawerOpen}
     >
       <DrawerContent
-        className={`${DRAWER_Z_INDEX} fixed inset-0 flex h-screen flex-col p-2`}
+        className={`fixed inset-0 flex h-screen flex-col p-2`}
+        style={{ zIndex: "1000037" }}
       >
         <button
           type="button"

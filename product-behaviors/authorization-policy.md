@@ -171,7 +171,47 @@ The Next.js route `GET /api/auth/host-session?verify=true` validates `hostToken`
 
 Backend `requireActiveHostSession` increments `hostSessionObs.hostSessionRequired` when a non-host JWT hits a Tier B route.
 
+## Community TV viewer access
+
+**Tipmanna system TV** (`/tv`) is **public**. Viewers do not need Community membership or Community TV entitlement to watch the global schedule.
+
+**Community TV** (`/tv?community=<communityId>`) is **members-only**. Entitlement is enforced **server-side** on protected Community TV viewer APIs and on access-state fields used for bootstrap. The browser gate on the TV page improves UX and fail-closed behavior; it is **not** the security boundary.
+
+### Entitled viewers
+
+| Viewer                                                                               | Entitled                            |
+| ------------------------------------------------------------------------------------ | ----------------------------------- |
+| Active Community **member** (valid membership row: active, not expired, not revoked) | Yes                                 |
+| Community **owner**                                                                  | Yes — even without a membership row |
+| **Active co-creator** on the Community                                               | Yes — even without a membership row |
+
+### Denied viewers
+
+| Viewer                                                                | Result |
+| --------------------------------------------------------------------- | ------ |
+| Anonymous (no primary session)                                        | Denied |
+| Authenticated **non-member**                                          | Denied |
+| **Visitor** without an entitled tipper identity for membership checks | Denied |
+| **Expired** membership                                                | Denied |
+| **Revoked** membership                                                | Denied |
+
+### API enforcement
+
+Protected **Community TV viewer** endpoints (schedule, daily TV bootstrap, playlist table, community tip feed, and equivalent native TV-app community schedule reads) call the same entitlement check **independently** of the page gate.
+
+| Caller                      | HTTP                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Anonymous                   | **401** — sign in required                                                   |
+| Authenticated, not entitled | **403** — members only                                                       |
+| Entitled                    | Normal success path (after existing Community TV activation / feature rules) |
+
+Authorization error code: **`COMMUNITY_TV_MEMBERS_ONLY`**.
+
+**Global TV** schedule and bootstrap endpoints remain **public** and are **not** wrapped by Community TV membership entitlement.
+
 ## Payout dual path (manual default, Connect optional)
+
+Host profile completeness (including gender for individual and organisation owners) gates **payout requests** and Connect batch processing. Field lists and gate behavior: [host-profile-completeness-and-payouts.md](../../product-behaviors/host-profile-completeness-and-payouts.md).
 
 Stripe Connect is an **entitlement/ops path**, not a sixth user set or identity rule.
 

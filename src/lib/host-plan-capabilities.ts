@@ -20,6 +20,11 @@ export type HostSubscriptionMe = {
   hasStripeSubscription: boolean;
   canRenew: boolean;
   includesPremiumBecauseCommunity?: boolean;
+  isTrialing?: boolean;
+  trialEndsAt?: string | Date | null;
+  trialEligible?: boolean;
+  deniedGrowthTools?: string[];
+  deniedCommunityTools?: string[];
   capabilities: HostPlanCapabilities;
   history: Array<{
     id: string;

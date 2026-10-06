@@ -49,6 +49,7 @@ import { HostPayoutRequestStatusPanel } from "@/components/dashboard/host-payout
 import { HostConnectPayoutPanel } from "@/components/dashboard/host-connect-payout-panel";
 
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
+import { getProfileCompleteness } from "@/lib/host-profile-completeness";
 
 import {
   useParams,
@@ -130,112 +131,6 @@ function hasNonEmptyPayoutSummary(value: unknown): boolean {
   return false;
 }
 
-/**
- * Returns true when a profile field has a meaningful value.
- */
-function hasProfileValue(value: unknown): boolean {
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-
-  if (typeof value === "boolean") {
-    return true;
-  }
-
-  if (value instanceof Date) {
-    return !Number.isNaN(value.getTime());
-  }
-
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-/**
- * Calculates profile completeness using only the
- * profile belonging to the selected profile account type.
- *
- * Completion levels:
- *
- * 50%  -> less than 70% complete
- * 70%  -> 70% - 89% complete
- * 90%  -> 90% - 99% complete
- * 100% -> all required fields complete
- */
-function getProfileCompleteness(
-  accountType: "INDIVIDUAL" | "ORGANIZATION" | null,
-  profile: Record<string, unknown> | null | undefined
-): number | null {
-  if (!accountType || !profile) {
-    return null;
-  }
-
-  const country = String(profile.country ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-
-  const isUk =
-    country === "united kingdom" ||
-    country === "uk" ||
-    country === "gb" ||
-    country === "great britain";
-
-  const requiredFields: unknown[] =
-    accountType === "INDIVIDUAL"
-      ? [
-          profile.firstName,
-          profile.lastName,
-          profile.homeAddress,
-          profile.city,
-          profile.state,
-          profile.postalCode,
-          profile.country,
-
-          // UK hosts provide NI number.
-          // Non-UK hosts provide passport number
-          // and additional tax identification.
-          isUk ? profile.niNumber : profile.passportNumber,
-
-          ...(isUk ? [] : [profile.additionalTaxIdentification]),
-
-          profile.dateOfBirth,
-          profile.gender,
-          profile.accountNumber,
-          profile.sortCode,
-        ]
-      : [
-          profile.registeredCompanyName,
-          profile.companyRegistrationNumber,
-          profile.registeredAddress,
-          profile.city,
-          profile.state,
-          profile.postalCode,
-          profile.country,
-          profile.dateOfBirth,
-          profile.uniqueTaxpayerReference,
-          profile.accountNumber,
-          profile.sortCode,
-        ];
-
-  const completedFields = requiredFields.filter(hasProfileValue).length;
-
-  const completionRatio =
-    requiredFields.length > 0 ? completedFields / requiredFields.length : 0;
-
-  if (completionRatio >= 1) {
-    return 100;
-  }
-
-  if (completionRatio >= 0.9) {
-    return 90;
-  }
-
-  if (completionRatio >= 0.7) {
-    return 70;
-  }
-
-  return 50;
-}
-
 export const HostProfileClient = () => {
   const { events } = useHostEvents();
 
@@ -247,12 +142,15 @@ export const HostProfileClient = () => {
     requestPayout,
     connectPayouts,
     refresh,
+    isPending: payoutSummaryPending,
+    payoutUiState: payoutSummaryUiState,
   } = useHostPayoutSummary();
 
-  const hostSession = useHostSession();
-
-  const { isLoading: hostSessionLoading, isActive: hostSessionActive } =
-    hostSession;
+  const {
+    isLoading: hostSessionLoading,
+    isActive: hostSessionActive,
+    eventSlug: hostSessionEventSlug,
+  } = useHostSession();
 
   const [profileAccountType, setProfileAccountType] = useState<
     "INDIVIDUAL" | "ORGANIZATION" | null
@@ -449,7 +347,7 @@ export const HostProfileClient = () => {
   const eventSlug =
     typeof params?.slug === "string"
       ? params.slug
-      : (hostSession.eventSlug ?? ("eventSlug" in user ? user.eventSlug : ""));
+      : (hostSessionEventSlug ?? ("eventSlug" in user ? user.eventSlug : ""));
 
   return (
     <section className="flex w-full min-w-0 flex-col gap-4 overflow-x-hidden">
@@ -809,31 +707,53 @@ export const HostProfileClient = () => {
             <h2 className="text-2xl font-semibold">Payout summary</h2>
 
             <div className="space-y-6">
-              <PayoutSummaryCard
-                label="Pending Payouts"
-                value={(summary?.pendingMinor ?? 0) / 100}
-                bgColor="#FFF3E7"
-                txtColor="#CB6305"
-                isMoney
-                subLabel={`Event tips: ${formatGbpMinor(
-                  summary?.pendingByBranch.eventTipsMinor ?? 0
-                )} · Community: ${formatGbpMinor(
-                  summary?.pendingByBranch.communitySubscriptionMinor ?? 0
-                )}`}
-              />
+              {payoutSummaryPending ? (
+                <p className="text-muted-foreground text-sm">
+                  Loading payout summary…
+                </p>
+              ) : payoutSummaryUiState === "error" ? (
+                <div className="space-y-3">
+                  <p className="text-muted-foreground text-sm">
+                    Could not load payout summary. Try again.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refresh()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <PayoutSummaryCard
+                    label="Pending Payouts"
+                    value={(summary?.pendingMinor ?? 0) / 100}
+                    bgColor="#FFF3E7"
+                    txtColor="#CB6305"
+                    isMoney
+                    subLabel={`Event tips: ${formatGbpMinor(
+                      summary?.pendingByBranch.eventTipsMinor ?? 0
+                    )} · Community: ${formatGbpMinor(
+                      summary?.pendingByBranch.communitySubscriptionMinor ?? 0
+                    )}`}
+                  />
 
-              <PayoutSummaryCard
-                label="Total Received"
-                value={(summary?.receivedMinor ?? 0) / 100}
-                bgColor="#E5FFE3"
-                txtColor="#04802E"
-                isMoney
-                subLabel={`Event tips: ${formatGbpMinor(
-                  summary?.receivedByBranch.eventTipsMinor ?? 0
-                )} · Community: ${formatGbpMinor(
-                  summary?.receivedByBranch.communitySubscriptionMinor ?? 0
-                )}`}
-              />
+                  <PayoutSummaryCard
+                    label="Total Received"
+                    value={(summary?.receivedMinor ?? 0) / 100}
+                    bgColor="#E5FFE3"
+                    txtColor="#04802E"
+                    isMoney
+                    subLabel={`Event tips: ${formatGbpMinor(
+                      summary?.receivedByBranch.eventTipsMinor ?? 0
+                    )} · Community: ${formatGbpMinor(
+                      summary?.receivedByBranch.communitySubscriptionMinor ?? 0
+                    )}`}
+                  />
+                </>
+              )}
 
               <HostConnectPayoutPanel
                 connectPayouts={connectPayouts}

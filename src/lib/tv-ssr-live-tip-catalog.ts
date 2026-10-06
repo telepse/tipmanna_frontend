@@ -1,5 +1,7 @@
+import { getCommunityAccessStateAction } from "@/actions/communities";
 import { getEventCharacterCatalogAction } from "@/actions/events";
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
+import { isCommunityTvEntitledFromAccessState } from "@/lib/community-tv-entitlement";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { RoomCharacter } from "@/types";
@@ -19,11 +21,18 @@ export type TvSsrScheduleBootstrap = {
   etag: string | null;
 };
 
+/**
+ * SSR Community TV viewer entitlement for the URL community (from access-state).
+ * `unknown` — global /tv or no SSR probe for this navigation.
+ */
+export type SsrCommunityTvViewerEntitlement = "entitled" | "denied" | "unknown";
+
 /** Source-tagged SSR payload for /tv or /tv?community=:id. */
 export type TvSsrBootstrap = {
   communityId: string | null;
   initialTvTipCatalog: TvInitialTipCatalog | null;
   ssrScheduleBootstrap: TvSsrScheduleBootstrap | null;
+  ssrCommunityTvViewerEntitlement: SsrCommunityTvViewerEntitlement;
 };
 
 /** URL `community` query only — never localStorage. */
@@ -118,20 +127,51 @@ export async function fetchLiveRowTipCatalogForSchedule(
   return catalogFromCharacterSets(eventId, rawSets);
 }
 
+/** Empty bootstrap for community URL without protected schedule/catalog SSR. */
+export function emptyTvSsrBootstrap(
+  communityId: string | null,
+  ssrCommunityTvViewerEntitlement: SsrCommunityTvViewerEntitlement = communityId
+    ? "denied"
+    : "unknown"
+): TvSsrBootstrap {
+  return {
+    communityId,
+    initialTvTipCatalog: null,
+    ssrScheduleBootstrap: null,
+    ssrCommunityTvViewerEntitlement,
+  };
+}
+
+/**
+ * SSR entitlement probe — same join surfaces as access-state (member or owner-host).
+ * Does not fetch Community TV schedule.
+ */
+export async function isEntitledToCommunityTvSsrBootstrap(
+  communityId: string
+): Promise<boolean> {
+  const res = await getCommunityAccessStateAction(communityId.trim());
+  if (!res.success || !res.data) return false;
+  return isCommunityTvEntitledFromAccessState(
+    res.data as Parameters<typeof isCommunityTvEntitledFromAccessState>[0]
+  );
+}
+
 /** SSR: schedule + live-row catalog for the URL source (`community` or global). */
 export async function loadSsrTvBootstrap(
   communityId?: string | null
 ): Promise<TvSsrBootstrap> {
   const cid = normalizeTvCommunitySearchParam(communityId);
+  if (cid) {
+    const entitled = await isEntitledToCommunityTvSsrBootstrap(cid);
+    if (!entitled) {
+      return emptyTvSsrBootstrap(cid, "denied");
+    }
+  }
   const scheduleRes = await fetchTvScheduleAction(
     cid ? { communityId: cid } : undefined
   );
   if (!scheduleRes.success || !scheduleRes.data?.body) {
-    return {
-      communityId: cid,
-      initialTvTipCatalog: null,
-      ssrScheduleBootstrap: null,
-    };
+    return emptyTvSsrBootstrap(cid, cid ? "entitled" : "unknown");
   }
 
   const ssrScheduleBootstrap: TvSsrScheduleBootstrap = {
@@ -143,7 +183,12 @@ export async function loadSsrTvBootstrap(
     scheduleRes.data.body
   );
 
-  return { communityId: cid, initialTvTipCatalog, ssrScheduleBootstrap };
+  return {
+    communityId: cid,
+    initialTvTipCatalog,
+    ssrScheduleBootstrap,
+    ssrCommunityTvViewerEntitlement: cid ? "entitled" : "unknown",
+  };
 }
 
 /** SSR: global Tipmanna schedule + live-row event catalog for /tv first paint. */

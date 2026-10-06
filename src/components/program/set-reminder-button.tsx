@@ -32,6 +32,10 @@ import {
 import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
 import type { RootState } from "@/redux/store";
 import { TipperEmailOtpSignInDialog } from "@/components/auth/tipper-email-otp-sign-in-dialog";
+import {
+  AUTH_MODAL_OVERLAY_Z_INDEX,
+  AUTH_MODAL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 const OFFSET_LABELS: Record<number, string> = {
   5: "5 minutes before",
@@ -49,6 +53,7 @@ export function SetReminderButton({
   enforcementId,
   globalEnforcementId,
   communityId,
+  stackModalsAboveDrawer = false,
 }: {
   programTitle: string;
   scheduledAt: string;
@@ -57,6 +62,8 @@ export function SetReminderButton({
   enforcementId?: string;
   globalEnforcementId?: string;
   communityId?: string;
+  /** When rendered inside TV program drawer, stack auth/push dialogs above drawer chrome. */
+  stackModalsAboveDrawer?: boolean;
 }) {
   const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated);
   const user = useSelector((s: RootState) => s.auth.user);
@@ -178,6 +185,13 @@ export function SetReminderButton({
   const showGuestPushOffer =
     Boolean(guestEmailUsed) && guestPushFlowActive && pushOfferOpen;
 
+  const modalOverlayClass = stackModalsAboveDrawer
+    ? AUTH_MODAL_OVERLAY_Z_INDEX
+    : undefined;
+  const modalContentClass = stackModalsAboveDrawer
+    ? AUTH_MODAL_Z_INDEX
+    : undefined;
+
   return (
     <>
       {done ? (
@@ -280,6 +294,7 @@ export function SetReminderButton({
             setGuestPushFlowActive(false);
             setPushOfferOpen(false);
           }}
+          stackModalsAboveDrawer={stackModalsAboveDrawer}
         />
       ) : null}
 
@@ -287,7 +302,14 @@ export function SetReminderButton({
         open={authPushPromptOpen}
         onOpenChange={setAuthPushPromptOpen}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          overlayClassName={modalOverlayClass}
+          className={
+            modalContentClass
+              ? `${modalContentClass} sm:max-w-md`
+              : "sm:max-w-md"
+          }
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="size-5" />
@@ -322,6 +344,8 @@ export function SetReminderButton({
         onOpenChange={setTipperSignInOpen}
         signInTitle="Sign in to set program reminders"
         signupSurface="reminder"
+        overlayClassName={modalOverlayClass}
+        contentClassName={modalContentClass}
         onVerified={() => {
           setTipperSignInOpen(false);
           setOpen(true);

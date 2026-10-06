@@ -34,6 +34,8 @@ import {
   Rocket,
   Plus,
   Zap,
+  Megaphone,
+  Bell,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { motion, useReducedMotion } from "framer-motion";
@@ -150,7 +152,11 @@ import {
 } from "@/lib/express-surface-navigation";
 import { awaitProfileDrawerPrefetch } from "@/lib/drawer-prefetch-cache";
 import { isCommunityAlreadyIn } from "@/lib/community-already-in";
-import { syncCreatorProfileTabToUrl } from "@/lib/creator-profile-tab-url";
+import {
+  buildCreatorProfileSharePathWithQuery,
+  shouldApplyCreatorProfileTabFromUrl,
+  syncCreatorProfileTabToUrl,
+} from "@/lib/creator-profile-tab-url";
 import { HostPlaylistCreateDialog } from "./host-playlist-create-dialog";
 
 const PLACEHOLDER_AVATAR =
@@ -305,6 +311,7 @@ export function HostCreatorPageClient({
   const initialTab =
     tabFromUrl && TABS.some(t => t.id === tabFromUrl) ? tabFromUrl : defaultTab;
   const [activeTab, setActiveTab] = useState(initialTab);
+  const pendingProfileTabRef = useRef<string | null>(null);
   const [profileOverlayPlay, setProfileOverlayPlay] = useState<{
     eventId: string;
     channelId: string;
@@ -342,10 +349,24 @@ export function HostCreatorPageClient({
   }, [isDrawer, searchParams]);
 
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab && TABS.some(t => t.id === tab)) {
-      setActiveTab(tab);
+    const urlTab = searchParams.get("tab");
+    const pending = pendingProfileTabRef.current;
+
+    if (pending && urlTab === pending) {
+      pendingProfileTabRef.current = null;
     }
+
+    if (
+      !shouldApplyCreatorProfileTabFromUrl({
+        urlTab,
+        pendingTab: pendingProfileTabRef.current,
+        isValidTab: tabId => TABS.some(t => t.id === tabId),
+      })
+    ) {
+      return;
+    }
+
+    setActiveTab(prev => (prev !== urlTab ? urlTab ?? "" : prev));
   }, [searchParams]);
 
   useEffect(() => {
@@ -369,7 +390,10 @@ export function HostCreatorPageClient({
       tab,
     });
     if (nextHref) {
+      pendingProfileTabRef.current = tab;
       router.replace(nextHref, { scroll: false });
+    } else {
+      pendingProfileTabRef.current = null;
     }
   };
 
@@ -931,6 +955,8 @@ export function HostCreatorPageClient({
             }
             creatorProfileReturnPath={creatorProfileReturnPath()}
             requestHostAuth={requestHostAuth}
+            searchQuery={searchParams.toString()}
+            activeTab={activeTab}
           />
 
           {isDrawer ? (
@@ -951,7 +977,7 @@ export function HostCreatorPageClient({
             onValueChange={handleTabChange}
             className="-mt-4 gap-0 px-2"
           >
-            <div className="sticky top-11 z-10 border-b bg-white">
+            <div className="border-b bg-white">
               <TabsList className="scrollbar-none h-auto w-full justify-start gap-0 overflow-x-auto rounded-none bg-transparent p-0">
                 {TABS.map(tab => (
                   <TabsTrigger
@@ -1001,7 +1027,10 @@ export function HostCreatorPageClient({
               />
             </TabsContent>
 
-            <TabsContent value="communities">
+            <TabsContent
+              value="communities"
+              forceMount
+            >
               <CommunitiesTabContent
                 communities={communities}
                 isOwnProfile={isOwnProfile}
@@ -1143,6 +1172,8 @@ function ProfileHeader({
   onSubscriptionResumeHandled,
   creatorProfileReturnPath,
   requestHostAuth,
+  searchQuery,
+  activeTab,
 }: {
   host: HostCreatorPublicProfile["host"];
   stats: HostCreatorPublicProfile["stats"];
@@ -1152,6 +1183,8 @@ function ProfileHeader({
   onSubscriptionResumeHandled: () => void;
   creatorProfileReturnPath: string;
   requestHostAuth: CreatorPageRequestHostAuth;
+  searchQuery: string;
+  activeTab: string;
 }) {
   const router = useRouter();
   const [showSecondaryStats, setShowSecondaryStats] = useState(false);
@@ -1197,7 +1230,15 @@ function ProfileHeader({
       previousUsername &&
       nextUsername.toLowerCase() !== previousUsername.toLowerCase()
     ) {
-      router.replace(buildCreatorProfileSharePath(nextUsername));
+      router.replace(
+        buildCreatorProfileSharePathWithQuery(
+          nextUsername,
+          searchQuery,
+          {
+            activeTab,
+          }
+        )
+      );
     }
   };
 
@@ -1558,7 +1599,7 @@ function AllVideosTabContent({
         </div>
       ) : null}
 
-      <CreatorSubtabBar stickyClassName="top-[5.75rem]">
+      <CreatorSubtabBar>
         <CreatorSubtabButton
           subtabId="all"
           active={activeVideosSubtab === "all"}
@@ -1974,6 +2015,7 @@ function CommunitiesTabContent({
       const url = new URL(base, "https://tipmanna.tv");
       url.searchParams.set(ADD_COMMUNITY_VIDEO_QUERY, "1");
       url.searchParams.set(ADD_COMMUNITY_VIDEO_ID_QUERY, communityId);
+      url.searchParams.set("tab", "communities");
       return `${url.pathname}${url.search}`;
     },
     [pathname, searchParams]
@@ -1996,6 +2038,7 @@ function CommunitiesTabContent({
       const url = new URL(base, "https://tipmanna.tv");
       url.searchParams.set(REMINDER_BLAST_QUERY, "1");
       url.searchParams.set(REMINDER_BLAST_COMMUNITY_ID_QUERY, communityId);
+      url.searchParams.set("tab", "communities");
       return `${url.pathname}${url.search}`;
     },
     [pathname, searchParams]
@@ -2563,7 +2606,7 @@ function CreatorSubtabBar({
   actions = [],
 }: {
   children: ReactNode;
-  stickyClassName: string;
+  stickyClassName?: string;
   action?: {
     label: string;
     onClick: () => void;
@@ -2577,10 +2620,7 @@ function CreatorSubtabBar({
 }) {
   return (
     <div
-      className={cn(
-        "sticky z-10 flex items-stretch border-b bg-white",
-        stickyClassName
-      )}
+      className={cn("flex items-stretch border-b bg-white", stickyClassName)}
     >
       {action ? (
         <div className="flex shrink-0 items-center border-r bg-white py-2 pr-2 pl-2">
@@ -3045,6 +3085,7 @@ function CommunityBannerSection({
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <h3 className="font-semibold">{community.name}</h3>
+
             {description ? (
               <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
                 {description}
@@ -3078,23 +3119,7 @@ function CommunityBannerSection({
           </p>
         </div>
 
-        {alreadyIn ? (
-          <CommunityMemberInfo
-            communityName={community.name}
-            membershipStatus={membershipStatus}
-            membershipExpiresAt={membershipExpiresAt}
-            subscriptionExpiresAt={subscriptionExpiresAt}
-          />
-        ) : null}
-
-        {!isDrawer ? (
-          <CommunityPublicMembersRoster
-            communityId={community.id}
-            className="border-t pt-4"
-          />
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-4 text-[10px] sm:text-xs">
           <button
             type="button"
             className="underline underline-offset-2"
@@ -3113,16 +3138,42 @@ function CommunityBannerSection({
           ) : null}
           <button
             type="button"
-            className="underline underline-offset-2"
+            className="flex items-center gap-1 underline underline-offset-2"
             onClick={copyDedicatedLink}
           >
-            Copy dedicated link
+            <Copy className="size-3" /> dedicated link
           </button>
         </div>
 
+        {isOwnProfile && !isDrawer && hostSlug ? (
+          <div className="flex gap-2">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="shrink-0 border border-black px-1.5 text-xs hover:bg-black/80 hover:text-white sm:text-sm"
+            >
+              <Link
+                href={`/host/${hostSlug}/host-community?communityId=${encodeURIComponent(community.id)}`}
+              >
+                Manage community
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 border border-black px-1.5 text-xs hover:bg-black/80 hover:text-white sm:text-sm"
+              onClick={() => openAddCommunityVideo()}
+            >
+              Add community video
+            </Button>
+          </div>
+        ) : null}
+
         {displayedFeatured.length > 0 ? (
           <div className="space-y-2 border-t pt-4">
-            <h4 className="text-sm font-medium">Featured videos</h4>
+            <h4 className="text-sm font-medium">Featured community videos</h4>
             <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
               {displayedFeatured.map(video => {
                 const videoId = extractYoutubeID(video.url);
@@ -3149,51 +3200,44 @@ function CommunityBannerSection({
           </div>
         ) : null}
 
+        {alreadyIn ? (
+          <CommunityMemberInfo
+            communityName={community.name}
+            membershipStatus={membershipStatus}
+            membershipExpiresAt={membershipExpiresAt}
+            subscriptionExpiresAt={subscriptionExpiresAt}
+          />
+        ) : null}
+
         {isOwnProfile && !isDrawer && hostSlug ? (
           <div className="flex flex-wrap gap-3 border-t pt-4">
             <Button
-              asChild
-              variant="outline"
-              size="sm"
-            >
-              <Link
-                href={`/host/${hostSlug}/host-community?communityId=${encodeURIComponent(community.id)}`}
-              >
-                Manage community
-              </Link>
-            </Button>
-            <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={() => openAddCommunityVideo()}
-            >
-              Add community video
-            </Button>
-            {tvActivated ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => openCommunityReminders()}
-              >
-                Reminders
-              </Button>
-            ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="relative"
+              className="relative border border-black text-black hover:bg-black/80 hover:text-white"
               onClick={() => openCommunityNotifications()}
             >
-              Notifications
+              <Bell className="size-3" /> Notifications
               {communityUnreadCount > 0 ? (
                 <span className="bg-primary absolute -top-1 -right-1 flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white">
                   {communityUnreadCount > 9 ? "9+" : communityUnreadCount}
                 </span>
               ) : null}
             </Button>
+
+            {tvActivated ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => openCommunityReminders()}
+                className="bg-black text-white hover:bg-black/80 hover:text-white"
+              >
+                <Megaphone className="size-3" /> Send broadcasts
+              </Button>
+            ) : null}
+
             <AddCommunityBankVideoDialog
               open={addVideoOpen}
               onOpenChange={setAddVideoOpen}
@@ -3233,6 +3277,14 @@ function CommunityBannerSection({
               onUnreadChanged={() => void refreshUnread()}
             />
           </div>
+        ) : null}
+
+        {!isDrawer ? (
+          <CommunityPublicMembersRoster
+            communityId={community.id}
+            communityType={community.communityType ?? ""}
+            className="border-t pt-4"
+          />
         ) : null}
 
         {!isOwnProfile && !alreadyIn ? (

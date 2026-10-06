@@ -36,6 +36,7 @@ type HostSubscriptionInfo = {
   tier?: string | null;
   subscriptionPeriodEnd?: string | null;
   hasStripeSubscription?: boolean;
+  trialEligible?: boolean;
   history?: Array<{
     id: string;
     tier: string;
@@ -477,6 +478,12 @@ function HostSubscriptionPricingPanelContent({
               Playlist, access control, custom tip layout, co-owners, and promo
               requests.
             </p>
+            {info?.trialEligible ? (
+              <p className="text-sm text-sky-800">
+                Eligible for a 30-day free trial — card required; renews at list
+                or discounted price unless you cancel.
+              </p>
+            ) : null}
 
             <p className="text-2xl font-semibold">
               {showPremiumDiscount ? (
@@ -516,6 +523,8 @@ function HostSubscriptionPricingPanelContent({
                 "Sign in to subscribe"
               ) : status === "lapsed" ? (
                 (renewLabel ?? "Renew Premium")
+              ) : info?.trialEligible ? (
+                "Start 30-day free trial"
               ) : (
                 "Subscribe"
               )}
@@ -534,6 +543,12 @@ function HostSubscriptionPricingPanelContent({
             <p className="text-muted-foreground mt-1 text-sm">
               Communities, TV, sends — includes all Premium features.
             </p>
+            {info?.trialEligible ? (
+              <p className="text-sm text-sky-800">
+                Eligible for a 30-day free trial — card required; renews at list
+                or discounted price unless you cancel.
+              </p>
+            ) : null}
 
             <p className="mt-3 text-2xl font-bold">
               {showCommunityDiscount ? (
@@ -582,6 +597,8 @@ function HostSubscriptionPricingPanelContent({
                 "Upgrade to Community"
               ) : status === "lapsed" ? (
                 (renewLabel ?? "Renew Community")
+              ) : info?.trialEligible ? (
+                "Start 30-day free trial"
               ) : (
                 "Subscribe"
               )}

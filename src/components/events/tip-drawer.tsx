@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -103,6 +104,11 @@ import {
 } from "@/lib/build-tip-quote-request";
 import { TipPremiumIndicator } from "@/components/events/tip-premium-indicator";
 import { computeTipCartTotal, toMinorUnits } from "@/lib/tip-cart-total";
+import {
+  isTipCartLocked,
+  tipCheckoutDismissBlocked,
+  tipDrawerSheetOpen,
+} from "@/lib/tip-cart-checkout-lock";
 
 interface Character {
   id: string;
@@ -202,6 +208,12 @@ function TipDrawerContent({
   const [isLoadingPaymentOptions, setIsLoadingPaymentOptions] =
     useState(!previewMode);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [checkoutSheetSuppressed, setCheckoutSheetSuppressed] = useState(false);
+  const checkoutFrozenTipsRef = useRef<string[] | null>(null);
+  const checkoutFrozenMetaRef = useRef<{
+    textTipActive: boolean;
+    secondaryText?: string;
+  } | null>(null);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const [walletDebitSnapshot, setWalletDebitSnapshot] = useState<{
     lines: TipResumeWalletLineV1[];
@@ -324,7 +336,7 @@ function TipDrawerContent({
 
     if (previous === eventId) return;
 
-    if (isProcessing || isRedirecting) return;
+    if (isProcessing || isRedirecting || checkoutSheetSuppressed) return;
 
     dispatch(setSelectedTips([]));
     setTextTipActive(false);
@@ -338,7 +350,7 @@ function TipDrawerContent({
     setWalletDebitSnapshot(null);
     appliedResumeKeyRef.current = null;
     clearTipResumeCtx();
-  }, [eventId, isProcessing, isRedirecting, dispatch]);
+  }, [eventId, isProcessing, isRedirecting, checkoutSheetSuppressed, dispatch]);
 
   useEffect(() => {
     const previous = prevCharacterSetsKeyRef.current;
@@ -346,14 +358,20 @@ function TipDrawerContent({
     if (previous === undefined) return;
     if (previous === characterSetsKey) return;
     setSelectedTabIndex(0);
-    if (isProcessing || isRedirecting) return;
+    if (isProcessing || isRedirecting || checkoutSheetSuppressed) return;
     dispatch(setSelectedTips([]));
     setTextTipActive(false);
     setTextTipValue("");
     setCardModalOpen(false);
     setShowDefaultPayButton(true);
     setWalletDebitSnapshot(null);
-  }, [characterSetsKey, dispatch, isProcessing, isRedirecting]);
+  }, [
+    characterSetsKey,
+    dispatch,
+    isProcessing,
+    isRedirecting,
+    checkoutSheetSuppressed,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -431,7 +449,26 @@ function TipDrawerContent({
     }
   }, [open, selectedTips]);
 
+  const resetCheckoutActivity = useCallback(() => {
+    setIsProcessing(false);
+    setIsRedirecting(false);
+    setCheckoutSheetSuppressed(false);
+    setWalletDebitSnapshot(null);
+    checkoutFrozenTipsRef.current = null;
+    checkoutFrozenMetaRef.current = null;
+  }, []);
+
   const openTextDraftModalOnly = () => {
+    if (
+      isTipCartLocked({
+        isProcessing,
+        isRedirecting,
+        checkoutSheetSuppressed,
+        walletDialogOpen,
+      })
+    ) {
+      return;
+    }
     cancelTextPreviewRef.current?.();
     cancelTextPreviewRef.current = null;
     stopPreview();
@@ -441,6 +478,16 @@ function TipDrawerContent({
   };
 
   const openTextDraftModal = () => {
+    if (
+      isTipCartLocked({
+        isProcessing,
+        isRedirecting,
+        checkoutSheetSuppressed,
+        walletDialogOpen,
+      })
+    ) {
+      return;
+    }
     let existingDraft = "";
     try {
       existingDraft = (localStorage.getItem("textTipValue") ?? "").trim();
@@ -474,6 +521,16 @@ function TipDrawerContent({
   };
 
   const makeTipSelection = (characterId: string) => {
+    if (
+      isTipCartLocked({
+        isProcessing,
+        isRedirecting,
+        checkoutSheetSuppressed,
+        walletDialogOpen,
+      })
+    ) {
+      return;
+    }
     // ─────────────────────────────
     // Text Tip — preview animation, then modal (edit skips preview).
     // ─────────────────────────────
@@ -523,6 +580,16 @@ function TipDrawerContent({
   };
 
   const removeAllOfTip = (characterName: string) => {
+    if (
+      isTipCartLocked({
+        isProcessing,
+        isRedirecting,
+        checkoutSheetSuppressed,
+        walletDialogOpen,
+      })
+    ) {
+      return;
+    }
     if (characterName === "Comment") {
       cancelTextPreviewRef.current?.();
       cancelTextPreviewRef.current = null;
@@ -702,7 +769,7 @@ function TipDrawerContent({
       return;
     }
 
-    if (isProcessing || isRedirecting) return;
+    if (isProcessing || isRedirecting || checkoutSheetSuppressed) return;
 
     if (
       paymentSurface !== "event_room" &&
@@ -715,10 +782,24 @@ function TipDrawerContent({
       return;
     }
 
+    const frozenTips = [...tipsForTotals];
+    const frozenTotal = walletPayTotal;
+    const frozenLines = walletPayLines.map(l => ({ ...l }));
+    checkoutFrozenTipsRef.current = frozenTips;
+    checkoutFrozenMetaRef.current = {
+      textTipActive,
+      secondaryText:
+        (textTipActive || frozenTips.includes("Comment")) &&
+        textTipValue?.trim()
+          ? textTipValue.trim().slice(0, 500)
+          : undefined,
+    };
+    setWalletDebitSnapshot({ lines: frozenLines, total: frozenTotal });
+    setCardModalOpen(false);
     setIsProcessing(true);
 
     try {
-      elements.update({ amount: toMinorUnits(walletPayTotal) });
+      elements.update({ amount: toMinorUnits(frozenTotal) });
     } catch {
       /* Elements may reject if cart is empty; submit will surface the error */
     }
@@ -726,7 +807,7 @@ function TipDrawerContent({
     const { error: submitError } = await elements.submit();
     if (submitError) {
       setErrorMessage(submitError.message);
-      setIsProcessing(false);
+      resetCheckoutActivity();
       return;
     }
 
@@ -737,15 +818,17 @@ function TipDrawerContent({
 
     if (error) {
       setErrorMessage(error.message);
-      setIsProcessing(false);
+      resetCheckoutActivity();
       return;
     }
 
     if (!confirmationToken?.id) {
       setErrorMessage("Could not prepare payment. Try again.");
-      setIsProcessing(false);
+      resetCheckoutActivity();
       return;
     }
+
+    setCheckoutSheetSuppressed(true);
 
     let tipQuoteId: string | undefined;
     if (
@@ -758,14 +841,14 @@ function TipDrawerContent({
         tipQuoteContext.eventId,
         tipQuoteContext.configVersion,
         tipQuoteContext.surface,
-        tipsForTotals,
+        frozenTips,
         tipQuoteContext.catalog,
         tipQuoteContext.textUnitPrice
       );
       if (!body) {
-        if (walletPayTotal > 0) {
+        if (frozenTotal > 0) {
           setErrorMessage("Could not lock tip total. Refresh the page.");
-          setIsProcessing(false);
+          resetCheckoutActivity();
           return;
         }
       } else {
@@ -776,7 +859,7 @@ function TipDrawerContent({
           setErrorMessage(
             e instanceof Error ? e.message : "Could not lock tip total"
           );
-          setIsProcessing(false);
+          resetCheckoutActivity();
           return;
         }
       }
@@ -807,11 +890,11 @@ function TipDrawerContent({
               : {}),
           },
           body: JSON.stringify({
-            amount: Number(walletPayTotal),
+            amount: Number(frozenTotal),
             eventId,
             userId,
             role,
-            characters: walletPayLines,
+            characters: frozenLines,
             confirmationTokenId: confirmationToken?.id,
             paymentSurface,
             paymentContentId: paymentChannelId?.trim() || undefined,
@@ -834,11 +917,7 @@ function TipDrawerContent({
                 ? Math.floor(w)
                 : undefined;
             })(),
-            secondaryText:
-              (textTipActive || selectedTips.includes("Comment")) &&
-              textTipValue?.trim()
-                ? textTipValue.trim().slice(0, 500)
-                : undefined,
+            secondaryText: checkoutFrozenMetaRef.current?.secondaryText,
             deviceCategory: getDeviceCategory(),
             clientSessionId: getAnalyticsSessionId(),
             ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
@@ -850,7 +929,7 @@ function TipDrawerContent({
       data = await res.json();
     } catch {
       setErrorMessage("Payment could not be initiated.");
-      setIsProcessing(false);
+      resetCheckoutActivity();
       return;
     }
 
@@ -861,7 +940,7 @@ function TipDrawerContent({
           data.error.details[0].message) ||
         null;
       setErrorMessage(apiMessage ?? "Payment could not be initiated.");
-      setIsProcessing(false);
+      resetCheckoutActivity();
       return;
     }
 
@@ -877,13 +956,9 @@ function TipDrawerContent({
 
     writePendingTipBroadcast({
       eventId: eventId || "",
-      selectedTips: [...selectedTips],
-      amount: Number(walletPayTotal),
-      secondaryText:
-        (textTipActive || selectedTips.includes("Comment")) &&
-        textTipValue?.trim()
-          ? textTipValue.trim().slice(0, 500)
-          : undefined,
+      selectedTips: [...(checkoutFrozenTipsRef.current ?? selectedTips)],
+      amount: Number(frozenTotal),
+      secondaryText: checkoutFrozenMetaRef.current?.secondaryText,
       ...(paymentChannelId?.trim()
         ? { eventChannelId: paymentChannelId.trim() }
         : {}),
@@ -952,8 +1027,7 @@ function TipDrawerContent({
       // This point is only reached if there's an immediate error when
       // confirming the payment.
       setErrorMessage(confirmError.message);
-      setIsProcessing(false);
-      setIsRedirecting(false);
+      resetCheckoutActivity();
       return;
     }
 
@@ -980,8 +1054,7 @@ function TipDrawerContent({
         typeof document !== "undefined" &&
         document.visibilityState === "visible"
       ) {
-        setIsRedirecting(false);
-        setIsProcessing(false);
+        resetCheckoutActivity();
         setErrorMessage(
           "Payment is processing. If you are not redirected, refresh this page."
         );
@@ -993,6 +1066,20 @@ function TipDrawerContent({
   const isMobile = useMediaQuery({ maxWidth: 768 });
 
   const canPay = !previewMode && walletPayTotal > 0 && !paymentCompleted;
+
+  const isCartLocked = isTipCartLocked({
+    isProcessing,
+    isRedirecting,
+    checkoutSheetSuppressed,
+    walletDialogOpen,
+  });
+
+  const checkoutDismissBlocked = tipCheckoutDismissBlocked({
+    isProcessing,
+    isRedirecting,
+    checkoutSheetSuppressed,
+    walletDialogOpen,
+  });
 
   // Express checkout stays mounted for Stripe token flow but is never shown in the drawer UI.
   useEffect(() => {
@@ -1036,27 +1123,35 @@ function TipDrawerContent({
       ? 100019
       : 250;
 
-  const LoadingOverlay = () => (
-    <div
-      className="fixed inset-0 flex flex-col items-center justify-center bg-white"
-      style={{
-        zIndex: stackAbovePlaybackOverlay
-          ? PLAYBACK_OVERLAY_NESTED_MODAL_Z
-          : 999999999999999,
-      }}
-    >
-      <BeatLoader color="#f57d11" />
-    </div>
-  );
+  const showCheckoutLoading = isProcessing || isRedirecting;
+  const checkoutLoadingOverlay =
+    showCheckoutLoading && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 flex flex-col items-center justify-center bg-white"
+            style={{ zIndex: PLAYBACK_OVERLAY_NESTED_MODAL_Z }}
+            aria-busy
+            aria-label="Processing payment"
+          >
+            <BeatLoader color="#f57d11" />
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
-      {(isProcessing || isRedirecting) && <LoadingOverlay />}
+      {checkoutLoadingOverlay}
 
       <Drawer
-        open={open && !isRedirecting}
+        open={tipDrawerSheetOpen({
+          parentOpen: open,
+          checkoutSheetSuppressed,
+          isRedirecting,
+          walletDialogOpen,
+        })}
         onOpenChange={nextOpen => {
-          if (isProcessing || isRedirecting) return;
+          if (checkoutDismissBlocked) return;
           if (!nextOpen) {
             if (textTipActive || selectedTips.includes("Comment")) {
               cancelTextPreviewRef.current?.();
@@ -1104,7 +1199,8 @@ function TipDrawerContent({
                         Comment
                         <button
                           type="button"
-                          className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none"
+                          disabled={isCartLocked}
+                          className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none disabled:opacity-40"
                           onClick={() => removeAllOfTip("Comment")}
                           aria-label="Remove all Comment"
                         >
@@ -1134,7 +1230,8 @@ function TipDrawerContent({
                             {characterName}
                             <button
                               type="button"
-                              className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none"
+                              disabled={isCartLocked}
+                              className="text-md ml-1 rounded-full px-1 text-xs text-white focus:outline-none disabled:opacity-40"
                               onClick={() => removeAllOfTip(characterName)}
                               aria-label={`Remove all ${characterName}`}
                             >
@@ -1157,10 +1254,13 @@ function TipDrawerContent({
                 userId={userId}
                 userRole={role}
                 walletSnapshot={walletLive}
-                onOpen={() => setWalletDialogOpen(true)}
+                onOpen={() => {
+                  if (isCartLocked) return;
+                  setWalletDialogOpen(true);
+                }}
               />
               <h6 className="text-xl font-semibold">Select tips</h6>
-              {!paymentCompleted && showEditMessageLink && (
+              {!paymentCompleted && showEditMessageLink && !isCartLocked && (
                 <button
                   type="button"
                   className="text-primary text-xs font-medium underline underline-offset-2 hover:text-black"
@@ -1175,7 +1275,12 @@ function TipDrawerContent({
                 {filteredCharacterSets.map((set, index) => (
                   <button
                     key={set.id}
-                    onClick={() => setSelectedTabIndex(index)}
+                    type="button"
+                    disabled={isCartLocked}
+                    onClick={() => {
+                      if (isCartLocked) return;
+                      setSelectedTabIndex(index);
+                    }}
                     className={`cursor-pointer text-xs font-medium whitespace-nowrap sm:text-sm ${
                       selectedTabIndex === index
                         ? "border-b border-black"
@@ -1210,15 +1315,15 @@ function TipDrawerContent({
                         <div
                           key={character.id}
                           onClick={
-                            !paymentCompleted
+                            !paymentCompleted && !isCartLocked
                               ? () => makeTipSelection(character.id)
                               : undefined
                           }
-                          className={`relative flex size-16! cursor-pointer flex-col items-center justify-center rounded-lg border transition-all hover:bg-gray-50 ${
+                          className={`relative flex size-16! flex-col items-center justify-center rounded-lg border transition-all hover:bg-gray-50 ${
                             count > 0
                               ? "border-primary bg-orange-50"
                               : "border-gray-200"
-                          } ${paymentCompleted ? "opacity-50" : ""}`}
+                          } ${paymentCompleted || isCartLocked ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
                         >
                           {isPremium ? <TipPremiumIndicator /> : null}
                           {count > 0 && (
@@ -1258,11 +1363,13 @@ function TipDrawerContent({
                       aria-label="Next character set"
                       title="Next character set"
                       className="flex size-16 shrink-0 flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white hover:bg-gray-50"
-                      onClick={() =>
+                      disabled={isCartLocked}
+                      onClick={() => {
+                        if (isCartLocked) return;
                         setSelectedTabIndex(i =>
                           Math.min(i + 1, filteredCharacterSets.length - 1)
-                        )
-                      }
+                        );
+                      }}
                     >
                       <ChevronRight className="size-6" />
                       <span className="mt-0.5 text-[8px] font-medium">
@@ -1447,8 +1554,7 @@ function TipDrawerContent({
           void ensureVisitorAccount(undefined).catch(() => {
             /* best-effort after successful wallet debit */
           });
-          setIsProcessing(false);
-          setIsRedirecting(false);
+          resetCheckoutActivity();
           setWalletDebitSnapshot(null);
           clearTipResumeCtx();
           savePaymentOrigin();

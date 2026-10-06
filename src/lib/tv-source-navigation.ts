@@ -33,7 +33,9 @@ export function persistTvSourceCommunityId(communityId: string | null): void {
 /** Full navigation so /tv remounts and loads the selected community schedule. */
 export function navigateToTvSource(communityId: string | null): void {
   if (typeof window === "undefined") return;
-  persistTvSourceCommunityId(communityId);
+  if (communityId === null) {
+    persistTvSourceCommunityId(null);
+  }
   const target = buildTvPagePath(communityId);
   const current = `${window.location.pathname}${window.location.search}`;
   if (current === target) {

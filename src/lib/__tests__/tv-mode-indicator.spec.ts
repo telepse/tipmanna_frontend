@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 describe("TV mode indicator source of truth", () => {
-  it("TvModeSelector reads mode only from useTV context", () => {
+  it("TvModeSelector reads mode and PPLA flag from useTV context", () => {
     const src = readFileSync(
       join(repoRoot, "src/components/tv/tv-mode-selector.tsx"),
       "utf8"
     );
-    expect(src).toMatch(
-      /\bmode,\s*goLive,\s*switchToLocal\s*\}\s*=\s*useTV\(\)/
-    );
+    expect(src).toMatch(/\bisPostPaymentLiveAxis\b/);
+    expect(src).toMatch(/mode === "GLOBAL" \|\| isPostPaymentLiveAxis/);
+    expect(src).toMatch(/mode === "LOCAL" \|\| isPostPaymentLiveAxis/);
     expect(src).not.toMatch(/useState.*GLOBAL|useState.*LOCAL/);
   });
 

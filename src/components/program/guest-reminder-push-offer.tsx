@@ -24,6 +24,10 @@ import { deferPushUntilInstalled } from "@/lib/push-opt-in-ios";
 import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
 import { store } from "@/redux/store";
 import type { RootState } from "@/redux/store";
+import {
+  AUTH_MODAL_OVERLAY_Z_INDEX,
+  AUTH_MODAL_Z_INDEX,
+} from "@/lib/drawer-z-index";
 
 type Flow = "push" | "in_app";
 
@@ -32,6 +36,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: () => void;
+  stackModalsAboveDrawer?: boolean;
 };
 
 export function GuestReminderPushOffer({
@@ -39,8 +44,15 @@ export function GuestReminderPushOffer({
   open,
   onOpenChange,
   onComplete,
+  stackModalsAboveDrawer = false,
 }: Props) {
   const authToken = useSelector((s: RootState) => s.auth.token);
+  const modalOverlayClass = stackModalsAboveDrawer
+    ? AUTH_MODAL_OVERLAY_Z_INDEX
+    : undefined;
+  const modalContentClass = stackModalsAboveDrawer
+    ? AUTH_MODAL_Z_INDEX
+    : undefined;
   const { subscribe, state: pushState } = usePushPermission();
   const [otpOpen, setOtpOpen] = useState(false);
   const [consentOpen, setConsentOpen] = useState(false);
@@ -125,7 +137,14 @@ export function GuestReminderPushOffer({
         open={open}
         onOpenChange={onOpenChange}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          overlayClassName={modalOverlayClass}
+          className={
+            modalContentClass
+              ? `${modalContentClass} sm:max-w-md`
+              : "sm:max-w-md"
+          }
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bell className="size-5" />
@@ -159,7 +178,14 @@ export function GuestReminderPushOffer({
         open={consentOpen}
         onOpenChange={setConsentOpen}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent
+          overlayClassName={modalOverlayClass}
+          className={
+            modalContentClass
+              ? `${modalContentClass} sm:max-w-md`
+              : "sm:max-w-md"
+          }
+        >
           <DialogHeader>
             <DialogTitle>
               {flow === "push"
@@ -202,6 +228,8 @@ export function GuestReminderPushOffer({
         initialEmail={email}
         autoSendCode
         signupSurface="reminder"
+        overlayClassName={modalOverlayClass}
+        contentClassName={modalContentClass}
         signInTitle={
           flow === "push"
             ? "Verify your email for push alerts"

@@ -588,7 +588,13 @@ export function HostCommunityClient() {
     capabilities: planCapabilities,
     info: planInfo,
     isLoading: planLoading,
+    isTrialing: planTrialing,
+    trialEndsAt: planTrialEndsAt,
+    deniedCommunityTools,
   } = useHostPlanCapabilities();
+
+  const isCommunityToolDenied = (tool: "sends" | "activation") =>
+    planTrialing && deniedCommunityTools.includes(tool);
   const {
     handleSubscriptionActionError,
     openForRequired,
@@ -1118,11 +1124,30 @@ export function HostCommunityClient() {
     const urlTab = urlMainTabRef.current;
     urlMainTabRef.current = null;
     if (urlTab && selectedRole === "owner" && isHostCommunityOwnerTab(urlTab)) {
-      setMainTab(urlTab);
+      if (urlTab === "activation" && isCommunityToolDenied("activation")) {
+        setMainTab("bank");
+      } else {
+        setMainTab(urlTab);
+      }
       return;
     }
-    setMainTab(selectedRole === "owner" ? "bank" : "sends");
-  }, [selectedId, selectedRole]);
+    setMainTab(
+      selectedRole === "owner"
+        ? "bank"
+        : isCommunityToolDenied("sends")
+          ? "bank"
+          : "sends"
+    );
+  }, [selectedId, selectedRole, planTrialing, deniedCommunityTools]);
+
+  useEffect(() => {
+    if (mainTab === "activation" && isCommunityToolDenied("activation")) {
+      setMainTab("bank");
+    }
+    if (mainTab === "sends" && isCommunityToolDenied("sends")) {
+      setMainTab("bank");
+    }
+  }, [mainTab, planTrialing, deniedCommunityTools]);
 
   useEffect(() => {
     if (mainTab === "subscribers" && selectedRole === "owner") {
@@ -1317,14 +1342,20 @@ export function HostCommunityClient() {
           <p className="text-muted-foreground text-sm">
             You are not linked to any active communities as owner or co-creator.
           </p>
-          <Button
-            type="button"
-            className="mt-4"
-            variant="secondary"
-            onClick={() => void openActivationDialog("community")}
-          >
-            Request community activation
-          </Button>
+          {!isCommunityToolDenied("activation") ? (
+            <Button
+              type="button"
+              className="mt-4"
+              variant="secondary"
+              onClick={() => void openActivationDialog("community")}
+            >
+              Request community activation
+            </Button>
+          ) : (
+            <p className="text-muted-foreground mt-4 text-sm">
+              Activation requests are not available during your free trial.
+            </p>
+          )}
         </>
       ) : (
         <>
@@ -1332,6 +1363,13 @@ export function HostCommunityClient() {
             title="Community management"
             subtitle="Content bank and co-creator submissions for your community room."
           />
+          {planTrialing && planTrialEndsAt ? (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+              Free trial active — full billing starts{" "}
+              {new Date(String(planTrialEndsAt)).toLocaleDateString()}. Some
+              Community tools are limited during trial.
+            </div>
+          ) : null}
 
           <div className="mt-6 space-y-4">
             {memberships.length > 1 && (
@@ -1407,7 +1445,8 @@ export function HostCommunityClient() {
                     >
                       Resume community TV
                     </Button>
-                  ) : selected.eventId ? (
+                  ) : selected.eventId &&
+                    !isCommunityToolDenied("activation") ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1596,23 +1635,25 @@ export function HostCommunityClient() {
                     </TabsTrigger>
                   )}
 
-                  {selected?.role === "owner" && (
+                  {selected?.role === "owner" &&
+                  !isCommunityToolDenied("activation") ? (
                     <TabsTrigger
                       value="activation"
                       className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
                     >
                       Activations
                     </TabsTrigger>
-                  )}
+                  ) : null}
 
-                  {selected?.role === "coCreator" && (
+                  {selected?.role === "coCreator" &&
+                  !isCommunityToolDenied("sends") ? (
                     <TabsTrigger
                       value="sends"
                       className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
                     >
                       Community Sends
                     </TabsTrigger>
-                  )}
+                  ) : null}
                 </TabsList>
               </div>
 
@@ -1922,7 +1963,8 @@ export function HostCommunityClient() {
                 </TabsContent>
               )}
 
-              {selected?.role === "owner" && (
+              {selected?.role === "owner" &&
+              !isCommunityToolDenied("activation") ? (
                 <TabsContent
                   value="activation"
                   className="mt-4 space-y-3"
@@ -1975,9 +2017,10 @@ export function HostCommunityClient() {
                     </ul>
                   )}
                 </TabsContent>
-              )}
+              ) : null}
 
-              {selected?.role === "coCreator" && (
+              {selected?.role === "coCreator" &&
+              !isCommunityToolDenied("sends") ? (
                 <TabsContent
                   value="sends"
                   className="mt-4 space-y-4"
@@ -2018,7 +2061,7 @@ export function HostCommunityClient() {
                     </p>
                   )}
                 </TabsContent>
-              )}
+              ) : null}
             </Tabs>
           </div>
         </>

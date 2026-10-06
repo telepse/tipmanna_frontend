@@ -33,6 +33,7 @@ function mapOwnedCommunitiesForTipLink(
   return owned.map(c => ({
     id: c.id,
     name: c.name,
+    communityType: null,
     description: null,
     logoUrl: null,
     eventRoomBanner: null,

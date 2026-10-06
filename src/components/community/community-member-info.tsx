@@ -49,7 +49,7 @@ export function CommunityMemberInfo({
   return (
     <div
       className={cn(
-        "space-y-3 rounded-lg border border-green-200 bg-green-50/50 p-4",
+        "border-moonstone-blue-200 bg-moonstone-blue/20 space-y-3 rounded-lg border p-4",
         className
       )}
     >
@@ -81,13 +81,12 @@ export function CommunityMemberInfo({
             Browse your communities hub to watch content and manage your
             membership.
           </p>
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
+          <Link
+            href={EXPLORE_COMMUNITY_HUB_HREF}
+            className="text-[10px] underline underline-offset-2 sm:text-xs"
           >
-            <Link href={EXPLORE_COMMUNITY_HUB_HREF}>Go to my communities</Link>
-          </Button>
+            Go to my community hub
+          </Link>
         </>
       ) : null}
     </div>

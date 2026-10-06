@@ -60,12 +60,27 @@ export const HostPremiumClient = () => {
   );
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [eventsLoading, setEventsLoading] = useState(true);
-  const { status, capabilities, isLoading } = useHostPlanCapabilities();
+  const {
+    status,
+    capabilities,
+    isLoading,
+    isTrialing,
+    trialEndsAt,
+    deniedGrowthTools,
+  } = useHostPlanCapabilities();
+
+  const isGrowthTabDenied = (tab: PremiumTab) =>
+    isTrialing && deniedGrowthTools.includes(tab);
 
   useEffect(() => {
     const parsed = parseHostPremiumTab(tabFromUrl);
-    if (parsed) setTabType(parsed);
-  }, [tabFromUrl]);
+    if (parsed && !isGrowthTabDenied(parsed)) setTabType(parsed);
+    else if (parsed && isGrowthTabDenied(parsed)) setTabType("video_requests");
+  }, [tabFromUrl, isTrialing, deniedGrowthTools]);
+
+  useEffect(() => {
+    if (isGrowthTabDenied(tabType)) setTabType("video_requests");
+  }, [tabType, isTrialing, deniedGrowthTools]);
 
   useEffect(() => {
     setEventsLoading(true);
@@ -103,12 +118,14 @@ export const HostPremiumClient = () => {
             Video Requests
           </TabsTrigger>
 
-          <TabsTrigger
-            value="video_coowners"
-            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
-          >
-            Video Co-owners
-          </TabsTrigger>
+          {!isGrowthTabDenied("video_coowners") ? (
+            <TabsTrigger
+              value="video_coowners"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+            >
+              Video Co-owners
+            </TabsTrigger>
+          ) : null}
 
           <TabsTrigger
             value="advanced_video_analytics"
@@ -117,19 +134,23 @@ export const HostPremiumClient = () => {
             Advanced video analytics
           </TabsTrigger>
 
-          <TabsTrigger
-            value="playlist"
-            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
-          >
-            Playlist
-          </TabsTrigger>
+          {!isGrowthTabDenied("playlist") ? (
+            <TabsTrigger
+              value="playlist"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+            >
+              Playlist
+            </TabsTrigger>
+          ) : null}
 
-          <TabsTrigger
-            value="event_room_access_control"
-            className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
-          >
-            Event room access control
-          </TabsTrigger>
+          {!isGrowthTabDenied("event_room_access_control") ? (
+            <TabsTrigger
+              value="event_room_access_control"
+              className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold whitespace-nowrap data-[state=active]:border-b-2"
+            >
+              Event room access control
+            </TabsTrigger>
+          ) : null}
         </TabsList>
       </div>
 
@@ -151,13 +172,15 @@ export const HostPremiumClient = () => {
         <HostVideoRequestsClient />
       </TabsContent>
 
-      <TabsContent
-        value="video_coowners"
-        forceMount
-        className="space-y-6"
-      >
-        <HostVideoCoOwnersClient />
-      </TabsContent>
+      {!isGrowthTabDenied("video_coowners") ? (
+        <TabsContent
+          value="video_coowners"
+          forceMount
+          className="space-y-6"
+        >
+          <HostVideoCoOwnersClient />
+        </TabsContent>
+      ) : null}
 
       <TabsContent
         value="advanced_video_analytics"
@@ -166,49 +189,53 @@ export const HostPremiumClient = () => {
       >
         <VideoAnalyticsPanel variant="advanced" />
       </TabsContent>
-      <TabsContent
-        value="playlist"
-        forceMount
-        className="space-y-6"
-      >
-        <HostPlaylistsClient />
-      </TabsContent>
-      <TabsContent value="event_room_access_control">
-        <div className="space-y-4">
-          {events.length > 1 ? (
-            <Select
-              value={selectedEventId || undefined}
-              onValueChange={setSelectedEventId}
-            >
-              <SelectTrigger className="max-w-md">
-                <SelectValue placeholder="Select event" />
-              </SelectTrigger>
-              <SelectContent>
-                {events.map(ev => (
-                  <SelectItem
-                    key={ev.id}
-                    value={ev.id}
-                  >
-                    {ev.eventName?.trim() || ev.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          {eventsLoading ? (
-            <p className="text-muted-foreground text-sm">Loading events…</p>
-          ) : selectedEventId ? (
-            <EventRoomAccessControl
-              eventId={selectedEventId}
-              hostId={hostId || undefined}
-            />
-          ) : (
-            <p className="text-muted-foreground text-sm">
-              Create an event to configure invite-only access.
-            </p>
-          )}
-        </div>
-      </TabsContent>
+      {!isGrowthTabDenied("playlist") ? (
+        <TabsContent
+          value="playlist"
+          forceMount
+          className="space-y-6"
+        >
+          <HostPlaylistsClient />
+        </TabsContent>
+      ) : null}
+      {!isGrowthTabDenied("event_room_access_control") ? (
+        <TabsContent value="event_room_access_control">
+          <div className="space-y-4">
+            {events.length > 1 ? (
+              <Select
+                value={selectedEventId || undefined}
+                onValueChange={setSelectedEventId}
+              >
+                <SelectTrigger className="max-w-md">
+                  <SelectValue placeholder="Select event" />
+                </SelectTrigger>
+                <SelectContent>
+                  {events.map(ev => (
+                    <SelectItem
+                      key={ev.id}
+                      value={ev.id}
+                    >
+                      {ev.eventName?.trim() || ev.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {eventsLoading ? (
+              <p className="text-muted-foreground text-sm">Loading events…</p>
+            ) : selectedEventId ? (
+              <EventRoomAccessControl
+                eventId={selectedEventId}
+                hostId={hostId || undefined}
+              />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Create an event to configure invite-only access.
+              </p>
+            )}
+          </div>
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 
@@ -245,7 +272,16 @@ export const HostPremiumClient = () => {
           <ReadOnlyOverlay>{featureTabs}</ReadOnlyOverlay>
         </div>
       ) : showFeatures ? (
-        featureTabs
+        <div className="space-y-4">
+          {isTrialing && trialEndsAt ? (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-950">
+              Free trial active — full billing starts{" "}
+              {new Date(String(trialEndsAt)).toLocaleDateString()}. Some Growth
+              tools are limited during trial.
+            </div>
+          ) : null}
+          {featureTabs}
+        </div>
       ) : (
         <HostSubscriptionPricingPanel focusTier="premium" />
       )}

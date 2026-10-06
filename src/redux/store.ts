@@ -7,7 +7,10 @@ import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
 // Local imports
-import authReducer, { clearCredentials } from "@/features/auth-slice";
+import authReducer, {
+  clearCredentials,
+  markPersistAuthHydrationComplete,
+} from "@/features/auth-slice";
 import tipReducer from "@/features/tip-slice";
 // import { PersistPartial } from "redux-persist/lib/persistReducer";
 
@@ -71,7 +74,9 @@ export const store = configureStore({
     }).prepend(authLogoutListener.middleware),
 });
 
-export const persistor = persistStore(store);
+export const persistor = persistStore(store, undefined, () => {
+  store.dispatch(markPersistAuthHydrationComplete());
+});
 
 // Type exports
 // export type RootState = ReturnType<typeof store.getState> & PersistPartial;

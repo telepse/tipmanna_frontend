@@ -97,14 +97,14 @@ describe("GLOBAL drift loop regression", () => {
 });
 
 describe("resolvePaymentRestoreMode", () => {
-  it("GLOBAL-origin successful payment restores GLOBAL despite mode LOCAL", () => {
+  it("GLOBAL-origin successful payment stays LOCAL for PPLA (not wall-clock GLOBAL)", () => {
     expect(
       resolvePaymentRestoreMode({
         mode: "LOCAL",
         originMode: "GLOBAL",
         paymentSucceeded: true,
       })
-    ).toBe("GLOBAL");
+    ).toBe("LOCAL");
   });
 
   it("LOCAL-origin successful payment stays LOCAL", () => {

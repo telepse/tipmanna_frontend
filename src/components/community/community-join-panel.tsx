@@ -713,176 +713,15 @@ export function CommunityJoinPanel({
           </div>
         </section>
 
-        <div className="mx-auto max-w-4xl space-y-4 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-2xl font-semibold">{form.name}</h2>
-            {isAuthenticated ? (
-              alreadyIn ? (
-                <Badge variant="default">Member</Badge>
-              ) : (
-                <Badge variant="outline">Not a member</Badge>
-              )
-            ) : null}
-          </div>
+        {!isDrawer && featuredVideos.length > 0 ? (
+          <div className="space-y-2 border-t pt-4">
+            <h5 className="text-muted-foreground text-sm font-medium">
+              Featured community videos
+            </h5>
 
-          {doneMessage ? (
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-              {doneMessage}
-            </div>
-          ) : null}
-
-          {alreadyIn ? (
-            <CommunityMemberInfo
-              communityName={form.name}
-              membershipStatus={membershipStatus}
-              membershipExpiresAt={membershipExpiresAt}
-              subscriptionExpiresAt={subscriptionExpiresAt}
-            />
-          ) : null}
-
-          {isDrawer && featuredVideos.length > 0 ? (
-            <div className="space-y-2 border-t pt-4">
-              <h5 className="text-muted-foreground text-sm font-medium">
-                Featured community videos
-              </h5>
-              <div className="grid grid-cols-3 gap-1">
-                {featuredVideos.slice(0, 3).map(video => {
-                  const videoId = extractYoutubeID(video.url);
-                  const thumb = videoId
-                    ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                    : "/default-event-image.jpg";
-                  const eventId = video.eventId?.trim() ?? "";
-                  const channelId =
-                    video.channelId?.trim() ?? video.id?.trim() ?? "";
-                  return (
-                    <button
-                      key={video.id}
-                      type="button"
-                      className="relative aspect-[9/16] overflow-hidden rounded bg-neutral-100"
-                      disabled={!eventId || !channelId}
-                      onClick={() => {
-                        if (eventId && channelId) {
-                          playFeaturedFromDrawer(eventId, channelId, {
-                            url: video.url,
-                            title: video.title,
-                          });
-                        }
-                      }}
-                      aria-label={`Play ${video.title}`}
-                    >
-                      <img
-                        src={thumb}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-
-          <h5 className="text-muted-foreground text-lg font-medium underline underline-offset-2">
-            Community details
-          </h5>
-          <p className="leading-relaxed">{form.description}</p>
-
-          {form.communityType ? (
-            <p className="text-muted-foreground text-sm font-medium">
-              {typeLabel}
-            </p>
-          ) : null}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
-              <h5>Total tips</h5>
-              <p className="text-muted-foreground font-medium">
-                {form.totalTips ?? 0}
-              </p>
-            </div>
-            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
-              <h5>Members</h5>
-              <p className="text-muted-foreground font-medium">
-                {form.memberCount ?? 0}
-              </p>
-            </div>
-            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
-              <h5>Videos</h5>
-              <p className="text-muted-foreground font-medium">
-                {form.numVideos ?? 0}
-              </p>
-            </div>
-            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
-              <h5>Created</h5>
-              <p className="text-muted-foreground font-medium">
-                {form.createdAt
-                  ? new Date(form.createdAt).toLocaleDateString()
-                  : "—"}
-              </p>
-            </div>
-          </div>
-
-          {!isDrawer && featuredVideos.length > 0 ? (
-            <div className="space-y-4 pt-2">
-              <h5 className="text-muted-foreground text-lg font-medium">
-                Featured community videos
-              </h5>
-
-              {/* Small and medium screens */}
-              <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
-                <div className="flex w-full snap-x snap-mandatory space-x-4">
-                  {featuredVideos.map(video => (
-                    <div
-                      key={video.id}
-                      className="w-[85%] flex-shrink-0 snap-center transition-transform duration-300 sm:w-[50%]"
-                    >
-                      <FeaturedContentCard
-                        key={video.id}
-                        channelId={video.eventId ?? ""}
-                        roomId={video.id}
-                        videoId={video.id}
-                        eventBanner={(() => {
-                          const videoId = extractYoutubeID(video.url);
-                          return videoId
-                            ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                            : "";
-                        })()}
-                        eventName={video.title}
-                        numOfTips={video.numOfTips ?? 0}
-                        numOfEncounters={video.numOfSeen ?? 0}
-                        numOfSaves={video.numOfSaves ?? 0}
-                        numOfShares={video.numOfShares ?? 0}
-                        numOfComments={video.numOfComments}
-                        startTime={""}
-                        endTime={""}
-                        duration={video.durationSeconds ?? 0}
-                        videoUrl={video.url}
-                        onPlayClick={() => {
-                          const eventId = video.eventId?.trim() ?? "";
-                          const channelId =
-                            video.channelId?.trim() ?? video.id?.trim() ?? "";
-                          if (eventId && channelId) {
-                            openOverlayPlay(eventId, channelId, {
-                              url: video.url,
-                              title: video.title,
-                            });
-                          }
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {/* LARGE SCREENS */}
-          {!isDrawer ? (
-            <div className="no-scrollbar hide__scrollbar relative hidden items-center gap-4 overflow-x-auto lg:flex">
-              <div
-                ref={featuredVideosRef}
-                className="flex w-[550px] snap-x snap-mandatory space-x-4"
-              >
+            {/* Small and medium screens */}
+            <div className="no-scrollbar hide__scrollbar relative flex items-center gap-4 overflow-x-auto lg:hidden">
+              <div className="flex w-full snap-x snap-mandatory space-x-4">
                 {featuredVideos.map(video => (
                   <div
                     key={video.id}
@@ -925,7 +764,119 @@ export function CommunityJoinPanel({
                 ))}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        <div className="mx-auto max-w-4xl space-y-4 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-semibold">{form.name}</h2>
+
+            {isAuthenticated ? (
+              alreadyIn ? (
+                <Badge variant="default">Member</Badge>
+              ) : (
+                <Badge variant="outline">Not a member</Badge>
+              )
+            ) : null}
+          </div>
+
+          {doneMessage ? (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
+              {doneMessage}
+            </div>
           ) : null}
+
+          {!isDrawer && featuredVideos.length > 0 ? (
+            <div className="space-y-4 pt-2">
+              <h5 className="text-muted-foreground text-lg font-medium">
+                Featured community videos
+              </h5>
+
+              <div className="grid grid-cols-3 gap-1">
+                {featuredVideos.slice(0, 3).map(video => {
+                  const videoId = extractYoutubeID(video.url);
+                  const thumb = videoId
+                    ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                    : "/default-event-image.jpg";
+                  const eventId = video.eventId?.trim() ?? "";
+                  const channelId =
+                    video.channelId?.trim() ?? video.id?.trim() ?? "";
+                  return (
+                    <button
+                      key={video.id}
+                      type="button"
+                      className="relative aspect-[9/16] overflow-hidden rounded bg-neutral-100"
+                      disabled={!eventId || !channelId}
+                      onClick={() => {
+                        if (eventId && channelId) {
+                          playFeaturedFromDrawer(eventId, channelId, {
+                            url: video.url,
+                            title: video.title,
+                          });
+                        }
+                      }}
+                      aria-label={`Play ${video.title}`}
+                    >
+                      <img
+                        src={thumb}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {alreadyIn ? (
+            <CommunityMemberInfo
+              communityName={form.name}
+              membershipStatus={membershipStatus}
+              membershipExpiresAt={membershipExpiresAt}
+              subscriptionExpiresAt={subscriptionExpiresAt}
+            />
+          ) : null}
+
+          <h5 className="text-muted-foreground text-lg font-medium underline underline-offset-2">
+            Community details
+          </h5>
+          <p className="leading-relaxed">{form.description}</p>
+
+          {form.communityType ? (
+            <p className="text-muted-foreground text-sm font-medium">
+              {typeLabel}
+            </p>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
+              <h5>Total tips</h5>
+              <p className="text-muted-foreground font-medium">
+                {form.totalTips ?? 0}
+              </p>
+            </div>
+            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
+              <h5>Members</h5>
+              <p className="text-muted-foreground font-medium">
+                {form.memberCount ?? 0}
+              </p>
+            </div>
+            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
+              <h5>Videos</h5>
+              <p className="text-muted-foreground font-medium">
+                {form.numVideos ?? 0}
+              </p>
+            </div>
+            <div className="border-primary bg-secondary/10 flex w-[150px] flex-col gap-1 rounded-xl border p-6 lg:w-[200px]">
+              <h5>Created</h5>
+              <p className="text-muted-foreground font-medium">
+                {form.createdAt
+                  ? new Date(form.createdAt).toLocaleDateString()
+                  : "—"}
+              </p>
+            </div>
+          </div>
 
           {!isDrawer && contentBankVideos.length > 0 ? (
             <div className="space-y-4 pt-6">

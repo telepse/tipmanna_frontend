@@ -42,7 +42,8 @@ export function HostRevenuePayoutsClient() {
     communities,
     requestPayout,
     connectPayouts,
-    isLoading,
+    isPending,
+    payoutUiState,
     refresh,
   } = useHostPayoutSummary();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -211,7 +212,7 @@ export function HostRevenuePayoutsClient() {
           type="button"
           disabled={
             requestingPayout ||
-            isLoading ||
+            isPending ||
             !requestPayout ||
             !requestPayout.canRequest ||
             !!requestPayout.pendingRequest
@@ -226,8 +227,22 @@ export function HostRevenuePayoutsClient() {
         </Button>
       </div>
 
-      {isLoading && !summary ? (
+      {isPending ? (
         <p className="text-muted-foreground text-sm">Loading…</p>
+      ) : payoutUiState === "error" ? (
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">
+            Could not load payout summary. Try again.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void refresh()}
+          >
+            Retry
+          </Button>
+        </div>
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

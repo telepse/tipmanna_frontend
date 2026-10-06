@@ -140,6 +140,7 @@ export function EditCreatorProfileDialog({
   const [creatorDefaultTab, setCreatorDefaultTab] =
     useState<HostCreatorDefaultTab>("all_videos");
   const profileLoadedForOpenRef = useRef(false);
+  const userPickedLocalAvatarRef = useRef(false);
   const [creatorPayoutVerified, setCreatorPayoutVerified] = useState(false);
 
   const { eventSlug: hostSlug, username: hostUsername } = useHostSession();
@@ -237,10 +238,8 @@ export function EditCreatorProfileDialog({
         profile.profilePhotoChangeRequiresPremium
       );
       setExternalLinkRequiresPremium(profile.externalLinkRequiresPremium);
-      if (profile.profileImageUrl) {
-        applyProfileImage(profile.profileImageUrl);
-      } else {
-        applyProfileImage(null);
+      if (!userPickedLocalAvatarRef.current) {
+        applyProfileImage(profile.profileImageUrl ?? null);
       }
       setCanChangeUsername(profile.canChangeUsername);
       setNextUsernameChangeAt(profile.nextUsernameChangeAt);
@@ -252,6 +251,9 @@ export function EditCreatorProfileDialog({
   }, [applyProfileImage, creatorForm]);
 
   useEffect(() => {
+    userPickedLocalAvatarRef.current = Boolean(
+      readableImage?.startsWith("data:")
+    );
     if (!readableImage?.startsWith("data:")) return;
     setModalAvatarUrl(readableImage);
     setPhotoMarkedForRemoval(false);
@@ -260,6 +262,7 @@ export function EditCreatorProfileDialog({
   useEffect(() => {
     if (!open) {
       profileLoadedForOpenRef.current = false;
+      userPickedLocalAvatarRef.current = false;
       return;
     }
 
@@ -294,6 +297,7 @@ export function EditCreatorProfileDialog({
   };
 
   const handlePhotoChangeClick = () => {
+    if (loadingProfile || saving) return;
     if (photoChangeLocked) {
       openSubscribeForPremium("change-photo");
       return;
@@ -458,7 +462,8 @@ export function EditCreatorProfileDialog({
             <button
               type="button"
               onClick={handlePhotoChangeClick}
-              className="relative size-14 shrink-0 overflow-hidden rounded-full border bg-neutral-100 sm:size-20"
+              disabled={loadingProfile || saving}
+              className="relative size-14 shrink-0 overflow-hidden rounded-full border bg-neutral-100 disabled:pointer-events-none disabled:opacity-50 sm:size-20"
             >
               {dialogAvatarSrc ? (
                 <img
@@ -521,6 +526,7 @@ export function EditCreatorProfileDialog({
                     variant="outline"
                     size="sm"
                     onClick={handlePhotoChangeClick}
+                    disabled={loadingProfile || saving}
                     className="flex-1 shrink-0 sm:w-fit"
                   >
                     {photoChangeLocked ? (
@@ -534,6 +540,7 @@ export function EditCreatorProfileDialog({
                       variant="ghost"
                       size="sm"
                       className="text-destructive flex-1 shrink-0 sm:w-fit"
+                      disabled={loadingProfile || saving}
                       onClick={handleRemovePhoto}
                     >
                       Remove photo

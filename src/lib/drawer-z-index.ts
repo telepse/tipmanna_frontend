@@ -13,11 +13,11 @@ export const AUTH_MODAL_OVERLAY_Z_INDEX = "z-[99998]";
 export const AUTH_MODAL_Z_INDEX = "z-[99999]";
 /** Sign-in modal stacked above create dialog / comment drawer. */
 export const SIGN_IN_NESTED_OVERLAY_Z_INDEX = "z-[100002]";
-export const SIGN_IN_NESTED_Z_INDEX = "z-[100003]";
+export const SIGN_IN_NESTED_Z_INDEX = "z-[1000003]";
 export const SIGN_IN_EXPLORE_OVERLAY_Z_INDEX = "z-[100021]";
-export const SIGN_IN_EXPLORE_Z_INDEX = "z-[100022]";
+export const SIGN_IN_EXPLORE_Z_INDEX = "z-[1000022]";
 /** Explore filter panel + create dialog above explore chrome. */
-export const EXPLORE_MODAL_Z_INDEX = "z-[100020]";
+export const EXPLORE_MODAL_Z_INDEX = "z-[1000038]";
 /**
  * Radix select/popover portals inside modals (must sit above dialog content).
  * Keep above EXPLORE_MODAL (100020) and AUTH_MODAL (99999), below SIGN_IN_EXPLORE (100022).
@@ -44,3 +44,4 @@ export const PLAYBACK_OVERLAY_NESTED_MODAL_Z_INDEX = "z-[1000004]";
 export const PLAYBACK_OVERLAY_NESTED_MODAL_Z = 1_000_004;
 export const HOST_SUBSCRIPTION_MODAL_OVERLAY_Z_INDEX = "!z-[100035]";
 export const HOST_SUBSCRIPTION_MODAL_Z_INDEX = "!z-[100036]";
+export const PROFILE_DRAWER_Z_INDEX = "!z-[10000037]";

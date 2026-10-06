@@ -962,11 +962,12 @@ export const CreateDialog = ({
         >
           <DialogContent
             overlayClassName={dialogOverlayZIndex}
-            className={`${dialogContentZIndex} rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl ${
+            className={`rounded-2xl border-2 border-white/70 bg-black/60 p-6 text-white shadow-2xl ${
               isWideCreateShell
                 ? "max-h-[90vh] overflow-y-auto sm:max-w-2xl"
                 : "sm:max-w-md"
             }`}
+            style={{ zIndex: "1000038" }}
           >
             <DialogHeader>
               <DialogTitle className="text-white/70">

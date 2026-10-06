@@ -414,7 +414,7 @@ export const TipSection = ({
     <div className="space-y-2">
       {/* Payment options */}
       <div
-        className={`relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl p-1 ${shadowStyle}`}
+        className={`relative z-20 grid items-center justify-between gap-2 rounded-tl-2xl rounded-tr-2xl border-1 p-1 ${tipLink ? "border-white/40" : ""}`}
       >
         <div className="grid grid-cols-12 items-center justify-center gap-4">
           {/* Turbo Reward */}

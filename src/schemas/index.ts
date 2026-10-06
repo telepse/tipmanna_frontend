@@ -368,8 +368,17 @@ export const individualProfileFormSchema = z
     accountName: z.string().min(2, "Account name must match your legal name"),
     accountNumber: z.string().min(2, "Account number is required"),
     sortCode: z.string().min(2, "Sort code is required"),
+    bankName: z.string().min(2, "Bank name is required"),
   })
   .superRefine((data, ctx) => {
+    if (data.gender !== "MALE" && data.gender !== "FEMALE") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["gender"],
+        message: "Gender is required for payroll processing",
+      });
+    }
+
     if (isUkCountry(data.country)) {
       if (!data.niNumber?.trim()) {
         ctx.addIssue({
@@ -423,8 +432,26 @@ export const organisationProfileFormSchema = z
     accountNumber: z.string().min(2, "Account number is required"),
     sortCode: z.string().min(2, "Sort code is required"),
     organizationName: z.string().optional(),
+    gender: GenderTypeEnum.or(z.literal("")),
+    bankName: z.string().min(2, "Bank name is required"),
   })
   .superRefine((data, ctx) => {
+    if (data.gender !== "MALE" && data.gender !== "FEMALE") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["gender"],
+        message: "Gender is required for payroll processing",
+      });
+    }
+
+    if (!data.invoice?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["invoice"],
+        message: "Invoice upload is required for organisation profiles",
+      });
+    }
+
     if (isUkCountry(data.country)) {
       if (!data.uniqueTaxpayerReference?.trim()) {
         ctx.addIssue({

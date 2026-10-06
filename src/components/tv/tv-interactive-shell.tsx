@@ -21,7 +21,6 @@ import {
   ChevronsUp,
   Search,
   X,
-  MoveUpRight,
   UsersRound,
 } from "lucide-react";
 const TipDrawer = dynamic(
@@ -115,6 +114,14 @@ import { tvTrace } from "@/lib/tvDebugLog";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
 import { TvPreviewPlaylistDrawer } from "./tv-preview-playlist-drawer";
+import { TvProgramDrawer } from "./tv-program-drawer";
+import { TvProgramsTabAlertDot } from "./tv-programs-tab-alert-dot";
+import { hasUpcomingProgramAlert } from "@/lib/tv-program-alert";
+import {
+  toProgramDrawerTarget,
+  type TvProgramDrawerTarget,
+} from "@/lib/tv-program-drawer-target";
+import type { DiscoveryProgram } from "@/types/program.types";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
@@ -178,6 +185,8 @@ export type TvInteractiveShellProps = {
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
   onTipPaymentSucceeded?: () => void;
+  programDrawerTarget: TvProgramDrawerTarget | null;
+  setProgramDrawerTarget: (target: TvProgramDrawerTarget | null) => void;
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
@@ -214,6 +223,8 @@ export function TvInteractiveShell({
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
   onTipPaymentSucceeded,
+  programDrawerTarget,
+  setProgramDrawerTarget,
 }: TvInteractiveShellProps) {
   const { currentIndex, playingItemOverride, scheduleSourceCommunityId } =
     useTV();
@@ -298,6 +309,8 @@ export function TvInteractiveShell({
   );
 
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
+  const isProgramDrawerOpen = programDrawerTarget !== null;
+  const pageDrawerOpen = isTipDrawerOpen || isProgramDrawerOpen;
 
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
@@ -384,6 +397,15 @@ export function TvInteractiveShell({
     setIsTvDrawerOpen(true);
   }, [setIsTvDrawerOpen]);
 
+  const openProgramDrawer = useCallback(
+    (target: TvProgramDrawerTarget) => {
+      setIsPreviewPlaylistDrawerOpen(false);
+      setIsTvDrawerOpen(false);
+      setProgramDrawerTarget(target);
+    },
+    [setIsTvDrawerOpen, setProgramDrawerTarget]
+  );
+
   const registerExitFull = useCallback((exitFull: (() => void) | null) => {
     exitFullRef.current = exitFull;
   }, []);
@@ -430,7 +452,8 @@ export function TvInteractiveShell({
     return () => window.removeEventListener("orientationchange", onOrientation);
   }, []);
 
-  const [programs, setPrograms] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<DiscoveryProgram[]>([]);
+  const showProgramsTabAlert = hasUpcomingProgramAlert(programs);
   const [liveStreams, setLiveStreams] = useState({
     upcoming: [],
     live: [],
@@ -445,7 +468,7 @@ export function TvInteractiveShell({
       );
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
-      setPrograms(takeRecentDiscoveryPrograms(list));
+      setPrograms(takeRecentDiscoveryPrograms(list) as DiscoveryProgram[]);
     };
 
     loadPrograms();
@@ -524,7 +547,7 @@ export function TvInteractiveShell({
                 onEngage={() => setIsTipDrawerOpen(true)}
                 onTipFeatured={handleTipFromFeatureCard}
                 sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
-                pageDrawerOpen={isTipDrawerOpen}
+                pageDrawerOpen={pageDrawerOpen}
                 onGoLive={goLive}
                 onSwitchToLocal={switchToLocal}
                 onOpenPreviewPlaylist={openPreviewPlaylistDrawer}
@@ -633,18 +656,20 @@ export function TvInteractiveShell({
                     <button
                       type="button"
                       onClick={() => {
-                        console.log("TV Programs clicked");
                         setSelectedVideoType(null);
                         setRightPanelView("programs");
                         setActiveTab("playlist");
                       }}
-                      className={`cursor-pointer rounded-md p-1 text-[10px] ${
+                      className={`relative cursor-pointer rounded-md p-1 text-[10px] ${
                         rightPanelView === "programs"
                           ? "bg-black text-white"
                           : "bg-gray-200 text-black"
                       }`}
                     >
                       TV programs
+                      {showProgramsTabAlert ? (
+                        <TvProgramsTabAlertDot className="absolute -top-0.5 -right-0.5" />
+                      ) : null}
                     </button>
                   </div>
 
@@ -721,7 +746,10 @@ export function TvInteractiveShell({
 
                     {rightPanelView === "programs" && (
                       <Suspense fallback={<div>Loading programs...</div>}>
-                        <ProgramsPanel programs={programs} />
+                        <ProgramsPanel
+                          programs={programs}
+                          onSelectProgram={openProgramDrawer}
+                        />
                       </Suspense>
                     )}
 
@@ -828,7 +856,7 @@ export function TvInteractiveShell({
                     onEngage={() => setIsTipDrawerOpen(true)}
                     onTipFeatured={handleTipFromFeatureCard}
                     sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
-                    pageDrawerOpen={isTipDrawerOpen}
+                    pageDrawerOpen={pageDrawerOpen}
                     onFullViewChange={setIsMobileFullView}
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={
@@ -873,9 +901,12 @@ export function TvInteractiveShell({
                         <button
                           type="button"
                           onClick={() => setActiveTab("programs")}
-                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-primary text-black" : "border border-black bg-white text-black"}`}
+                          className={`relative flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-primary text-black" : "border border-black bg-white text-black"}`}
                         >
                           TV Programs
+                          {showProgramsTabAlert ? (
+                            <TvProgramsTabAlertDot className="absolute -top-0.5 -right-0.5" />
+                          ) : null}
                         </button>
                         <button
                           type="button"
@@ -957,14 +988,17 @@ export function TvInteractiveShell({
                             <div>
                               <div className="flex items-center justify-between gap-2">
                                 <h5 className="flex gap-2">
-                                  <Link
-                                    href={program.landingUrl}
-                                    className="text-sm"
-                                    target="_blank"
+                                  <button
+                                    type="button"
+                                    className="text-left text-sm hover:underline"
+                                    onClick={() =>
+                                      openProgramDrawer(
+                                        toProgramDrawerTarget(program)
+                                      )
+                                    }
                                   >
                                     {trimTitle(program.title, 25)}
-                                  </Link>
-                                  <MoveUpRight className="size-4" />
+                                  </button>
                                 </h5>
 
                                 <span
@@ -1034,6 +1068,14 @@ export function TvInteractiveShell({
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
         tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+      />
+
+      <TvProgramDrawer
+        open={isProgramDrawerOpen}
+        onOpenChange={open => {
+          if (!open) setProgramDrawerTarget(null);
+        }}
+        target={programDrawerTarget}
       />
 
       {isMobile && showPhoneLandscapeImmersive ? null : (
