@@ -13,6 +13,7 @@ import {
   resolveVideoOgImageUrl,
 } from "@/lib/video-og-image";
 import { formatTipLinkAttribution } from "@/lib/tiplink-attribution";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -61,7 +62,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: url },
     openGraph: {
       title: `${channel.title} by ${displayName} ${displayHandle}`,
-      description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares Watch, ${ctaSectionLabel}, Support. Tiplink by ${displayName} ${displayHandle} ${tipLink.pitch}`,
+      description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares \nWatch, ${ctaSectionLabel}, Support.\nTiplink by ${displayName} ${displayHandle} ${tipLink.pitch}`,
       url,
       ...buildOgImageMetadata(image),
       type: "video.other",
@@ -113,7 +114,9 @@ export default async function TipLinkPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(jsonLd),
+        }}
       />
       <TipLinkLandingClient
         payload={payload}
