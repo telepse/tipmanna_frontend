@@ -28,9 +28,9 @@ import {
 import {
   buildTvPagePath,
   navigateToTvSource,
-  persistTvSourceCommunityId,
   readTvSourceCommunityIdFromLocation,
 } from "@/lib/tv-source-navigation";
+import { resolveTvCommunitySourceDeferral } from "@/lib/tv-community-source-deferral";
 
 type TvSourcePickerContextValue = {
   communityFeatureOn: boolean;
@@ -107,10 +107,7 @@ export function TvSourcePickerProvider({
         : "";
     if (current !== target) {
       navigateToTvSource(id);
-      return;
     }
-    setScheduleSourceCommunityId(id);
-    persistTvSourceCommunityId(id);
   }, [
     tvSideChickLocked,
     sideChick.activation?.communityId,
@@ -162,31 +159,33 @@ export function TvSourcePickerProvider({
 
   useEffect(() => {
     const videoId = searchParams.get("videoId");
-    if (videoId) {
+    const fromQuery = searchParams.get("community");
+    const stored =
+      typeof window !== "undefined"
+        ? readTvSourceCommunityIdFromLocation()
+        : null;
+
+    const decision = resolveTvCommunitySourceDeferral({
+      videoId,
+      communityQuery: fromQuery,
+      storedCommunityId: stored,
+      sideChickLocked: tvSideChickLocked,
+    });
+
+    if (decision.kind === "video_fullscreen" || decision.kind === "global") {
       setScheduleSourceCommunityId(null);
       setTvPickerOpen(false);
       return;
     }
-    if (tvSideChickLocked && sideChick.activation?.communityId) {
-      return;
-    }
-    const fromQuery = searchParams.get("community")?.trim();
-    if (fromQuery) {
-      setScheduleSourceCommunityId(fromQuery);
-      persistTvSourceCommunityId(fromQuery);
-      setTvPickerOpen(false);
-      return;
-    }
-    const stored = readTvSourceCommunityIdFromLocation();
-    if (stored) {
-      setScheduleSourceCommunityId(stored);
-      router.replace(`/tv?community=${encodeURIComponent(stored)}`, {
+
+    setTvPickerOpen(false);
+    const intentId = decision.communityIntentId;
+    const queryNorm = fromQuery?.trim() ?? "";
+    if (!queryNorm && intentId) {
+      router.replace(`/tv?community=${encodeURIComponent(intentId)}`, {
         scroll: false,
       });
-      setTvPickerOpen(false);
-      return;
     }
-    setScheduleSourceCommunityId(null);
   }, [
     communityFeatureOn,
     fetchTvPickerMemberships,

@@ -937,7 +937,11 @@ export function DiscoverPanel({
 
         {/* CONTENT SEARCH */}
         <Form {...form}>
-          <form onSubmit={() => {}}>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+            }}
+          >
             <FormField
               control={form.control}
               name="searchTerm"
@@ -970,10 +974,16 @@ export function DiscoverPanel({
                               setActiveSearchIndex(i => Math.max(i - 1, 0));
                               return;
                             }
-                            if (e.key === "Enter" && activeSearchIndex >= 0) {
+                            if (e.key === "Enter") {
                               e.preventDefault();
-                              const item = flatSearchResults[activeSearchIndex];
-                              if (item) activateSearchResult(item);
+                              if (activeSearchIndex >= 0) {
+                                const item =
+                                  flatSearchResults[activeSearchIndex];
+                                if (item) {
+                                  activateSearchResult(item);
+                                }
+                              }
+                              return;
                             }
                           }}
                           {...field}
@@ -1014,7 +1024,7 @@ export function DiscoverPanel({
                             <button
                               key={term}
                               type="button"
-                              className="cursor-pointer rounded-md bg-gray-200 px-2 py-0.5 text-xs hover:bg-black hover:text-white"
+                              className="cursor-pointer rounded-md text-xs underline-offset-2 hover:bg-black hover:text-white hover:underline"
                               onClick={() => form.setValue("searchTerm", term)}
                             >
                               {term}

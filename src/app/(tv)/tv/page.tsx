@@ -13,6 +13,9 @@ import {
 } from "@/lib/tv-ssr-live-tip-catalog";
 import { shouldSkipSsrTipmannaTvBootstrap } from "@/lib/tv-ssr-bootstrap-skip";
 
+/** `?community=` must reach the server on full reload for gate + SSR fail-closed. */
+export const dynamic = "force-dynamic";
+
 type EventChannelListItem = {
   url?: string;
   title?: string;
@@ -101,6 +104,7 @@ export default async function TVPage({
         communityId,
         initialTvTipCatalog: null,
         ssrScheduleBootstrap: null,
+        ssrCommunityTvViewerEntitlement: "unknown" as const,
       }
     : await loadSsrTvBootstrap(communityId);
 
@@ -121,6 +125,10 @@ export default async function TVPage({
         <Suspense fallback={<TvPageSuspenseFallback />}>
           <TVPageShell
             characters={characters ?? []}
+            urlCommunityIntent={communityId}
+            ssrCommunityTvViewerEntitlement={
+              tvBootstrap.ssrCommunityTvViewerEntitlement
+            }
             ssrBootstrapCommunityId={tvBootstrap.communityId}
             initialTvTipCatalog={tvBootstrap.initialTvTipCatalog}
             ssrScheduleBootstrap={tvBootstrap.ssrScheduleBootstrap}

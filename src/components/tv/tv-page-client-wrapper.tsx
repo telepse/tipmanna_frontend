@@ -55,6 +55,11 @@ import {
   type TvInitialTipCatalog,
   type TvSsrScheduleBootstrap,
 } from "@/lib/tv-ssr-live-tip-catalog";
+import type { TvProgramDrawerTarget } from "@/lib/tv-program-drawer-target";
+import {
+  resolveSessionDrawerOrchestrationAction,
+  shouldPrepareWithSelectedTips,
+} from "@/lib/tv-session-drawer-orchestration";
 
 interface Character {
   id: string;
@@ -192,28 +197,42 @@ export default function TVPageClientWrapper({
 
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [isTVDrawerOpen, setIsTvDrawerOpen] = useState(false);
+  const [programDrawerTarget, setProgramDrawerTarget] =
+    useState<TvProgramDrawerTarget | null>(null);
+
+  const isProgramDrawerOpen = programDrawerTarget !== null;
 
   const prevTipDrawerOpen = useRef(false);
+  const prevSessionDrawerOpen = useRef(false);
   const prevTipCountRef = useRef(0);
 
   useEffect(() => {
     const tipCount = selectedTips.length;
-    if (isTipDrawerOpen && !prevTipDrawerOpen.current) {
-      preparePlaybackForTipDrawer(tipCount > 0);
-    } else if (!isTipDrawerOpen && prevTipDrawerOpen.current) {
+    const sessionDrawerOpen = isTipDrawerOpen || isProgramDrawerOpen;
+
+    const action = resolveSessionDrawerOrchestrationAction({
+      sessionDrawerOpen,
+      prevSessionDrawerOpen: prevSessionDrawerOpen.current,
+      isTipDrawerOpen,
+      prevTipDrawerOpen: prevTipDrawerOpen.current,
+      tipCount,
+      prevTipCount: prevTipCountRef.current,
+    });
+
+    if (action === "prepareOnOpen" || action === "prepareTipSelection") {
+      preparePlaybackForTipDrawer(
+        shouldPrepareWithSelectedTips(action, tipCount)
+      );
+    } else if (action === "resumeOnClose") {
       resumeAfterPayment();
-    } else if (
-      isTipDrawerOpen &&
-      prevTipDrawerOpen.current &&
-      tipCount > 0 &&
-      prevTipCountRef.current === 0
-    ) {
-      preparePlaybackForTipDrawer(true);
     }
+
     prevTipDrawerOpen.current = isTipDrawerOpen;
+    prevSessionDrawerOpen.current = sessionDrawerOpen;
     prevTipCountRef.current = tipCount;
   }, [
     isTipDrawerOpen,
+    isProgramDrawerOpen,
     selectedTips.length,
     preparePlaybackForTipDrawer,
     resumeAfterPayment,
@@ -350,6 +369,8 @@ export default function TVPageClientWrapper({
     openWalletModalNonce,
     onSnapshotPaymentRedirect: snapshotPlaybackForPaymentRedirect,
     onTipPaymentSucceeded: markTvTipPaymentSucceeded,
+    programDrawerTarget,
+    setProgramDrawerTarget,
   };
 
   return (

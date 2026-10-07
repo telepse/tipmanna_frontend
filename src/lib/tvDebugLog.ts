@@ -37,7 +37,8 @@ export type TvTraceCategory =
   | "navigation"
   | "autoplay"
   | "fullscreen"
-  | "index";
+  | "index"
+  | "payment";
 
 const YT_STATE_NAMES: Record<number, string> = {
   [-1]: "UNSTARTED",

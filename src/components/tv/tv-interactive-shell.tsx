@@ -21,7 +21,6 @@ import {
   ChevronsUp,
   Search,
   X,
-  MoveUpRight,
   UsersRound,
 } from "lucide-react";
 const TipDrawer = dynamic(
@@ -115,6 +114,14 @@ import { tvTrace } from "@/lib/tvDebugLog";
 import { TippingElementsProvider } from "@/components/payments/tipping-elements-provider";
 import { TVScheduleDrawer } from "./tv-schedule-drawer";
 import { TvPreviewPlaylistDrawer } from "./tv-preview-playlist-drawer";
+import { TvProgramDrawer } from "./tv-program-drawer";
+import { TvProgramsTabAlertDot } from "./tv-programs-tab-alert-dot";
+import { hasUpcomingProgramAlert } from "@/lib/tv-program-alert";
+import {
+  toProgramDrawerTarget,
+  type TvProgramDrawerTarget,
+} from "@/lib/tv-program-drawer-target";
+import type { DiscoveryProgram } from "@/types/program.types";
 import { TvPlaylistPreview } from "./tv-playlist-preview";
 import { TvLooper } from "./tv-looper";
 import type { RoomCharacter } from "@/types";
@@ -146,6 +153,20 @@ import { TV_MOBILE_SHELL_TOP } from "./tv-express-buttons";
 import { useTvSurfaceMode } from "@/hooks/use-tv-surface-mode";
 import { TvPhoneLandscapeTopBar } from "./tv-phone-landscape-top-bar";
 import { TvModeSelector } from "./tv-mode-selector";
+import { TvScheduleStatusBanners } from "./tv-schedule-status-banners";
+import { TvPlayerNetworkNotices } from "./tv-player-network-notices";
+import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { isNoticeScheduleItem } from "@/lib/tv-live-preview";
+import {
+  probeTvYoutubeIframeApiReachability,
+  watchSharedYoutubeIframeApiLateReady,
+  type TvYoutubeReachabilityStatus,
+} from "@/lib/tv-youtube-reachability";
+import {
+  INITIAL_TV_NEVER_PLAYING_WATCH_STATE,
+  reduceTvNeverPlayingWatch,
+  type TvYoutubePlayerObservationState,
+} from "@/lib/tv-never-playing-watch";
 
 export type TvInteractiveShellProps = {
   variant: TvInteractiveVariant;
@@ -178,6 +199,8 @@ export type TvInteractiveShellProps = {
   openWalletModalNonce?: number;
   onSnapshotPaymentRedirect?: () => void;
   onTipPaymentSucceeded?: () => void;
+  programDrawerTarget: TvProgramDrawerTarget | null;
+  setProgramDrawerTarget: (target: TvProgramDrawerTarget | null) => void;
 };
 
 export type TvInteractiveVariant = "mobile" | "desktop";
@@ -193,6 +216,9 @@ export function TvInteractiveShell({
   characters,
   tvReady,
   items,
+  scheduleStale,
+  scheduleError,
+  retryScheduleLoad,
   goLive,
   switchToLocal,
   activeTab,
@@ -214,9 +240,17 @@ export function TvInteractiveShell({
   openWalletModalNonce = 0,
   onSnapshotPaymentRedirect,
   onTipPaymentSucceeded,
+  programDrawerTarget,
+  setProgramDrawerTarget,
 }: TvInteractiveShellProps) {
-  const { currentIndex, playingItemOverride, scheduleSourceCommunityId } =
-    useTV();
+  const {
+    currentIndex,
+    playingItemOverride,
+    scheduleSourceCommunityId,
+    playerRef,
+    isPaymentActive,
+    startupEmbedGeneration,
+  } = useTV();
   const { setActiveVideoFeatureCardId } = useFeatureCardTipContext();
   const currentPlaying = playingItemOverride ?? items[currentIndex] ?? items[0];
   const paymentChannelId = currentPlaying?.channel?.id ?? null;
@@ -298,10 +332,134 @@ export function TvInteractiveShell({
   );
 
   const tipDrawerStripeMounted = isTipDrawerOpen || openWalletModalNonce > 0;
+  const isProgramDrawerOpen = programDrawerTarget !== null;
+  const pageDrawerOpen = isTipDrawerOpen || isProgramDrawerOpen;
 
   const isDesktop = variant === "desktop";
   const isMobile = variant === "mobile";
   const playlistLayout = isDesktop ? "desktop" : "mobile";
+  const scheduleBannerClass = isDesktop ? "mt-4 w-full" : "mt-2 w-full";
+
+  type IframeReachabilityUi = "idle" | "checking" | "ready" | "unavailable";
+  const [iframeReachability, setIframeReachability] =
+    useState<IframeReachabilityUi>("idle");
+  const iframeProbeGenerationRef = useRef(0);
+  const shellMountedRef = useRef(false);
+  const lateReadyWatchCancelRef = useRef<(() => void) | null>(null);
+
+  const runIframeReachabilityProbe = useCallback(async () => {
+    lateReadyWatchCancelRef.current?.();
+    lateReadyWatchCancelRef.current = null;
+
+    const generation = ++iframeProbeGenerationRef.current;
+    if (shellMountedRef.current) {
+      setIframeReachability("checking");
+    }
+
+    const status: TvYoutubeReachabilityStatus =
+      await probeTvYoutubeIframeApiReachability();
+
+    const probeStillActive = () =>
+      shellMountedRef.current &&
+      generation === iframeProbeGenerationRef.current;
+
+    if (!probeStillActive()) return;
+
+    if (status === "ready") {
+      setIframeReachability("ready");
+      return;
+    }
+
+    setIframeReachability("unavailable");
+
+    const handle = watchSharedYoutubeIframeApiLateReady({
+      isProbeGenerationActive: probeStillActive,
+      onReady: () => {
+        if (!probeStillActive()) return;
+        setIframeReachability("ready");
+      },
+    });
+    lateReadyWatchCancelRef.current = handle.cancel;
+  }, []);
+
+  useEffect(() => {
+    shellMountedRef.current = true;
+    void runIframeReachabilityProbe();
+    return () => {
+      shellMountedRef.current = false;
+      iframeProbeGenerationRef.current += 1;
+      lateReadyWatchCancelRef.current?.();
+      lateReadyWatchCancelRef.current = null;
+    };
+  }, [runIframeReachabilityProbe]);
+
+  const currentRowUrl = currentPlaying?.channel?.url?.trim() ?? "";
+  const currentRowHasYoutube =
+    Boolean(currentRowUrl) && Boolean(extractYoutubeID(currentRowUrl));
+  const currentRowIsNotice = isNoticeScheduleItem(currentPlaying);
+  const neverPlayingWatchKey = `${currentIndex}:${extractYoutubeID(currentRowUrl) ?? ""}`;
+  const neverPlayingStateRef = useRef(INITIAL_TV_NEVER_PLAYING_WATCH_STATE);
+  const [showNeverPlayingCaseB, setShowNeverPlayingCaseB] = useState(false);
+
+  const observeNeverPlaying = useCallback(() => {
+    const iframeApiReady = iframeReachability === "ready";
+    const player = playerRef.current;
+    const playerRefIsNull = player == null;
+    let playerState: TvYoutubePlayerObservationState = null;
+    if (player?.isReady?.()) {
+      const raw = player.getPlayerState?.() ?? null;
+      playerState = raw as TvYoutubePlayerObservationState;
+    }
+
+    const { state, showCaseB } = reduceTvNeverPlayingWatch(
+      neverPlayingStateRef.current,
+      {
+        iframeApiReady,
+        tvReady,
+        isNoticeRow: currentRowIsNotice,
+        hasYoutubeUrl: currentRowHasYoutube,
+        isPaymentActive,
+        playerRefIsNull,
+        startupEmbedGeneration,
+        watchKey: neverPlayingWatchKey,
+        playerState,
+      },
+      Date.now()
+    );
+    neverPlayingStateRef.current = state;
+    setShowNeverPlayingCaseB(showCaseB);
+  }, [
+    iframeReachability,
+    tvReady,
+    currentRowIsNotice,
+    currentRowHasYoutube,
+    isPaymentActive,
+    playerRef,
+    startupEmbedGeneration,
+    neverPlayingWatchKey,
+  ]);
+
+  useEffect(() => {
+    if (iframeReachability !== "ready") {
+      neverPlayingStateRef.current = INITIAL_TV_NEVER_PLAYING_WATCH_STATE;
+      setShowNeverPlayingCaseB(false);
+      return;
+    }
+    observeNeverPlaying();
+    const id = window.setInterval(observeNeverPlaying, 1000);
+    return () => window.clearInterval(id);
+  }, [iframeReachability, observeNeverPlaying]);
+
+  const showIframeUnavailableNotice =
+    iframeReachability === "unavailable" && tvReady;
+  const showSlowVideoNotice =
+    iframeReachability === "ready" && showNeverPlayingCaseB;
+
+  const handleSlowVideoRetry = useCallback(() => {
+    window.location.assign(
+      `${window.location.pathname}${window.location.search}`
+    );
+  }, []);
 
   const [rightPanelView, setRightPanelView] = useState<
     | "playlist"
@@ -384,6 +542,15 @@ export function TvInteractiveShell({
     setIsTvDrawerOpen(true);
   }, [setIsTvDrawerOpen]);
 
+  const openProgramDrawer = useCallback(
+    (target: TvProgramDrawerTarget) => {
+      setIsPreviewPlaylistDrawerOpen(false);
+      setIsTvDrawerOpen(false);
+      setProgramDrawerTarget(target);
+    },
+    [setIsTvDrawerOpen, setProgramDrawerTarget]
+  );
+
   const registerExitFull = useCallback((exitFull: (() => void) | null) => {
     exitFullRef.current = exitFull;
   }, []);
@@ -430,7 +597,8 @@ export function TvInteractiveShell({
     return () => window.removeEventListener("orientationchange", onOrientation);
   }, []);
 
-  const [programs, setPrograms] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<DiscoveryProgram[]>([]);
+  const showProgramsTabAlert = hasUpcomingProgramAlert(programs);
   const [liveStreams, setLiveStreams] = useState({
     upcoming: [],
     live: [],
@@ -445,7 +613,7 @@ export function TvInteractiveShell({
       );
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
-      setPrograms(takeRecentDiscoveryPrograms(list));
+      setPrograms(takeRecentDiscoveryPrograms(list) as DiscoveryProgram[]);
     };
 
     loadPrograms();
@@ -481,40 +649,17 @@ export function TvInteractiveShell({
 
   return (
     <>
-      {/* {scheduleStale && tvReady && (
-        <div
-          className={`mt-4 rounded-md border border-amber-600 bg-amber-50 p-4 text-sm text-black ${bannerW}`}
-        >
-          <p className="font-medium">
-            Using a cached TV schedule (offline or server error).
-          </p>
-          <button
-            type="button"
-            className="mt-2 underline"
-            onClick={() => retryScheduleLoad()}
-          >
-            Retry fresh load
-          </button>
-        </div>
-      )} */}
-      {/* {scheduleError && !tvReady && (
-        <div
-          className={`border-destructive mt-4 rounded-md border bg-white p-4 text-sm text-black ${bannerW}`}
-        >
-          <p className="font-medium">Unable to load the TV schedule.</p>
-          <button
-            type="button"
-            className="mt-2 underline"
-            onClick={() => retryScheduleLoad()}
-          >
-            Retry
-          </button>
-        </div>
-      )} */}
+      <TvScheduleStatusBanners
+        scheduleStale={scheduleStale}
+        scheduleError={scheduleError}
+        tvReady={tvReady}
+        retryScheduleLoad={retryScheduleLoad}
+        className={scheduleBannerClass}
+      />
 
       {isDesktop && (
         <div className="mt-16 grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-2">
-          <div className="min-h-[50vh] object-cover lg:col-span-9 lg:min-h-[60vh]">
+          <div className="relative min-h-[50vh] object-cover lg:col-span-9 lg:min-h-[60vh]">
             {tvReady ? (
               <WebTvLooper
                 characters={tipPriceCatalog as RoomCharacter[]}
@@ -524,7 +669,7 @@ export function TvInteractiveShell({
                 onEngage={() => setIsTipDrawerOpen(true)}
                 onTipFeatured={handleTipFromFeatureCard}
                 sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
-                pageDrawerOpen={isTipDrawerOpen}
+                pageDrawerOpen={pageDrawerOpen}
                 onGoLive={goLive}
                 onSwitchToLocal={switchToLocal}
                 onOpenPreviewPlaylist={openPreviewPlaylistDrawer}
@@ -546,6 +691,14 @@ export function TvInteractiveShell({
               />
             ) : null}
             {!tvReady ? <TvLooperSkeleton layout="wide" /> : null}
+            <TvPlayerNetworkNotices
+              showIframeUnavailable={showIframeUnavailableNotice}
+              showSlowVideo={showSlowVideoNotice}
+              onRetryIframeProbe={() => {
+                void runIframeReachabilityProbe();
+              }}
+              onRetrySlowVideo={handleSlowVideoRetry}
+            />
           </div>
 
           <div className="relative flex w-full flex-col gap-1 rounded-2xl border border-gray-300 p-4 lg:col-span-3">
@@ -633,18 +786,20 @@ export function TvInteractiveShell({
                     <button
                       type="button"
                       onClick={() => {
-                        console.log("TV Programs clicked");
                         setSelectedVideoType(null);
                         setRightPanelView("programs");
                         setActiveTab("playlist");
                       }}
-                      className={`cursor-pointer rounded-md p-1 text-[10px] ${
+                      className={`relative cursor-pointer rounded-md p-1 text-[10px] ${
                         rightPanelView === "programs"
                           ? "bg-black text-white"
                           : "bg-gray-200 text-black"
                       }`}
                     >
                       TV programs
+                      {showProgramsTabAlert ? (
+                        <TvProgramsTabAlertDot className="absolute -top-0.5 -right-0.5" />
+                      ) : null}
                     </button>
                   </div>
 
@@ -721,7 +876,10 @@ export function TvInteractiveShell({
 
                     {rightPanelView === "programs" && (
                       <Suspense fallback={<div>Loading programs...</div>}>
-                        <ProgramsPanel programs={programs} />
+                        <ProgramsPanel
+                          programs={programs}
+                          onSelectProgram={openProgramDrawer}
+                        />
                       </Suspense>
                     )}
 
@@ -809,6 +967,7 @@ export function TvInteractiveShell({
               >
                 <div
                   className={cn(
+                    "relative",
                     showPhoneLandscapeImmersive || isMobileFullView
                       ? "min-h-0 flex-1 overflow-hidden"
                       : "min-h-[220px] shrink-0 basis-[min(52dvh,420px)] overflow-hidden"
@@ -828,7 +987,7 @@ export function TvInteractiveShell({
                     onEngage={() => setIsTipDrawerOpen(true)}
                     onTipFeatured={handleTipFromFeatureCard}
                     sectionCtaLabel={tipPres.sectionCtaLabel ?? "Engage"}
-                    pageDrawerOpen={isTipDrawerOpen}
+                    pageDrawerOpen={pageDrawerOpen}
                     onFullViewChange={setIsMobileFullView}
                     onRegisterExitFull={registerExitFull}
                     commentDrawerVideoTitle={
@@ -853,6 +1012,14 @@ export function TvInteractiveShell({
                       !showPhoneLandscapeImmersive && !isMobileFullView
                     }
                   />
+                  <TvPlayerNetworkNotices
+                    showIframeUnavailable={showIframeUnavailableNotice}
+                    showSlowVideo={showSlowVideoNotice}
+                    onRetryIframeProbe={() => {
+                      void runIframeReachabilityProbe();
+                    }}
+                    onRetrySlowVideo={handleSlowVideoRetry}
+                  />
                 </div>
 
                 {!showPhoneLandscapeImmersive && !isMobileFullView ? (
@@ -873,9 +1040,12 @@ export function TvInteractiveShell({
                         <button
                           type="button"
                           onClick={() => setActiveTab("programs")}
-                          className={`flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-primary text-black" : "border border-black bg-white text-black"}`}
+                          className={`relative flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[10px] whitespace-nowrap outline ${activeTab === "programs" ? "bg-primary text-black" : "border border-black bg-white text-black"}`}
                         >
                           TV Programs
+                          {showProgramsTabAlert ? (
+                            <TvProgramsTabAlertDot className="absolute -top-0.5 -right-0.5" />
+                          ) : null}
                         </button>
                         <button
                           type="button"
@@ -957,14 +1127,17 @@ export function TvInteractiveShell({
                             <div>
                               <div className="flex items-center justify-between gap-2">
                                 <h5 className="flex gap-2">
-                                  <Link
-                                    href={program.landingUrl}
-                                    className="text-sm"
-                                    target="_blank"
+                                  <button
+                                    type="button"
+                                    className="text-left text-sm hover:underline"
+                                    onClick={() =>
+                                      openProgramDrawer(
+                                        toProgramDrawerTarget(program)
+                                      )
+                                    }
                                   >
                                     {trimTitle(program.title, 25)}
-                                  </Link>
-                                  <MoveUpRight className="size-4" />
+                                  </button>
                                 </h5>
 
                                 <span
@@ -1034,6 +1207,14 @@ export function TvInteractiveShell({
         isTVDrawerOpen={isTVDrawerOpen}
         setIsTvDrawerOpen={setIsTvDrawerOpen}
         tippingCharacters={tipPriceCatalog as RoomCharacter[]}
+      />
+
+      <TvProgramDrawer
+        open={isProgramDrawerOpen}
+        onOpenChange={open => {
+          if (!open) setProgramDrawerTarget(null);
+        }}
+        target={programDrawerTarget}
       />
 
       {isMobile && showPhoneLandscapeImmersive ? null : (

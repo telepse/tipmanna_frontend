@@ -335,7 +335,7 @@ describe("TV playback contract — leave/return player lifecycle", () => {
   it("enterLocalMode clears pending live sync", () => {
     expect(tvProviderSource).toContain("shouldClearPendingLiveSyncOnLocal");
     const enterLocal = tvProviderSource.match(
-      /const enterLocalMode = useCallback\(\(reason: string, index\?: number\) => \{[\s\S]*?\}, \[\]\);/
+      /const enterLocalMode = useCallback\([\s\S]*?\n  \);/
     )?.[0];
     expect(enterLocal).toBeTruthy();
     expect(enterLocal!).toContain("pendingLiveSyncRef.current = false");
@@ -438,19 +438,26 @@ describe("TV playback contract — leave/return player lifecycle", () => {
     expect(redirect!).toContain("applyPaymentActiveFromHolds");
   });
 
-  it("resumeAfterPayment restores GLOBAL via originMode + resolvePaymentRestoreMode", () => {
+  it("resumeAfterPayment restores PPLA for GLOBAL-origin success (not enterGlobalMode as Case D)", () => {
     expect(tvProviderSource).toContain("resolvePaymentRestoreMode");
+    expect(tvProviderSource).toContain("shouldArmPostPaymentAxis");
+    expect(tvProviderSource).toContain("armPostPaymentLiveAxis");
     expect(tvProviderSource).toContain("tipPaymentSucceededRef");
     expect(tvProviderSource).toContain("markTvTipPaymentSucceeded");
-    const resume = tvProviderSource.match(
-      /const resumeAfterPayment = useCallback\(\(\) => \{[\s\S]*?\}, \[/
+    expect(tvProviderSource).toContain("applyPaymentSnapshotRestore");
+    expect(tvProviderSource).toContain("ppla_armed");
+    expect(tvProviderSource).toContain("ppla_restore");
+    expect(tvProviderSource).toContain(
+      "resolvePaymentSnapshotOriginModeForRedirect"
+    );
+    const applyRestore = tvProviderSource.match(
+      /const applyPaymentSnapshotRestore = useCallback\([\s\S]*?\n  \);/
     )?.[0];
-    expect(resume).toBeTruthy();
-    expect(resume!).toContain("resolvePaymentRestoreMode");
-    expect(resume!).toContain("enterGlobalMode");
-    expect(resume!).toContain("applyPendingPaymentLocalRestore");
-    expect(resume!).not.toMatch(
-      /if \(originMode === "GLOBAL"\) \{\s*postPaymentAxisRef\.current = true;/
+    expect(applyRestore).toBeTruthy();
+    expect(applyRestore!).toContain("armPostPaymentLiveAxis");
+    expect(applyRestore!).toContain("applyPendingPaymentLocalRestore");
+    expect(applyRestore!).toContain(
+      "armPostPaymentLiveAxis(originMode, opts.paymentSucceeded)"
     );
   });
 

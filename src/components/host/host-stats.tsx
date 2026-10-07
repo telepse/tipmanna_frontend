@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 
@@ -20,20 +20,16 @@ import {
   Users,
   Video,
   Wallet,
-  Check,
   KeyRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
 import type { HostPayoutSummaryBlock } from "@/actions/host-payouts";
-
 import type { HostStatsSummary } from "@/hooks/useHostStats";
 
 import { EventStatCard } from "./event-stat-card";
-
 import { RecentEventCard } from "./recent-event-card";
-
 import { AchievementCard } from "./achievement-card";
 
 import { useHostSession } from "@/hooks/use-host-session";
@@ -174,16 +170,6 @@ export const HostStats = ({ events, stats }: Props) => {
   const [submissionFilter, setSubmissionFilter] =
     useState<SubmissionFilter>("all");
 
-  /*
-   * Keep the stats visible as long as an authenticated user exists.
-   *
-   * The previous strict:
-   *
-   *   user.role !== "HOST"
-   *
-   * could cause the entire component to return null if the runtime
-   * role value differs in casing or representation.
-   */
   const creatorForm = useForm<CreatorFormData>({
     resolver: zodResolver(creatorSchema),
     defaultValues: {
@@ -206,6 +192,7 @@ export const HostStats = ({ events, stats }: Props) => {
   const [modalAvatarUrl, setModalAvatarUrl] = useState<string | null>(null);
 
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const userPickedLocalAvatarRef = useRef(false);
 
   const [canChangeUsername, setCanChangeUsername] = useState(true);
 
@@ -323,9 +310,7 @@ export const HostStats = ({ events, stats }: Props) => {
       applyProfileImage(updated.profileImageUrl);
 
       setCanChangeUsername(updated.canChangeUsername);
-
       setNextUsernameChangeAt(updated.nextUsernameChangeAt);
-
       setUsernameChangeOverride(updated.usernameChangeOverride);
 
       if (updated.username !== previousUsername) {
@@ -369,8 +354,13 @@ export const HostStats = ({ events, stats }: Props) => {
         externalLinkLabel: profile.externalLink?.label ?? "",
       });
 
-      if (profile.profileImageUrl) {
-        applyProfileImage(profile.profileImageUrl);
+      /*
+       * IMPORTANT:
+       * Load the saved creator avatar into all avatar states so the
+       * Creator Profile tab immediately displays the existing image.
+       */
+      if (!userPickedLocalAvatarRef.current) {
+        applyProfileImage(profile.profileImageUrl ?? null);
       }
 
       setCanChangeUsername(profile.canChangeUsername);
@@ -382,6 +372,37 @@ export const HostStats = ({ events, stats }: Props) => {
       setLoadingProfile(false);
     }
   }, [applyProfileImage, creatorForm]);
+
+  /*
+   * FIX:
+   * The creator profile loader was defined but never invoked.
+   *
+   * Load the saved creator profile whenever the Creator Profile tab
+   * becomes active. This populates:
+   * - profile avatar
+   * - username
+   * - page description
+   * - external link
+   * - username-change state
+   */
+  useEffect(() => {
+    if (tabType !== "creator_profile") {
+      return;
+    }
+
+    void loadCreatorProfile();
+  }, [tabType, loadCreatorProfile]);
+
+  useEffect(() => {
+    userPickedLocalAvatarRef.current = Boolean(
+      readableImage?.startsWith("data:")
+    );
+  }, [readableImage]);
+
+  const handlePhotoChangeClick = () => {
+    if (loadingProfile || saving) return;
+    handleChangeImage();
+  };
 
   const totalEventsCreated = stats?.totalEventsCreated ?? 0;
 
@@ -778,11 +799,13 @@ export const HostStats = ({ events, stats }: Props) => {
                 ) : null}
 
                 <div className="flex flex-col gap-4">
+                  {/* Creator avatar */}
                   <div className="flex items-center gap-4">
                     <button
                       type="button"
-                      onClick={handleChangeImage}
-                      className="relative size-20 shrink-0 overflow-hidden rounded-full border bg-neutral-100"
+                      onClick={handlePhotoChangeClick}
+                      disabled={loadingProfile || saving}
+                      className="relative size-20 shrink-0 overflow-hidden rounded-full border bg-neutral-100 disabled:pointer-events-none disabled:opacity-50"
                     >
                       {dialogAvatarSrc ? (
                         <img
@@ -810,7 +833,8 @@ export const HostStats = ({ events, stats }: Props) => {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handleChangeImage}
+                        onClick={handlePhotoChangeClick}
+                        disabled={loadingProfile || saving}
                       >
                         Upload photo
                       </Button>
@@ -821,10 +845,13 @@ export const HostStats = ({ events, stats }: Props) => {
                           variant="ghost"
                           size="sm"
                           className="text-destructive"
+                          disabled={loadingProfile || saving}
                           onClick={() => {
                             handleRemoveImage();
+
                             setModalAvatarUrl(null);
                             setPendingProfileImageUrl(null);
+
                             creatorForm.setValue("profileImageUrl", null);
                           }}
                         >

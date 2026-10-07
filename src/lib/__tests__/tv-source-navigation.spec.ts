@@ -36,6 +36,14 @@ describe("tv-source-navigation", () => {
     expect(window.location.assign).toHaveBeenCalledWith("/tv");
   });
 
+  it("navigateToTvSource does not persist community id before entitlement gate", () => {
+    navigateToTvSource("comm-xyz");
+    expect(window.localStorage.setItem).not.toHaveBeenCalled();
+    expect(window.location.assign).toHaveBeenCalledWith(
+      "/tv?community=comm-xyz"
+    );
+  });
+
   it("navigateToTvSource reloads when already on target", () => {
     window.location.pathname = "/tv";
     window.location.search = "";

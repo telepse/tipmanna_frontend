@@ -14,6 +14,7 @@ import { PublicTipperProfileDrawer } from "@/components/community/public-tipper-
 
 type Props = {
   communityId: string;
+  communityType?: string;
   /** Refetch after join (optional). */
   refreshNonce?: number;
   className?: string;
@@ -21,6 +22,7 @@ type Props = {
 
 export function CommunityPublicMembersRoster({
   communityId,
+  communityType,
   refreshNonce = 0,
   className,
 }: Props) {
@@ -112,7 +114,14 @@ export function CommunityPublicMembersRoster({
 
   return (
     <div className={className}>
-      <h3 className="text-foreground mb-3 text-sm font-semibold">Members</h3>
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className="text-foreground text-sm font-semibold">Members</h3>
+
+        <p className="text-muted-foreground text-[10px]">
+          {communityType ? `${communityType} - community` : ""}
+        </p>
+      </div>
+
       <ul className="divide-border divide-y rounded-md border">
         {members.map(m => (
           <li key={m.membershipId}>

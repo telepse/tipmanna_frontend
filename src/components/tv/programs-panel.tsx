@@ -1,27 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-
-// Third-party imports
-import { MoveUpRight } from "lucide-react";
-
-// Local imports
-import { getDiscoveryProgramsAction } from "@/actions/contents";
-import { Program } from "@/types/program.types";
 import {
   formatProgramScheduleDisplay,
   getStatusColor,
   trimTitle,
 } from "@/lib/utils";
+import type { TvProgramDrawerTarget } from "@/lib/tv-program-drawer-target";
+import { toProgramDrawerTarget } from "@/lib/tv-program-drawer-target";
+import type { DiscoveryProgram } from "@/types/program.types";
 
 export const PROGRAM_DISPLAY_TIMEZONE = "UK";
 
 type ProgramsPanelProps = {
-  programs: Program[];
+  programs: DiscoveryProgram[];
+  onSelectProgram: (target: TvProgramDrawerTarget) => void;
 };
 
-export const ProgramsPanel = ({ programs }: ProgramsPanelProps) => {
+export const ProgramsPanel = ({
+  programs,
+  onSelectProgram,
+}: ProgramsPanelProps) => {
   if (!programs.length) {
     return (
       <div className="space-y-4">
@@ -46,14 +44,15 @@ export const ProgramsPanel = ({ programs }: ProgramsPanelProps) => {
           <div>
             <div className="flex items-center justify-between gap-2">
               <h5 className="flex gap-2">
-                <Link
-                  href={program.landingUrl}
-                  className="text-sm"
-                  target="_blank"
+                <button
+                  type="button"
+                  className="text-left text-sm hover:underline"
+                  onClick={() =>
+                    onSelectProgram(toProgramDrawerTarget(program))
+                  }
                 >
                   {trimTitle(program.title, 25)}
-                </Link>
-                <MoveUpRight className="size-4" />
+                </button>
               </h5>
 
               <span className={getStatusColor(program.programStatus)}>

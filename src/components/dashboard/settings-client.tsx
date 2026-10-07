@@ -11,101 +11,7 @@ import { HostProfileAddressFields } from "@/components/dashboard/host-profile-ad
 import { isUkCountry } from "@/lib/is-uk-country";
 import { useHostPayoutSummary } from "@/hooks/useHostPayoutSummary";
 import { formatGbpMinor } from "@/lib/host-plan-capabilities";
-
-/**
- * Returns true when a profile field has a meaningful value.
- */
-function hasProfileValue(value: unknown): boolean {
-  if (typeof value === "number") {
-    return Number.isFinite(value);
-  }
-
-  if (typeof value === "boolean") {
-    return true;
-  }
-
-  if (value instanceof Date) {
-    return !Number.isNaN(value.getTime());
-  }
-
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function getProfileCompleteness(
-  accountType: "INDIVIDUAL" | "ORGANIZATION" | null,
-  profile: Record<string, unknown> | null | undefined
-): number | null {
-  if (!accountType || !profile) {
-    return null;
-  }
-
-  const country = String(profile.country ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-
-  const isUk =
-    country === "united kingdom" ||
-    country === "uk" ||
-    country === "gb" ||
-    country === "great britain";
-
-  const requiredFields: unknown[] =
-    accountType === "INDIVIDUAL"
-      ? [
-          profile.firstName,
-          profile.lastName,
-          profile.homeAddress,
-          profile.city,
-          profile.state,
-          profile.postalCode,
-          profile.country,
-
-          // UK hosts provide NI number.
-          // Non-UK hosts provide passport number
-          // and additional tax identification.
-          isUk ? profile.niNumber : profile.passportNumber,
-
-          ...(isUk ? [] : [profile.additionalTaxIdentification]),
-
-          profile.dateOfBirth,
-          profile.gender,
-          profile.accountNumber,
-          profile.sortCode,
-        ]
-      : [
-          profile.registeredCompanyName,
-          profile.companyRegistrationNumber,
-          profile.registeredAddress,
-          profile.city,
-          profile.state,
-          profile.postalCode,
-          profile.country,
-          profile.dateOfBirth,
-          profile.uniqueTaxpayerReference,
-          profile.accountNumber,
-          profile.sortCode,
-        ];
-
-  const completedFields = requiredFields.filter(hasProfileValue).length;
-
-  const completionRatio =
-    requiredFields.length > 0 ? completedFields / requiredFields.length : 0;
-
-  if (completionRatio >= 1) {
-    return 100;
-  }
-
-  if (completionRatio >= 0.9) {
-    return 90;
-  }
-
-  if (completionRatio >= 0.7) {
-    return 70;
-  }
-
-  return 50;
-}
+import { getProfileCompleteness } from "@/lib/host-profile-completeness";
 
 // Third-party imports
 import {
@@ -367,7 +273,9 @@ export const SettingsClient = () => {
     host,
     communities,
     creatorPayoutVerifiedAt,
-    isLoading: payoutsLoading,
+    isPending: payoutsPending,
+    payoutUiState: payoutsUiState,
+    refresh: refreshPayoutSummary,
   } = useHostPayoutSummary();
 
   const isCreatorProfileVerified = Boolean(creatorPayoutVerifiedAt);
@@ -396,6 +304,7 @@ export const SettingsClient = () => {
   const user = useSelector((state: RootState) => state.auth.user);
   const token = useSelector((state: RootState) => state.auth.token);
   const userId = user ? user.id : "";
+  const full_name = user?.fullName ?? "";
 
   const { eventSlug, isActive: hostSessionActive } = useHostSession();
 
@@ -494,6 +403,7 @@ export const SettingsClient = () => {
       accountName: "",
       accountNumber: "",
       sortCode: "",
+      bankName: "",
     },
   });
 
@@ -512,9 +422,11 @@ export const SettingsClient = () => {
       additionalTaxIdentification: "",
       vatRegistrationNumber: "",
       invoice: "",
+      gender: "",
       accountName: "",
       accountNumber: "",
       sortCode: "",
+      bankName: "",
     },
   });
 
@@ -687,11 +599,13 @@ export const SettingsClient = () => {
   const individualAccountName = individualProfileForm.watch("accountName");
   const individualAccountNumber = individualProfileForm.watch("accountNumber");
   const individualSortCode = individualProfileForm.watch("sortCode");
+  const individualBankName = individualProfileForm.watch("bankName");
 
   const organisationAccountName = organisationProfileForm.watch("accountName");
   const organisationAccountNumber =
     organisationProfileForm.watch("accountNumber");
   const organisationSortCode = organisationProfileForm.watch("sortCode");
+  const organisationBankName = organisationProfileForm.watch("bankName");
 
   const payoutAccountName =
     profileAccountType === "ORGANIZATION"
@@ -715,6 +629,11 @@ export const SettingsClient = () => {
     profileAccountType === "ORGANIZATION"
       ? organisationAccountNumber
       : individualAccountNumber;
+
+  const payoutBankName =
+    profileAccountType === "ORGANIZATION"
+      ? organisationBankName
+      : individualBankName;
 
   useEffect(() => {
     const accountName = [individualFirstName, individualLastName]
@@ -1660,6 +1579,27 @@ export const SettingsClient = () => {
                               </FormItem>
                             )}
                           />
+
+                          <FormField
+                            control={individualProfileForm.control}
+                            name="bankName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bank name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter bank name"
+                                    autoComplete="off"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
 
                         <Button
@@ -2055,6 +1995,41 @@ export const SettingsClient = () => {
                           )}
                         />
 
+                        <FormField
+                          control={organisationProfileForm.control}
+                          name="gender"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Gender</FormLabel>
+
+                              <FormControl>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  defaultValue={field.value}
+                                >
+                                  <SelectTrigger className="h-12 !w-full">
+                                    <SelectValue placeholder="Select gender" />
+                                  </SelectTrigger>
+
+                                  <SelectContent>
+                                    <SelectItem value="MALE">Male</SelectItem>
+
+                                    <SelectItem value="FEMALE">
+                                      Female
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormControl>
+
+                              <span className="text-muted-foreground text-sm">
+                                Required data for payroll processing.
+                              </span>
+
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
                         <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">
                           <FormField
                             control={organisationProfileForm.control}
@@ -2122,7 +2097,81 @@ export const SettingsClient = () => {
                               </FormItem>
                             )}
                           />
+
+                          <FormField
+                            control={organisationProfileForm.control}
+                            name="bankName"
+                            render={({ field }) => (
+                              <FormItem className="min-w-0">
+                                <FormLabel>Bank name</FormLabel>
+
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="Enter bank name"
+                                    autoComplete="off"
+                                    className="w-full min-w-0"
+                                    {...field}
+                                  />
+                                </FormControl>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
+
+                        {payoutAccountNumber ? (
+                          <div className="bg-muted/30 rounded-lg border p-3">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                              {/* Account number */}
+                              <div>
+                                <p className="text-muted-foreground text-xs">
+                                  Account number
+                                </p>
+
+                                <p className="mt-1 text-sm font-medium">
+                                  {payoutAccountNumber}
+                                </p>
+                              </div>
+
+                              {/* Creator profile name */}
+                              <div>
+                                <p className="text-muted-foreground text-xs">
+                                  Profile name
+                                </p>
+
+                                <p className="mt-1 text-sm font-medium">
+                                  {full_name}
+                                </p>
+                              </div>
+
+                              {/* Gender */}
+                              <div>
+                                <p className="text-muted-foreground text-xs">
+                                  Gender
+                                </p>
+
+                                <p className="mt-1 text-sm font-medium">
+                                  {(profileAccountType === "ORGANIZATION"
+                                    ? organisationProfileForm.watch("gender")
+                                    : individualProfileForm.watch("gender")) ===
+                                  "MALE"
+                                    ? "Male"
+                                    : (profileAccountType === "ORGANIZATION"
+                                          ? organisationProfileForm.watch(
+                                              "gender"
+                                            )
+                                          : individualProfileForm.watch(
+                                              "gender"
+                                            )) === "FEMALE"
+                                      ? "Female"
+                                      : "—"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
 
                         <Button
                           type="submit"
@@ -2158,7 +2207,25 @@ export const SettingsClient = () => {
               value="payment_payouts"
               className="mt-0 w-full"
             >
-              {!isCreatorProfileVerified ? (
+              {payoutsPending ? (
+                <p className="text-muted-foreground text-sm">
+                  Loading payout details…
+                </p>
+              ) : payoutsUiState === "error" ? (
+                <div className="space-y-3">
+                  <p className="text-muted-foreground text-sm">
+                    Could not load payout details. Try again.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void refreshPayoutSummary()}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : !isCreatorProfileVerified ? (
                 <section className="border-primary/15 from-primary/[0.08] to-primary/[0.03] relative overflow-hidden rounded-2xl border bg-gradient-to-br via-white p-6 shadow-sm sm:p-8">
                   {/* Decorative background glow */}
                   <div className="bg-primary/10 pointer-events-none absolute -top-16 -right-16 size-40 rounded-full blur-3xl" />
@@ -2232,15 +2299,11 @@ export const SettingsClient = () => {
 
                         <Input
                           id="payout-bank-name"
-                          value=""
+                          value={payoutBankName ?? ""}
                           placeholder="Bank name not provided"
                           readOnly
                           disabled
                         />
-
-                        <p className="text-muted-foreground text-xs">
-                          Bank name is not currently stored in your profile.
-                        </p>
                       </div>
 
                       <div className="space-y-2">
@@ -2256,6 +2319,7 @@ export const SettingsClient = () => {
                           value={payoutAccountName ?? ""}
                           placeholder="Account name"
                           readOnly
+                          disabled
                         />
                       </div>
 
@@ -2272,39 +2336,62 @@ export const SettingsClient = () => {
                           value={payoutRoutingNumber ?? ""}
                           placeholder="Routing number"
                           readOnly
+                          disabled
                         />
 
                         <p className="text-muted-foreground text-xs">
                           This uses the sort code saved in your profile.
                         </p>
                       </div>
-
-                      <div className="space-y-2">
-                        <label
-                          htmlFor="payout-account-holder-name"
-                          className="text-sm leading-none font-medium"
-                        >
-                          Account holder name
-                        </label>
-
-                        <Input
-                          id="payout-account-holder-name"
-                          value={payoutAccountHolderName ?? ""}
-                          placeholder="Account holder name"
-                          readOnly
-                        />
-                      </div>
                     </div>
 
                     {payoutAccountNumber ? (
                       <div className="bg-muted/30 rounded-lg border p-3">
-                        <p className="text-muted-foreground text-xs">
-                          Account number
-                        </p>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                          {/* Account number */}
+                          <div>
+                            <p className="text-muted-foreground text-xs">
+                              Account number
+                            </p>
 
-                        <p className="mt-1 text-sm font-medium">
-                          {payoutAccountNumber}
-                        </p>
+                            <p className="mt-1 text-sm font-medium">
+                              {payoutAccountNumber}
+                            </p>
+                          </div>
+
+                          {/* Creator profile name */}
+                          <div>
+                            <p className="text-muted-foreground text-xs">
+                              Profile name
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium">
+                              {full_name}
+                            </p>
+                          </div>
+
+                          {/* Gender */}
+                          <div>
+                            <p className="text-muted-foreground text-xs">
+                              Gender
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium">
+                              {(profileAccountType === "ORGANIZATION"
+                                ? organisationProfileForm.watch("gender")
+                                : individualProfileForm.watch("gender")) ===
+                              "MALE"
+                                ? "Male"
+                                : (profileAccountType === "ORGANIZATION"
+                                      ? organisationProfileForm.watch("gender")
+                                      : individualProfileForm.watch(
+                                          "gender"
+                                        )) === "FEMALE"
+                                  ? "Female"
+                                  : "—"}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ) : null}
                   </section>
@@ -2354,7 +2441,7 @@ export const SettingsClient = () => {
                       </p>
                     </div>
 
-                    {payoutsLoading ? (
+                    {payoutsPending ? (
                       <p className="text-muted-foreground text-sm">
                         Loading settlement history…
                       </p>

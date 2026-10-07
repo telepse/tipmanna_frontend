@@ -45,6 +45,8 @@ export interface AuthState {
   isAuthenticated: boolean;
   requiresVerification: boolean;
   tag: string | null;
+  /** Set once redux-persist initial rehydration callback completes (see store.ts). */
+  persistAuthHydrationComplete: boolean;
 }
 
 const initialState: AuthState = {
@@ -53,6 +55,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   requiresVerification: false,
   tag: null,
+  persistAuthHydrationComplete: false,
 };
 
 export const authSlice = createSlice({
@@ -94,6 +97,9 @@ export const authSlice = createSlice({
       state.isAuthenticated = false;
       state.token = null;
     },
+    markPersistAuthHydrationComplete: state => {
+      state.persistAuthHydrationComplete = true;
+    },
   },
 });
 
@@ -102,5 +108,6 @@ export const {
   clearCredentials,
   updateTipper,
   markRequiresVerification,
+  markPersistAuthHydrationComplete,
 } = authSlice.actions;
 export default authSlice.reducer;

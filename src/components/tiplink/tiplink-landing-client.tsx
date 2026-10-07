@@ -33,6 +33,10 @@ import {
   UserRound,
   X,
   Dot,
+  Play,
+  Pause,
+  VolumeX,
+  Volume2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -1081,37 +1085,6 @@ export function TipLinkLandingClient({
     >
       <div
         className={cn(
-          "flex items-center justify-between text-sm",
-          (variant === "immersive" || variant === "landscape") && "text-white"
-        )}
-      >
-        <button
-          type="button"
-          className="rounded-md bg-white/10 px-3 py-1"
-          onClick={togglePlayPause}
-        >
-          {isPlaying ? "Pause" : "Play"}
-        </button>
-        <button
-          type="button"
-          className="rounded-md bg-white/10 px-3 py-1"
-          onClick={toggleMute}
-        >
-          {isMuted ? "Unmute" : "Mute"}
-        </button>
-        {!isImmersiveRoom && variant === "inline" ? (
-          <button
-            type="button"
-            className="rounded-md border border-white/20 bg-white/10 p-1"
-            onClick={enterImmersive}
-            aria-label="Enlarge video"
-          >
-            <Maximize2 className="size-4" />
-          </button>
-        ) : null}
-      </div>
-      <div
-        className={cn(
           "flex items-center gap-2",
           variant === "landscape" && "flex-row"
         )}
@@ -1168,6 +1141,50 @@ export function TipLinkLandingClient({
       >
         <span>{formatTime(currentTime)}</span>
         <span>{formatTime(duration)}</span>
+      </div>
+
+      <div
+        className={cn(
+          "flex items-center justify-between text-sm",
+          (variant === "immersive" || variant === "landscape") && "text-white"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-md bg-white px-3 py-1"
+            onClick={togglePlayPause}
+          >
+            {isPlaying ? (
+              <Pause className="size-4 text-black" />
+            ) : (
+              <Play className="size-4 text-black" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="rounded-md bg-white px-3 py-1"
+            onClick={toggleMute}
+          >
+            {isMuted ? (
+              <VolumeX
+                className={`size-4 ${isMuted ? "text-destructive" : "text-black"}`}
+              />
+            ) : (
+              <Volume2 className="size-4 text-black" />
+            )}
+          </button>
+        </div>
+        {!isImmersiveRoom && variant === "inline" ? (
+          <button
+            type="button"
+            className="rounded-md border border-white/20 bg-white/10 p-1"
+            onClick={enterImmersive}
+            aria-label="Enlarge video"
+          >
+            <Maximize2 className="size-4" />
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -1662,7 +1679,7 @@ export function TipLinkLandingClient({
                 tipQuoteContext={tipPres.quoteCtx}
                 eliteCharacterIds={tipPres.eliteCharacterIds}
                 buttonColor="white"
-                shadowStyle="shadow-[0px_0px_2px_2px_#000]"
+                shadowStyle="primary/20"
                 tipLink={true}
                 previewMode={preview}
                 preserveStripOrder

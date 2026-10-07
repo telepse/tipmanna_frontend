@@ -1,14 +1,7 @@
 const RECENT_KEY = "discovery-recent-searches";
 const MAX_RECENT = 8;
 
-export const DISCOVERY_TRENDING_SEARCHES = [
-  "Live",
-  "Comedy",
-  "Music",
-  "Sports",
-  "Community",
-  "TV program",
-] as const;
+export const DISCOVERY_TRENDING_SEARCHES = ["Live", "Comedy", "Music"] as const;
 
 export function readRecentDiscoverySearches(): string[] {
   if (typeof window === "undefined") return [];

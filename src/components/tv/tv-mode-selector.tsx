@@ -14,32 +14,40 @@ type Props = {
 };
 
 /**
- * Live TV / Your TV selector — always driven by TVProvider React `mode` (useTV).
- * No local mode state; underline reflects context mode only.
+ * Live TV / Your TV selector — driven by TVProvider `mode` and PPLA flag.
  */
 export function TvModeSelector({ variant, className }: Props) {
-  const { mode, goLive, switchToLocal } = useTV();
+  const { mode, isPostPaymentLiveAxis, goLive, switchToLocal } = useTV();
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
+
+  const liveActive = mode === "GLOBAL" || isPostPaymentLiveAxis;
+  const localActive = mode === "LOCAL" || isPostPaymentLiveAxis;
 
   useEffect(() => {
     if (!isTvDebugEnabled()) return;
     tvTrace("navigation", "mode_indicator_sync", {
       contextMode: mode,
+      isPostPaymentLiveAxis,
       displayedMode: mode,
       selectorValue: mode,
+      liveActive,
+      localActive,
       selectorControlled: true,
       localSelectorState: null,
       variant,
       renderCount: renderCountRef.current,
       divergedFromContext: false,
     });
-  }, [mode, variant]);
+  }, [mode, isPostPaymentLiveAxis, liveActive, localActive, variant]);
 
   if (isTvDebugEnabled()) {
     tvTrace("navigation", "mode_indicator_render", {
       contextMode: mode,
+      isPostPaymentLiveAxis,
       selectorValue: mode,
+      liveActive,
+      localActive,
       variant,
       renderCount: renderCountRef.current,
     });
@@ -49,7 +57,7 @@ export function TvModeSelector({ variant, className }: Props) {
   const liveClass = cn(
     variant === "mobileInline" && "shrink-0",
     "text-xs whitespace-nowrap",
-    mode === "GLOBAL"
+    liveActive
       ? "text-destructive underline"
       : isLandscapeBar
         ? "text-white/80"
@@ -58,7 +66,7 @@ export function TvModeSelector({ variant, className }: Props) {
   const localClass = cn(
     variant === "mobileInline" && "shrink-0",
     "text-xs whitespace-nowrap",
-    mode === "LOCAL"
+    localActive
       ? "text-success underline"
       : isLandscapeBar
         ? "text-white/80"
@@ -75,6 +83,7 @@ export function TvModeSelector({ variant, className }: Props) {
       tvTrace("navigation", "mode_selector_click", {
         target: "Live TV",
         contextModeBeforeClick: mode,
+        isPostPaymentLiveAxis,
         variant,
       });
     }
@@ -86,6 +95,7 @@ export function TvModeSelector({ variant, className }: Props) {
       tvTrace("navigation", "mode_selector_click", {
         target: "Your TV",
         contextModeBeforeClick: mode,
+        isPostPaymentLiveAxis,
         variant,
       });
     }

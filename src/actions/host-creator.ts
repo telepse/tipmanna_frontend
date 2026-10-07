@@ -64,6 +64,7 @@ export type HostCreatorEvent = {
 export type HostCreatorCommunity = {
   id: string;
   name: string;
+  communityType: string | null;
   description: string | null;
   logoUrl: string | null;
   eventRoomBanner: string | null;
