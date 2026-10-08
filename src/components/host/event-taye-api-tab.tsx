@@ -50,6 +50,7 @@ type PrerequisiteKey =
 type DashboardEventRow = {
   eventId?: string;
   id?: string;
+  partnerId?: string;
   direction?: string;
   partnerReturnedEventId?: string | null;
   outboundLastFailureAt?: string | null;
@@ -140,6 +141,9 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
         }
         if (row.partnerReturnedEventId?.trim()) {
           setPublishedPartnerEventId(row.partnerReturnedEventId.trim());
+        }
+        if (row.partnerId) {
+          setSelectedOutboundPartnerId(row.partnerId);
         }
       } else {
         setEventMeta(null);
@@ -273,7 +277,10 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
   };
 
   const publishOutbound = async () => {
-    const partnerId = selectedOutboundPartnerId.trim();
+    const partnerId =
+      eventMeta?.outboundLastFailureReason && eventMeta.partnerId
+        ? eventMeta.partnerId
+        : selectedOutboundPartnerId.trim();
     if (!partnerId) {
       toast.error("Select a partner to publish to");
       return;
@@ -472,7 +479,7 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
                 "—"}
             </code>
           </p>
-        ) : (
+        ) : outboundFailed ? null : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="min-w-[200px] flex-1 space-y-1">
               <Label htmlFor="taye-outbound-partner">Partner</Label>
@@ -508,6 +515,13 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
         {outboundFailed ? (
           <div className="border-destructive/40 bg-destructive/5 rounded-md border p-3 text-sm">
             <p className="font-medium">Last publish attempt failed</p>
+            {eventMeta?.partnerId ? (
+              <p className="text-muted-foreground mt-1 text-xs">
+                Partner locked to claim{" "}
+                {outboundPartners.find(p => p.id === eventMeta.partnerId)
+                  ?.hostDisplayName ?? eventMeta.partnerId}
+              </p>
+            ) : null}
             <p className="text-muted-foreground mt-1">
               {eventMeta?.outboundLastFailureReason}
             </p>
