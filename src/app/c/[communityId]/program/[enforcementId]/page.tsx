@@ -7,6 +7,7 @@ import { fetchCommunityProgramBootstrap } from "@/lib/program-api";
 import { getPrimaryOrigin, getPublicAbsoluteUrl } from "@/lib/site-config";
 import { formatProgramScheduleDisplay } from "@/lib/utils";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { resolveProgramOgImageUrl } from "@/lib/program-og-image";
 
 type Props = {
@@ -72,7 +73,9 @@ export default async function CommunityProgramPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(broadcastJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(broadcastJsonLd),
+        }}
       />
       <ProgramLanding
         program={program}

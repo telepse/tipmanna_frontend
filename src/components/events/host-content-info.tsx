@@ -228,8 +228,9 @@ export const HostContentInfo = ({ control, hasActivePremium }: Props) => {
                 description: "",
                 reminders: [],
                 isDefault: false,
-                contentLanguage: "en-GB",
-                contentCountry: "all",
+                contentLanguage: "",
+                contentCountry: "",
+                eventVideoType: undefined,
               })
             }
             className="bg-white text-black hover:bg-white/80"

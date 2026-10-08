@@ -130,7 +130,7 @@ export function TipperEmailOtpSignInDialog({
     try {
       setIsLoading(true);
 
-      const visitorId = getVisitorIdForAuthMerge(store.getState().auth.user);
+      const visitorId = getVisitorIdForAuthMerge(store.getState().auth?.user);
       const trimmedEmail = values.email.trim();
 
       const res = await loginOrRegisterTipperAction({
@@ -178,7 +178,12 @@ export function TipperEmailOtpSignInDialog({
         pendingVerifyEmail.trim() || email.trim() || initialEmail?.trim() || "";
       if (!verifyEmail) return;
 
-      const verifyRes = await verifyCodeAction(verifyEmail, code);
+      const verifyRes = await verifyCodeAction(
+        verifyEmail,
+        code,
+        "TIPPER",
+        getVisitorIdForAuthMerge(store.getState().auth?.user)
+      );
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
         return;

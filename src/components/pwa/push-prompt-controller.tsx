@@ -12,10 +12,8 @@ import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { ensurePushForSignedInTipper } from "@/lib/program-push-setup";
 import { usePathname } from "next/navigation";
 
-import {
-  fetchPushPromptPolicy,
-  isScreenOverlayPath,
-} from "@/lib/pwa-install-trigger";
+import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 import type { RootState } from "@/redux/store";
 
 const DISMISS_SESSION_KEY = "tipmanna_push_prompt_dismissed_session";
@@ -45,7 +43,7 @@ export function PushPromptController() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (isScreenOverlayPath(pathname)) {
+    if (isVenueChromeSuppressedPath(pathname)) {
       setVisible(false);
       return;
     }

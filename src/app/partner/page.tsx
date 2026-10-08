@@ -34,6 +34,7 @@ import {
   buildOrganizationJsonLd,
   buildPartnerOffersJsonLd,
 } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { PARTNER_FAQS } from "@/constants";
 import { getPlanPricingAction } from "@/actions/plan-pricing";
 import { buildMarketingPricingCards } from "@/lib/public-plan-pricing";
@@ -109,16 +110,16 @@ export default async function PartnerPage() {
     <main id="main-content">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(orgJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(offersJsonLd),
+          __html: safeJsonLdStringify(offersJsonLd),
         }}
       />
 

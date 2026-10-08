@@ -201,7 +201,49 @@ export const newEventSchema = z.object({
           .optional(),
       })
     )
-    .optional(),
+    .optional()
+    .superRefine((videos, ctx) => {
+      if (!videos) return;
+
+      videos.forEach((video, index) => {
+        const hasUrl = Boolean(video.url?.trim());
+
+        // Completely empty video rows are ignored.
+        if (!hasUrl) return;
+
+        if (!video.title?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, "title"],
+            message: "Video title is required",
+          });
+        }
+
+        if (!video.contentCountry?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, "contentCountry"],
+            message: "Please select a content country",
+          });
+        }
+
+        if (!video.contentLanguage?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, "contentLanguage"],
+            message: "Please select a content language",
+          });
+        }
+
+        if (!video.eventVideoType) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [index, "eventVideoType"],
+            message: "Please select a video type",
+          });
+        }
+      });
+    }),
 
   eventDescription: z.string().optional(),
 

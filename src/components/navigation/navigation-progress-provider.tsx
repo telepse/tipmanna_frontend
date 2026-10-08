@@ -11,7 +11,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { isScreenOverlayPath } from "@/lib/pwa-install-trigger";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 
 export type AppRouterContextValue = {
   push: (href: string) => void;
@@ -64,7 +64,8 @@ export function NavigationProgressProvider({
   );
 
   const isNavigating = isPending || clickPending;
-  const showProgressBar = isNavigating && !isScreenOverlayPath(pathname ?? "");
+  const showProgressBar =
+    isNavigating && !isVenueChromeSuppressedPath(pathname ?? "");
 
   const value: AppRouterContextValue = {
     push,

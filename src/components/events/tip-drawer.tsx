@@ -831,12 +831,7 @@ function TipDrawerContent({
     setCheckoutSheetSuppressed(true);
 
     let tipQuoteId: string | undefined;
-    if (
-      tipQuoteContext &&
-      (paymentSurface === "event_room" ||
-        paymentSurface === "community_room") &&
-      eventId
-    ) {
+    if (tipQuoteContext && eventId) {
       const body = buildTipQuoteRequestBody(
         tipQuoteContext.eventId,
         tipQuoteContext.configVersion,
@@ -879,53 +874,48 @@ function TipDrawerContent({
       error?: { message?: string; details?: Array<{ message?: string }> };
     };
     try {
-      res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-payment-intent`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(inviteToken
-              ? { "x-event-room-invite-token": inviteToken }
-              : {}),
-          },
-          body: JSON.stringify({
-            amount: Number(frozenTotal),
-            eventId,
-            userId,
-            role,
-            characters: frozenLines,
-            confirmationTokenId: confirmationToken?.id,
-            paymentSurface,
-            paymentContentId: paymentChannelId?.trim() || undefined,
-            communityId: paymentCommunityId?.trim() || undefined,
-            ...(typeof performerId === "string" && performerId.trim()
-              ? { performerId: performerId.trim() }
-              : {}),
-            ...(typeof projectId === "string" && projectId.trim()
-              ? { projectId: projectId.trim() }
-              : {}),
-            playbackOffsetSec: (() => {
-              const o = getPlaybackOffsetSec?.();
-              return typeof o === "number" && !Number.isNaN(o)
-                ? Math.max(0, Math.floor(o))
-                : undefined;
-            })(),
-            watchDurationBeforePayMs: (() => {
-              const w = getWatchDurationBeforePayMs?.();
-              return typeof w === "number" && !Number.isNaN(w) && w >= 0
-                ? Math.floor(w)
-                : undefined;
-            })(),
-            secondaryText: checkoutFrozenMetaRef.current?.secondaryText,
-            deviceCategory: getDeviceCategory(),
-            clientSessionId: getAnalyticsSessionId(),
-            ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
-            ...(tipQuoteId ? { tipQuoteId } : {}),
-            deviceKey: getDeviceKey(),
-          }),
-        }
-      );
+      res = await fetch("/api/payments/create-payment-intent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(inviteToken ? { "x-event-room-invite-token": inviteToken } : {}),
+        },
+        body: JSON.stringify({
+          amount: Number(frozenTotal),
+          eventId,
+          userId,
+          role,
+          characters: frozenLines,
+          confirmationTokenId: confirmationToken?.id,
+          paymentSurface,
+          paymentContentId: paymentChannelId?.trim() || undefined,
+          communityId: paymentCommunityId?.trim() || undefined,
+          ...(typeof performerId === "string" && performerId.trim()
+            ? { performerId: performerId.trim() }
+            : {}),
+          ...(typeof projectId === "string" && projectId.trim()
+            ? { projectId: projectId.trim() }
+            : {}),
+          playbackOffsetSec: (() => {
+            const o = getPlaybackOffsetSec?.();
+            return typeof o === "number" && !Number.isNaN(o)
+              ? Math.max(0, Math.floor(o))
+              : undefined;
+          })(),
+          watchDurationBeforePayMs: (() => {
+            const w = getWatchDurationBeforePayMs?.();
+            return typeof w === "number" && !Number.isNaN(w) && w >= 0
+              ? Math.floor(w)
+              : undefined;
+          })(),
+          secondaryText: checkoutFrozenMetaRef.current?.secondaryText,
+          deviceCategory: getDeviceCategory(),
+          clientSessionId: getAnalyticsSessionId(),
+          ...(vfEffectiveId ? { videoFeatureCardId: vfEffectiveId } : {}),
+          ...(tipQuoteId ? { tipQuoteId } : {}),
+          deviceKey: getDeviceKey(),
+        }),
+      });
       data = await res.json();
     } catch {
       setErrorMessage("Payment could not be initiated.");
@@ -1543,13 +1533,7 @@ function TipDrawerContent({
         videoFeatureCardId={vfEffectiveId}
         performerId={performerId}
         projectId={projectId}
-        ensureTipQuoteId={
-          tipQuoteContext &&
-          (paymentSurface === "event_room" ||
-            paymentSurface === "community_room")
-            ? ensureTipQuoteId
-            : undefined
-        }
+        ensureTipQuoteId={tipQuoteContext ? ensureTipQuoteId : undefined}
         onWalletDebitSuccess={() => {
           void ensureVisitorAccount(undefined).catch(() => {
             /* best-effort after successful wallet debit */

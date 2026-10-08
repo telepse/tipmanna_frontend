@@ -20,6 +20,7 @@ import {
   resolveVideoOgImageUrl,
 } from "@/lib/video-og-image";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { unwrapContentChannelList } from "@/lib/content-channel-payload";
 import { getCachedContentChannelForPage } from "@/lib/cached-content-channel";
 import { isPrimaryChannelExternalSearchBanned } from "@/lib/external-search-metadata";
@@ -181,7 +182,7 @@ export default async function ChannelPage({ params, searchParams }: Props) {
       {videoJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(videoJsonLd) }}
         />
       ) : null}
       <div className="flex h-screen flex-col items-center justify-center">

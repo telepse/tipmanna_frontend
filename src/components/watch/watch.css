@@ -1,0 +1,31 @@
+.watch-portal-root {
+  --watch-focus: #ffffff;
+  min-height: 100vh;
+  background: #000;
+  color: #fff;
+}
+
+.watch-tab:focus-visible,
+.watch-tile:focus-visible,
+.watch-transport-btn:focus-visible {
+  outline: 4px solid var(--watch-focus);
+  outline-offset: 4px;
+}
+
+.watch-tab {
+  font-size: clamp(1.25rem, 2.5vmin, 2rem);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.watch-tile {
+  font-size: clamp(1.5rem, 4vmin, 2.5rem);
+  min-height: 12vmin;
+  min-width: 28vmin;
+}
+
+.watch-transport-btn {
+  min-width: 5rem;
+  min-height: 5rem;
+  font-size: clamp(0.875rem, 1.8vmin, 1.125rem);
+}

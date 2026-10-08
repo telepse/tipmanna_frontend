@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import {
+  activateEventSessionAction,
+  createEventSessionAction,
+} from "@/actions/event-sessions";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -10,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "react-toastify";
 
 export interface Session {
   id: string;
@@ -40,37 +45,44 @@ export const SessionsModal = ({
     if (!newSessionName || !newAmount) return;
 
     try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: newSessionName,
-            amountToRaise: Number(newAmount),
-          }),
-        }
+      const res = await createEventSessionAction(
+        eventId,
+        newSessionName,
+        Number(newAmount)
       );
+      if (!res.success) {
+        toast.error(
+          res.message ??
+            res.error ??
+            "Could not create session — sign in as host"
+        );
+        return;
+      }
 
       setNewSessionName("");
       setNewAmount("");
       refetchSessions();
     } catch (err) {
       console.error(err);
+      toast.error("Could not create session");
     }
   };
 
   const handleSetActiveSession = async (sessionId: string) => {
     try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions/${sessionId}/activate`,
-        {
-          method: "PATCH",
-        }
-      );
+      const res = await activateEventSessionAction(eventId, sessionId);
+      if (!res.success) {
+        toast.error(
+          res.message ??
+            res.error ??
+            "Could not activate session — sign in as host"
+        );
+        return;
+      }
       refetchSessions();
     } catch (err) {
       console.error(err);
+      toast.error("Could not update session");
     }
   };
 
@@ -107,37 +119,32 @@ export const SessionsModal = ({
                       if (checked) handleSetActiveSession(session.id);
                     }}
                   />
-                  <span className="text-sm">
-                    {session.isActive ? "Active" : "Set Active"}
-                  </span>
+                  <span className="text-xs">Active</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Add New Session */}
-          <div className="flex gap-2">
+          {/* Create New Session */}
+          <div className="space-y-2 border-t pt-4">
             <Input
               placeholder="Session name"
               value={newSessionName}
               onChange={e => setNewSessionName(e.target.value)}
             />
             <Input
+              placeholder="Target amount (£)"
               type="number"
-              placeholder="Amount"
               value={newAmount}
               onChange={e => setNewAmount(e.target.value)}
             />
-            <Button onClick={handleCreateSession}>Add</Button>
+            <Button
+              onClick={handleCreateSession}
+              className="w-full"
+            >
+              Create Session
+            </Button>
           </div>
-
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="mt-2 w-full"
-          >
-            Close
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

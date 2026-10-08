@@ -3,12 +3,12 @@
 import { usePathname } from "next/navigation";
 import { ToastContainer } from "react-toastify";
 
-import { isScreenOverlayPath } from "@/lib/pwa-install-trigger";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 
 /** Global toasts — hidden on OBS transparent overlay routes. */
 export function AppToastContainer() {
   const pathname = usePathname();
-  if (isScreenOverlayPath(pathname ?? "")) {
+  if (isVenueChromeSuppressedPath(pathname ?? "")) {
     return null;
   }
 

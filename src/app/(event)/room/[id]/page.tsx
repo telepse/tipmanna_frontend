@@ -19,6 +19,7 @@ import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { EventRoomVideoChannel } from "@/types/event-room-channel.types";
 import { resolveRoomOgImage } from "@/lib/room-og-image";
 import { buildBroadcastEventJsonLd } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { isEventRoomAccessDenied } from "@/lib/event-room-access";
 
 interface Props {
@@ -277,7 +278,9 @@ export default async function EventRoomPage({ params }: Props) {
       {broadcastJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(broadcastJsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(broadcastJsonLd),
+          }}
         />
       ) : null}
       <ClientErrorBoundary>

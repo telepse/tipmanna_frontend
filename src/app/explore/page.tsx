@@ -8,6 +8,7 @@ import { ExploreDiscoverSeoGate } from "@/components/explore/explore-discover-se
 import { ExploreSsrBootStream } from "@/components/explore/explore-ssr-boot-stream";
 import { getCommunityAccessStateAction } from "@/actions/communities";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 function exploreSearchParamsKey(
   sp: Record<string, string | string[] | undefined>
@@ -100,11 +101,11 @@ export default async function ExplorePage({ searchParams }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(exploreJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(exploreJsonLd) }}
       />
       <Suspense fallback={null}>
         <ExploreSsrBootStream searchParamsKey={searchParamsKey} />

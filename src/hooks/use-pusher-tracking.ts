@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Pusher, { Channel } from "pusher-js";
 import { UserInfo, PusherTrackingHook } from "@/types/tracking.types";
+import { getAuthToken } from "@/lib/getAuthToken";
 
 interface UsePusherTrackingProps {
   eventId: string;
@@ -152,9 +153,11 @@ export const usePusherTracking = ({
 
   // Initialize Pusher and event tracking
   useEffect(() => {
+    const bearer = getAuthToken()?.trim();
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
       authEndpoint: `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/tracking/pusher/auth/${eventId}`,
+      auth: bearer ? { headers: { Authorization: `Bearer ${bearer}` } } : {},
     });
 
     pusherRef.current = pusher;

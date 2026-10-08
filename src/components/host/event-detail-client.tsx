@@ -53,6 +53,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventTipLinkTab } from "@/components/tiplink/event-tiplink-tab";
+import { EventTayeApiTab } from "@/components/host/event-taye-api-tab";
 import { VideoSurfaceBanMenu } from "@/components/host/video-surface-ban-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -313,7 +314,12 @@ export const EventDetailClient = ({
     submissionKind === "event_only" || submissionKind === "event_and_content";
 
   const [tabType, setTabType] = useState<
-    "event_info" | "contents" | "tiplink" | "post_to_event" | "generate_report"
+    | "event_info"
+    | "contents"
+    | "tiplink"
+    | "taye_api"
+    | "post_to_event"
+    | "generate_report"
   >("event_info");
 
   const searchParams = useSearchParams();
@@ -321,6 +327,9 @@ export const EventDetailClient = ({
     const tab = searchParams.get("tab");
     if (tab === "tiplink") {
       setTabType("tiplink");
+    }
+    if (tab === "taye_api") {
+      setTabType("taye_api");
     }
   }, [searchParams]);
 
@@ -834,6 +843,7 @@ export const EventDetailClient = ({
                 | "event_info"
                 | "contents"
                 | "tiplink"
+                | "taye_api"
                 | "post_to_event"
                 | "generate_report"
             )
@@ -861,6 +871,15 @@ export const EventDetailClient = ({
             >
               TipLink
             </TabsTrigger>
+
+            {hasEventMetadataKind ? (
+              <TabsTrigger
+                value="taye_api"
+                className="data-[state=active]:border-b-primary h-13! shrink-0 rounded-none bg-white px-4 font-semibold data-[state=active]:border-b-2"
+              >
+                TAYE API
+              </TabsTrigger>
+            ) : null}
 
             <TabsTrigger
               value="post_to_event"
@@ -1873,6 +1892,13 @@ export const EventDetailClient = ({
             <EventTipLinkTab
               eventId={eventId}
               contents={contents}
+            />
+          </TabsContent>
+
+          <TabsContent value="taye_api">
+            <EventTayeApiTab
+              eventId={eventId}
+              eventName={eventName}
             />
           </TabsContent>
 

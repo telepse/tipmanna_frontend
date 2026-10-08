@@ -144,54 +144,10 @@ export const EventScreenSettings = ({
   console.log("initialPerformers", initialPerformers);
   console.log("initialProjects", initialProjects);
 
-  const [newSessionName, setNewSessionName] = useState("");
-  const [newAmount, setNewAmount] = useState("");
   const [currentTargetAmount, setCurrentTargetAmount] =
     useState(initialAmountToRaise);
   const [targetIncrement, setTargetIncrement] = useState("");
   const [targetIncrementBusy, setTargetIncrementBusy] = useState(false);
-
-  const handleCreateSession = async () => {
-    if (!newSessionName || !newAmount) return;
-
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: newSessionName,
-            amountToRaise: Number(newAmount),
-          }),
-        }
-      );
-
-      setNewSessionName("");
-      setNewAmount("");
-
-      refetchSessions(); // 🔥 IMPORTANT
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleSetActiveSession = async (sessionId: string) => {
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions/${sessionId}/activate`,
-        {
-          method: "PATCH",
-        }
-      );
-
-      refetchSessions(); // 🔥 IMPORTANT
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   // Initialize state when modal opens
   useEffect(() => {
@@ -463,6 +419,17 @@ export const EventScreenSettings = ({
     } catch (err) {
       console.error("Failed to copy:", err);
       toast.error("Could not copy overlay link.");
+    }
+  };
+
+  const copyWatchScreenLink = async () => {
+    const url = `${window.location.origin}/watch/screen/${eventId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("TV Screen Link copied.");
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      toast.error("Could not copy TV Screen Link.");
     }
   };
 
@@ -813,6 +780,15 @@ export const EventScreenSettings = ({
             className="w-full"
           >
             Copy Overlay Link
+          </Button>
+
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={copyWatchScreenLink}
+            className="w-full"
+          >
+            Copy TV Screen Link
           </Button>
 
           <Button

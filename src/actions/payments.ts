@@ -1,6 +1,7 @@
 "use server";
 
 import { runServerFetch } from "@/lib/action-fetch";
+import { serverAuthHeaders } from "@/lib/server-auth";
 
 // -------- Create checkout session -------- //
 export async function createCheckoutSessionAction({
@@ -24,9 +25,7 @@ export async function createCheckoutSessionAction({
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-checkout-session`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await serverAuthHeaders(),
       body: JSON.stringify({ amount, eventId, userId, role, characters }),
       cache: "no-store",
     },
@@ -109,9 +108,7 @@ export async function createPaymentIntentAction({
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/payments/create-payment-intent`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: await serverAuthHeaders(),
       body: JSON.stringify({
         amount,
         eventId,

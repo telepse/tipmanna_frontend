@@ -19,6 +19,7 @@ import {
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import {
   buildOgImageMetadata,
   resolveVideoOgImageUrl,
@@ -306,7 +307,7 @@ export default async function ContentPage({ params, searchParams }: Props) {
       {videoJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(videoJsonLd) }}
         />
       ) : null}
       <div className="flex h-screen flex-col items-center justify-center">

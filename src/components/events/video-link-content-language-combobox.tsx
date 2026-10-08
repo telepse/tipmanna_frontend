@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
+
 import { ChevronsUpDown } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
+
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+
 import {
   Command,
   CommandEmpty,
@@ -15,14 +19,18 @@ import {
   CommandInput,
   CommandItem,
 } from "@/components/ui/command";
+
 import { ALL_LANGUAGES } from "@/lib/languages";
+
 import {
   CREATE_FORM_COMMAND_CLASS,
   CREATE_FORM_COMMAND_GROUP_CLASS,
   CREATE_FORM_COMMAND_ITEM_CLASS,
   CREATE_FORM_SELECT_CONTENT_CLASS,
 } from "@/lib/create-form-theme";
+
 import { cn } from "@/lib/utils";
+
 import type { VideoLinkLocaleAppearance } from "@/components/events/video-link-content-country-combobox";
 
 export interface VideoLinkContentLanguageComboboxProps {
@@ -33,8 +41,14 @@ export interface VideoLinkContentLanguageComboboxProps {
 }
 
 /**
- * Shared content-language picker used by host create flows and event-room “add video”.
- * Stores language codes from ALL_LANGUAGES (e.g. en-GB).
+ * Shared content-language picker used by host create flows and event-room
+ * "add video".
+ *
+ * Stores language names from ALL_LANGUAGES.
+ *
+ * The popup is rendered through Radix Popover's portal and given a z-index
+ * higher than the CreateDialog so the language list always appears above
+ * the AddVideoForm/DialogContent.
  */
 export function VideoLinkContentLanguageCombobox({
   value,
@@ -64,7 +78,7 @@ export function VideoLinkContentLanguageCombobox({
           className={cn(triggerTone)}
         >
           {value ? (
-            <span className="truncate">{value}</span>
+            <span className="min-w-0 truncate">{value}</span>
           ) : (
             <span
               className={cn(
@@ -77,33 +91,50 @@ export function VideoLinkContentLanguageCombobox({
               Select a region...
             </span>
           )}
+
           <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
+
       <PopoverContent
         side="bottom"
         align="start"
         sideOffset={4}
         avoidCollisions={false}
         className={cn(
-          "hide__scrollbar max-h-60 w-60 overflow-y-auto p-0",
-          appearance === "onDark" && CREATE_FORM_SELECT_CONTENT_CLASS
+          /*
+           * CreateDialog currently uses z-[1000038].
+           *
+           * Keep the language popup above the dialog and the AddVideoForm.
+           */
+          "z-[1000100] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-2rem)] min-w-60 p-0",
+
+          /*
+           * Prevent the Command content from visually spilling outside
+           * the popup container.
+           */
+          "overflow-hidden",
+
+          appearance === "onDark" ? CREATE_FORM_SELECT_CONTENT_CLASS : undefined
         )}
       >
         <Command
-          className={
+          className={cn(
+            "w-full",
             appearance === "onDark" ? CREATE_FORM_COMMAND_CLASS : undefined
-          }
+          )}
         >
           <CommandInput placeholder="Search a language..." />
+
           <CommandEmpty>No language found.</CommandEmpty>
+
           <CommandGroup
             heading="Languages"
-            className={
+            className={cn(
               appearance === "onDark"
                 ? CREATE_FORM_COMMAND_GROUP_CLASS
                 : undefined
-            }
+            )}
           >
             {ALL_LANGUAGES.map(lang => (
               <CommandItem
@@ -115,10 +146,12 @@ export function VideoLinkContentLanguageCombobox({
                 }}
                 className={cn(
                   "flex items-center gap-2",
-                  appearance === "onDark" && CREATE_FORM_COMMAND_ITEM_CLASS
+                  appearance === "onDark"
+                    ? CREATE_FORM_COMMAND_ITEM_CLASS
+                    : undefined
                 )}
               >
-                {lang.name}
+                <span className="truncate">{lang.name}</span>
               </CommandItem>
             ))}
           </CommandGroup>

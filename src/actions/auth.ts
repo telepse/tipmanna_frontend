@@ -111,8 +111,13 @@ export async function loginOrRegisterHostAction(
 export async function verifyCodeAction(
   email: string,
   code: string,
-  accountType: "TIPPER" | "HOST" = "TIPPER"
+  accountType: "TIPPER" | "HOST" = "TIPPER",
+  visitorId?: string
 ) {
+  const vid =
+    accountType === "TIPPER" && visitorId?.trim()
+      ? visitorId.trim()
+      : undefined;
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/verify-code`,
     {
@@ -120,7 +125,12 @@ export async function verifyCodeAction(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, code, accountType }),
+      body: JSON.stringify({
+        email,
+        code,
+        accountType,
+        ...(vid ? { visitorId: vid } : {}),
+      }),
       cache: "no-store",
     },
     "verifyCodeAction",

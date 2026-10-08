@@ -125,15 +125,15 @@ Frontend: `canManageRoomContent` (host session **or** cohost session for that ev
 
 ## Identity issuance (backend)
 
-| Endpoint                                                  | Primary JWT              | Host JWT              | Cohost JWT |
-| --------------------------------------------------------- | ------------------------ | --------------------- | ---------- |
-| `POST /auth/login-tipper`                                 | tipper 60d (if verified) | —                     | —          |
-| `POST /auth/verify-code` (HOST)                           | tipper 60d               | host 7d               | —          |
-| `POST /auth/login-host`                                   | tipper 60d               | host 7d               | —          |
-| `POST /auth/login-or-register-host`                       | tipper 60d (if verified) | host 7d (if verified) | —          |
-| `POST /auth/register-tipper` / `POST /auth/register-host` | — (until verify)         | — (until verify)      | —          |
-| `POST /cohost/invite/verify-code`                         | tipper 60d               | —                     | cohost 7d  |
-| `POST /visitors/claim-after-payment`                      | visitor (remint)         | —                     | —          |
+| Endpoint                                                  | Primary JWT                          | Host JWT              | Cohost JWT |
+| --------------------------------------------------------- | ------------------------------------ | --------------------- | ---------- |
+| `POST /auth/login-tipper`                                 | — (OTP only; JWT from `verify-code`) | —                     | —          |
+| `POST /auth/verify-code` (HOST)                           | tipper 60d                           | host 7d               | —          |
+| `POST /auth/login-host`                                   | tipper 60d                           | host 7d               | —          |
+| `POST /auth/login-or-register-host`                       | tipper 60d (if verified)             | host 7d (if verified) | —          |
+| `POST /auth/register-tipper` / `POST /auth/register-host` | — (until verify)                     | — (until verify)      | —          |
+| `POST /cohost/invite/verify-code`                         | tipper 60d                           | —                     | cohost 7d  |
+| `POST /visitors/claim-after-payment`                      | visitor (remint)                     | —                     | —          |
 
 ## Error codes
 
