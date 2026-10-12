@@ -108,14 +108,16 @@ import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
 import type { RoomCharacter } from "@/types";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
-  trackTvVideoComplete,
-  trackTvVideoEnd,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-} from "@/lib/tvAnalytics";
+  flushExploreFeedAnalyticsBeforeContext,
+  initExploreFeedAnalyticsRuntime,
+  resolveExploreFeedAnalyticsSurface,
+  setExploreFeedAnalyticsContext,
+  trackExploreFeedVideoComplete,
+  trackExploreFeedVideoEnd,
+  trackExploreFeedVideoEncounter,
+  trackExploreFeedVideoStart,
+  type ExploreFeedAnalyticsContext,
+} from "@/lib/analytics/explore-feed-analytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   resolveExploreOpenChannelRow,
@@ -440,6 +442,7 @@ type ExploreFeedSlideVideoProps = {
   onPlayerAspectInfo?: (info: YoutubeAspectInfo) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
+  onPlaybackCompleteAnalytics?: (item: { id: string }) => void;
   onActiveReelEnded?: () => void;
   onActiveReelMuteChange?: (muted: boolean) => void;
   onPlayerError?: () => void;
@@ -462,6 +465,7 @@ function ExploreFeedSlideVideo({
   onPlayerAspectInfo,
   videoRef,
   onActivePlaying,
+  onPlaybackCompleteAnalytics,
   onActiveReelEnded,
   onActiveReelMuteChange,
   onPlayerError,
@@ -763,11 +767,7 @@ function ExploreFeedSlideVideo({
               ) {
                 return;
               }
-              const scheduleItemId = `explore-${item.id}`;
-              trackTvVideoComplete(scheduleItemId, {
-                channelId: item.id,
-                mode: "EXPLORE",
-              });
+              onPlaybackCompleteAnalytics?.(item);
               onActiveReelEnded?.();
             }}
             onVideoAspectInfo={onPlayerAspectInfo}
@@ -1233,6 +1233,22 @@ export const ExploreFeedClient = forwardRef<
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
   const lastChannelIdRef = useRef<string | undefined>(undefined);
+  const feedModeRef = useRef(feedMode);
+  feedModeRef.current = feedMode;
+
+  const buildExploreAnalyticsCtx = useCallback(
+    (item: {
+      id: string;
+      event?: { id?: string };
+      community?: { id?: string };
+    }): ExploreFeedAnalyticsContext => ({
+      eventId: item.event?.id ?? null,
+      channelId: item.id != null ? String(item.id) : null,
+      communityId: item.community?.id ? String(item.community.id) : null,
+      analyticsSurface: resolveExploreFeedAnalyticsSurface(feedModeRef.current),
+    }),
+    []
+  );
 
   const [items, setItems] = useState<any[]>(
     () => exploreBootRef.current!.items
@@ -1756,14 +1772,35 @@ export const ExploreFeedClient = forwardRef<
     if (lastTrackedItemIdRef.current !== scheduleItemId) {
       lastTrackedItemIdRef.current = scheduleItemId;
       segmentStartMsRef.current = Date.now();
-      trackTvVideoEncounter(scheduleItemId, {
-        channelId: cur.id,
-        mode: "EXPLORE",
+      const ctx = buildExploreAnalyticsCtx(cur);
+      trackExploreFeedVideoEncounter(ctx, {
+        scheduleItemId,
+        channelId: String(cur.id),
         scheduleIndex: idx,
       });
-      trackTvVideoStart(scheduleItemId, "EXPLORE", idx, cur.id);
+      trackExploreFeedVideoStart(ctx, {
+        scheduleItemId,
+        channelId: String(cur.id),
+        scheduleIndex: idx,
+      });
     }
-  }, []);
+  }, [buildExploreAnalyticsCtx]);
+
+  const handleExplorePlaybackCompleteAnalytics = useCallback(
+    (item: {
+      id: string;
+      event?: { id?: string };
+      community?: { id?: string };
+    }) => {
+      const scheduleItemId = `explore-${item.id}`;
+      const ctx = buildExploreAnalyticsCtx(item);
+      trackExploreFeedVideoComplete(ctx, {
+        scheduleItemId,
+        channelId: String(item.id),
+      });
+    },
+    [buildExploreAnalyticsCtx]
+  );
 
   useEffect(() => {
     setExploreCommentOpen(false);
@@ -2306,7 +2343,7 @@ export const ExploreFeedClient = forwardRef<
   }, [items, scrollSyncEpoch, feedSurfaceActive]);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initExploreFeedAnalyticsRuntime();
   }, []);
 
   /** Initial boot + intentional reload when feedQueryKey changes (filters, mode, auth). */
@@ -2693,33 +2730,33 @@ export const ExploreFeedClient = forwardRef<
     const cur = items[activeIndex];
     if (!cur) return;
 
-    void flushTvAnalytics().then(() => {
+    const ctx = buildExploreAnalyticsCtx(cur);
+    void flushExploreFeedAnalyticsBeforeContext(ctx).then(() => {
       const prevId = lastTrackedItemIdRef.current;
       if (prevId && segmentStartMsRef.current > 0) {
         const sec = (Date.now() - segmentStartMsRef.current) / 1000;
-        trackTvVideoEnd(
-          prevId,
-          sec,
-          "slot_change",
-          "EXPLORE",
-          lastChannelIdRef.current
-        );
+        trackExploreFeedVideoEnd(ctx, {
+          scheduleItemId: prevId,
+          watchDurationSec: sec,
+          endReason: "slot_change",
+          channelId: lastChannelIdRef.current,
+        });
       }
       lastTrackedItemIdRef.current = null;
       segmentStartMsRef.current = 0;
       lastChannelIdRef.current = cur.id;
 
-      const eventIdSafe = cur.event?.id;
-      if (!eventIdSafe) return;
+      if (!cur.event?.id) return;
 
-      setTvAnalyticsContext({
-        eventId: eventIdSafe,
-        channelId: cur.id,
-        surface: feedMode === "community" ? "community_feed" : "explore_feed",
-        communityId: cur.community?.id ? cur.community.id : null,
-      });
+      setExploreFeedAnalyticsContext(ctx);
     });
-  }, [activeIndex, items, feedMode, feedSurfaceActive]);
+  }, [
+    activeIndex,
+    items,
+    feedMode,
+    feedSurfaceActive,
+    buildExploreAnalyticsCtx,
+  ]);
 
   if (initialLoading) {
     return <ExploreFeedSkeleton />;
@@ -2959,6 +2996,9 @@ export const ExploreFeedClient = forwardRef<
                             onPlayerAspectInfo={onPlayerAspectInfo}
                             videoRef={videoRef}
                             onActivePlaying={handleExploreClipPlaying}
+                            onPlaybackCompleteAnalytics={
+                              handleExplorePlaybackCompleteAnalytics
+                            }
                             onActiveReelEnded={advanceReelAfterEnd}
                             onActiveReelMuteChange={setReelMuted}
                             onPlayerError={handleExplorePlayerError}

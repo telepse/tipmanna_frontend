@@ -54,6 +54,10 @@ import {
 } from "@/lib/drawer-prefetch-cache";
 import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
 import { invalidateCommunityPublicMembersCache } from "@/lib/community-public-members";
+import {
+  communityFeaturedOverlayPaymentSurface,
+  trackCommunityFeaturedOverlayOpen,
+} from "@/lib/analytics/community-featured-overlay-analytics";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -317,8 +321,13 @@ export function CommunityJoinPanel({
       const play = { eventId, channelId, ...meta };
       setOverlayPlay(play);
       syncOverlayPlayOnExploreJoin({ eventId, channelId });
+      trackCommunityFeaturedOverlayOpen({
+        eventId,
+        channelId,
+        communityId,
+      });
     },
-    [isDrawer]
+    [isDrawer, communityId]
   );
 
   useEffect(() => {
@@ -970,6 +979,7 @@ export function CommunityJoinPanel({
           channelId={overlayPlay.channelId}
           seed={overlayPlay}
           onDismiss={dismissOverlayPlay}
+          paymentSurface={communityFeaturedOverlayPaymentSurface()}
         />
       ) : null}
       <TipperEmailOtpSignInDialog

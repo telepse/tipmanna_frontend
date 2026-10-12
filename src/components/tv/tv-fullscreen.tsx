@@ -11,9 +11,17 @@ import {
   VolumeX,
 } from "lucide-react";
 import TvPlayer, { TvPlayerRef } from "./tv-player";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useYoutubeVideoAspect } from "@/hooks/use-youtube-immersive-layout";
 import { readTvMutePref, unmuteOnly, writeTvMutePref } from "@/lib/tv-autoplay";
+import {
+  initTvFullscreenAnalyticsRuntime,
+  syncTvFullscreenAnalyticsContext,
+  trackTvFullscreenVideoComplete,
+  trackTvFullscreenVideoEncounter,
+  trackTvFullscreenVideoStart,
+  trackTvFullscreenWatchDuration,
+} from "@/lib/analytics/tv-fullscreen-analytics";
 
 type Props = {
   videoId: string;
@@ -37,6 +45,95 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(() => readTvMutePref());
+
+  const analyticsCtx = useMemo(
+    () => ({
+      eventId: currentChannel?.event?.id ?? null,
+      channelId: currentChannel?.id ? String(currentChannel.id) : null,
+      communityId: null as string | null,
+    }),
+    [currentChannel]
+  );
+
+  const prevPlayingForStartRef = useRef(false);
+  const watchSegStartRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+
+  useEffect(() => {
+    initTvFullscreenAnalyticsRuntime();
+  }, []);
+
+  useEffect(() => {
+    void syncTvFullscreenAnalyticsContext(analyticsCtx);
+  }, [analyticsCtx]);
+
+  useEffect(() => {
+    if (isPlaying && !prevPlayingForStartRef.current) {
+      trackTvFullscreenVideoStart(analyticsCtx, 0);
+    }
+    prevPlayingForStartRef.current = isPlaying;
+  }, [isPlaying, analyticsCtx]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      if (watchSegStartRef.current > 0) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackTvFullscreenWatchDuration(analyticsCtx, Math.min(sec, 600));
+        }
+      }
+      return;
+    }
+    if (document.visibilityState !== "visible") return;
+    watchSegStartRef.current = Date.now();
+    const tick = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (!isPlayingRef.current) return;
+      if (watchSegStartRef.current <= 0) return;
+      const now = Date.now();
+      const sec = (now - watchSegStartRef.current) / 1000;
+      watchSegStartRef.current = now;
+      if (sec > 0.3) {
+        trackTvFullscreenWatchDuration(analyticsCtx, Math.min(sec, 300));
+      }
+    }, 15_000);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        if (watchSegStartRef.current > 0) {
+          const s = (Date.now() - watchSegStartRef.current) / 1000;
+          watchSegStartRef.current = 0;
+          if (s > 0.3) {
+            trackTvFullscreenWatchDuration(analyticsCtx, Math.min(s, 300));
+          }
+        }
+      } else if (
+        document.visibilityState === "visible" &&
+        isPlayingRef.current
+      ) {
+        watchSegStartRef.current = Date.now();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener("visibilitychange", onVis);
+      if (watchSegStartRef.current > 0) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackTvFullscreenWatchDuration(analyticsCtx, Math.min(sec, 300));
+        }
+      }
+    };
+  }, [isPlaying, analyticsCtx]);
+
+  useEffect(() => {
+    return () => {
+      trackTvFullscreenVideoComplete(analyticsCtx);
+    };
+  }, [analyticsCtx]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -155,6 +252,12 @@ export default function TVFullscreen({ videoId, currentChannel }: Props) {
               videoUrl={`https://www.youtube.com/watch?v=${videoId}`}
               autoplay
               cover
+              onPlaybackReady={() => {
+                trackTvFullscreenVideoEncounter(analyticsCtx, {
+                  scheduleIndex: 0,
+                  isPlaying: isPlayingRef.current,
+                });
+              }}
               onPlay={() => {
                 const dur = playerRef.current?.getDuration() ?? 0;
                 setDuration(dur);

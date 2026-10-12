@@ -90,13 +90,13 @@ import {
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 import { startContentOnlyCreateJourney } from "@/lib/start-content-only-create-journey";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
-} from "@/lib/tvAnalytics";
+  flushTiplinkAnalyticsBeforeContext,
+  initTiplinkAnalyticsRuntime,
+  setTiplinkAnalyticsContext,
+  trackTiplinkVideoEncounter,
+  trackTiplinkVideoStart,
+  trackTiplinkWatchDuration,
+} from "@/lib/analytics/tiplink-analytics";
 import {
   formatSaveVideoError,
   toggleChannelSaveForUser,
@@ -590,7 +590,7 @@ export function TipLinkLandingClient({
   const prevPlayingRef = useRef(false);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initTiplinkAnalyticsRuntime();
   }, []);
 
   useEffect(() => {
@@ -601,13 +601,13 @@ export function TipLinkLandingClient({
 
   useEffect(() => {
     if (!eventId || !channelId) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId,
-        surface: "tiplink",
-        communityId: event.communityId,
-      });
+    const ctx = {
+      eventId,
+      channelId,
+      communityId: event.communityId,
+    };
+    void flushTiplinkAnalyticsBeforeContext(ctx).then(() => {
+      setTiplinkAnalyticsContext(ctx);
     });
   }, [channelId, event.communityId, eventId]);
 
@@ -786,16 +786,17 @@ export function TipLinkLandingClient({
 
   const emitEncounter = useCallback(() => {
     if (!eventId || !channelId) return;
-    trackTvVideoEncounter(`tiplink-${tipLink.slug}`, {
+    trackTiplinkVideoEncounter(tipLink.slug, {
+      eventId,
       channelId,
-      mode: "LOCAL",
-      scheduleIndex: 0,
+      communityId: event.communityId,
+      isPlaying,
     });
-  }, [channelId, eventId, tipLink.slug]);
+  }, [channelId, event.communityId, eventId, isPlaying, tipLink.slug]);
 
   useEffect(() => {
     if (isPlaying && !prevPlayingRef.current) {
-      trackTvVideoStart(channelId, "LOCAL", 0, channelId);
+      trackTiplinkVideoStart(channelId);
     }
     prevPlayingRef.current = isPlaying;
   }, [channelId, isPlaying]);
@@ -807,7 +808,7 @@ export function TipLinkLandingClient({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(
+          trackTiplinkWatchDuration(
             channelId,
             Math.min(sec, 600),
             "LOCAL",

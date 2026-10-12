@@ -20,15 +20,15 @@ import { VolumeX, Volume2 } from "lucide-react";
 
 // Local imports
 import {
-  initTvAnalyticsRuntime,
-  flushTvAnalytics,
-  setTvAnalyticsContext,
-  trackTvUserInteraction,
-  trackTvVideoComplete,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
-} from "@/lib/tvAnalytics";
+  flushEventRoomAnalyticsBeforeContext,
+  initEventRoomAnalyticsRuntime,
+  setEventRoomAnalyticsContext,
+  trackEventRoomVideoComplete,
+  trackEventRoomVideoEncounter,
+  trackEventRoomVideoStart,
+  trackEventRoomWatchDuration,
+} from "@/lib/analytics/event-room-analytics";
+import { trackTvUserInteraction } from "@/lib/tvAnalytics";
 import VideoPlayer, {
   VideoPlayerRef,
   loadReelSoundPref,
@@ -305,17 +305,17 @@ export const EventLive = ({
   useYoutubeVideoAspect(currentChannel?.url || resolvedVideoUrl);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initEventRoomAnalyticsRuntime();
   }, []);
 
   useEffect(() => {
     if (!eventId || !channels?.length) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: currentChannel?.id ?? null,
-        surface: "event_room",
-      });
+    const ctx = {
+      eventId,
+      channelId: currentChannel?.id ?? null,
+    };
+    void flushEventRoomAnalyticsBeforeContext(ctx).then(() => {
+      setEventRoomAnalyticsContext(ctx);
     });
   }, [eventId, currentChannel?.id, channels?.length]);
 
@@ -334,16 +334,12 @@ export const EventLive = ({
     if (!ch?.id) return;
     if (encounterSentForStreamActivationRef.current) return;
     encounterSentForStreamActivationRef.current = true;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: ch.id,
-        surface: "event_room",
-      });
+    const ctx = { eventId, channelId: ch.id };
+    void flushEventRoomAnalyticsBeforeContext(ctx).then(() => {
+      setEventRoomAnalyticsContext(ctx);
     });
-    trackTvVideoEncounter(`event-room-${eventId}`, {
+    trackEventRoomVideoEncounter(eventId, {
       channelId: ch.id,
-      mode: "LOCAL",
       scheduleIndex: currentChannelIndex,
     });
   }, [open, isFullscreen, eventId, channels, currentChannelIndex]);
@@ -352,12 +348,7 @@ export const EventLive = ({
   useEffect(() => {
     if (!eventId || !currentChannel?.id || !playerReady) return;
     if (isPlaying && !prevPlayingForAnalyticsRef.current) {
-      trackTvVideoStart(
-        `room-${currentChannel.id}`,
-        "LOCAL",
-        currentChannelIndex,
-        currentChannel.id
-      );
+      trackEventRoomVideoStart(currentChannel.id, currentChannelIndex);
     }
     prevPlayingForAnalyticsRef.current = isPlaying;
   }, [
@@ -375,14 +366,13 @@ export const EventLive = ({
 
   useEffect(() => {
     if (!eventId || !currentChannel?.id || !playerReady) return;
-    const itemId = `room-${currentChannel.id}`;
     const chId = currentChannel.id;
     if (!isPlaying) {
       if (watchSegStartRef.current > 0) {
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(itemId, Math.min(sec, 600), "LOCAL", chId);
+          trackEventRoomWatchDuration(chId, Math.min(sec, 600), "LOCAL", chId);
         }
       }
       return;
@@ -397,7 +387,7 @@ export const EventLive = ({
       const sec = (now - watchSegStartRef.current) / 1000;
       watchSegStartRef.current = now;
       if (sec > 0.3) {
-        trackTvWatchDuration(itemId, Math.min(sec, 300), "LOCAL", chId);
+        trackEventRoomWatchDuration(chId, Math.min(sec, 300), "LOCAL", chId);
       }
     }, 15_000);
     const onVis = () => {
@@ -406,7 +396,7 @@ export const EventLive = ({
           const s = (Date.now() - watchSegStartRef.current) / 1000;
           watchSegStartRef.current = 0;
           if (s > 0.3) {
-            trackTvWatchDuration(itemId, Math.min(s, 300), "LOCAL", chId);
+            trackEventRoomWatchDuration(chId, Math.min(s, 300), "LOCAL", chId);
           }
         }
       } else if (
@@ -424,7 +414,7 @@ export const EventLive = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(itemId, Math.min(sec, 300), "LOCAL", chId);
+          trackEventRoomWatchDuration(chId, Math.min(sec, 300), "LOCAL", chId);
         }
       }
     };
@@ -676,10 +666,7 @@ export const EventLive = ({
                 if (!currentChannel?.id) return;
                 if (playbackSeekedForCompleteRef.current) return;
                 const id = currentChannel.id;
-                trackTvVideoComplete(`room-${id}`, {
-                  channelId: id,
-                  mode: "LOCAL",
-                });
+                trackEventRoomVideoComplete(id);
               }}
             />
             <VideoSurfaceBadges
