@@ -7,10 +7,13 @@ import {
   broadcastAuthHeader,
   createEventBroadcastIntent,
   fetchCurrentEventBroadcast,
+  getNativeBroadcastDeviceSessionId,
+  issueEventBroadcastPublisherSession,
   preflightEventBroadcast,
   startEventBroadcast,
   stopEventBroadcast,
   type EventBroadcastRow,
+  type PublisherSessionResult,
 } from "@/lib/event-broadcast-client";
 import {
   useNativeBroadcastPreview,
@@ -42,6 +45,8 @@ export function NativeBroadcastPanel({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [row, setRow] = useState<EventBroadcastRow | null>(null);
+  const [publisherSession, setPublisherSession] =
+    useState<PublisherSessionResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -238,6 +243,23 @@ export function NativeBroadcastPanel({
         >
           Preflight
         </ActionButton>
+        <ActionButton
+          disabled={loading || !row?.id}
+          onClick={() =>
+            void run("Publisher slot claimed", async () => {
+              if (!row?.id) return;
+              const session = await issueEventBroadcastPublisherSession(
+                eventId,
+                row.id,
+                authHeader,
+                getNativeBroadcastDeviceSessionId()
+              );
+              setPublisherSession(session);
+            })
+          }
+        >
+          Claim publisher
+        </ActionButton>
         {canStart ? (
           <ActionButton
             disabled={loading || !row?.id}
@@ -277,6 +299,17 @@ export function NativeBroadcastPanel({
         {isCohost && !isHost ? (
           <p className="text-muted-foreground">
             Cohost: stop may be denied if you did not initiate this broadcast (server enforced).
+          </p>
+        ) : null}
+        {publisherSession ? (
+          <p className="text-muted-foreground">
+            Publisher lease until {publisherSession.lease.expiresAt.slice(0, 19)}Z
+            {publisherSession.dailyPublisher
+              ? " · Daily token ready (join not wired until E1-FA-02)"
+              : " · Daily token pending room"}
+            {publisherSession.rtmpIngestConfigured
+              ? " · RTMP active server-side (not exposed here)"
+              : null}
           </p>
         ) : null}
         {message ? <p className="text-emerald-700">{message}</p> : null}

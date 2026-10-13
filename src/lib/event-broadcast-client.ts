@@ -100,6 +100,56 @@ export async function activateNativeStreamingWallet(
   return parseJson(res);
 }
 
+export type PublisherSessionResult = {
+  lease: {
+    expiresAt: string;
+    generation: number;
+    deviceSessionId: string;
+    renewed: boolean;
+  };
+  dailyPublisher: {
+    roomName: string;
+    roomUrl: string;
+    meetingToken: string;
+    tokenExpiresAt: string;
+  } | null;
+  rtmpIngestConfigured: boolean;
+};
+
+const DEVICE_SESSION_STORAGE_KEY = "tm_native_broadcast_device_session";
+
+/** Stable per-browser device id for publisher slot enforcement. */
+export function getNativeBroadcastDeviceSessionId(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    const existing = window.localStorage.getItem(DEVICE_SESSION_STORAGE_KEY);
+    if (existing?.trim()) return existing.trim();
+    const created = crypto.randomUUID();
+    window.localStorage.setItem(DEVICE_SESSION_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+export async function issueEventBroadcastPublisherSession(
+  eventId: string,
+  broadcastId: string,
+  authHeader: string,
+  deviceSessionId: string
+): Promise<PublisherSessionResult> {
+  const base = apiBase();
+  const res = await fetch(
+    `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/publisher-session`,
+    {
+      method: "POST",
+      headers: authHeaders(authHeader),
+      body: JSON.stringify({ deviceSessionId }),
+    }
+  );
+  return parseJson(res);
+}
+
 export async function preflightEventBroadcast(
   eventId: string,
   broadcastId: string,
