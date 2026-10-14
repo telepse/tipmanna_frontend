@@ -20,6 +20,8 @@ import {
   type NativeCaptureMode,
   type NativeOrientation,
 } from "@/hooks/use-native-broadcast-preview";
+import { useDailyPublisherRoom } from "@/hooks/use-daily-publisher-room";
+import { useNativeBroadcastStatusPoll } from "@/hooks/use-native-broadcast-status-poll";
 
 type Props = {
   eventId: string;
@@ -53,6 +55,7 @@ export function NativeBroadcastPanel({
   const [orientation, setOrientation] = useState<NativeOrientation>("landscape");
   const [captureMode, setCaptureMode] = useState<NativeCaptureMode>("camera");
   const preview = useNativeBroadcastPreview();
+  const dailyRoom = useDailyPublisherRoom();
 
   const canManage = isHost || isCohost;
   const authHeader = useMemo(() => broadcastAuthHeader(), []);
@@ -60,6 +63,9 @@ export function NativeBroadcastPanel({
   const canStop = canManage && Boolean(authHeader);
 
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
+  const pollActive = row?.phase === "starting" || row?.phase === "live";
+
+  useNativeBroadcastStatusPoll(pollActive && Boolean(authHeader), () => void refresh());
 
   useEffect(() => {
     const el = videoRef.current;
@@ -130,10 +136,14 @@ export function NativeBroadcastPanel({
       <div>
         <h4 className="font-semibold">Native broadcast</h4>
         <p className="text-xs text-muted-foreground mt-1">
-          Preview uses your camera or screen locally only. Provider billing and YouTube
-          ingest stay off until staging experiments pass. Public starts remain disabled
-          globally.
+          Preview uses your camera or screen locally only. On staging mock mode, provider
+          Start is allowed for entitled hosts while public viewer starts stay disabled.
         </p>
+        <ol className="mt-2 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
+          <li>Start preview → Activate credits → Create intent → Preflight</li>
+          <li>Claim publisher → Join provider room → Start (mock worker)</li>
+          <li>Stop when finished; leave provider room and stop preview</li>
+        </ol>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -183,7 +193,13 @@ export function NativeBroadcastPanel({
         >
           Start preview
         </ActionButton>
-        <ActionButton disabled={loading || !preview.active} onClick={() => preview.stopPreview()}>
+        <ActionButton
+          disabled={loading || !preview.active}
+          onClick={() => {
+            void dailyRoom.leave();
+            preview.stopPreview();
+          }}
+        >
           Stop preview
         </ActionButton>
       </div>
@@ -224,6 +240,9 @@ export function NativeBroadcastPanel({
                       initiatedByUserId: null,
                       initiatedByRole: null,
                       providerIngestActive: false,
+                      dailyRoomReady: false,
+                      youtubeBroadcastPrepared: false,
+                      liveStartedAt: null,
                       updatedAt: new Date().toISOString(),
                     }
               );
@@ -260,6 +279,28 @@ export function NativeBroadcastPanel({
         >
           Claim publisher
         </ActionButton>
+        <ActionButton
+          disabled={
+            loading ||
+            !publisherSession?.dailyPublisher ||
+            !preview.active ||
+            dailyRoom.phase === "joining"
+          }
+          onClick={() => {
+            if (!publisherSession) return;
+            void dailyRoom.join(publisherSession, preview.stream);
+          }}
+        >
+          {dailyRoom.phase === "mock_joined" || dailyRoom.phase === "joined"
+            ? "In provider room"
+            : "Join provider room"}
+        </ActionButton>
+        <ActionButton
+          disabled={loading || dailyRoom.phase === "idle"}
+          onClick={() => void dailyRoom.leave()}
+        >
+          Leave provider room
+        </ActionButton>
         {canStart ? (
           <ActionButton
             disabled={loading || !row?.id}
@@ -279,6 +320,7 @@ export function NativeBroadcastPanel({
             onClick={() =>
               void run("Stop requested", async () => {
                 if (!row?.id) return;
+                await dailyRoom.leave();
                 await stopEventBroadcast(eventId, row.id, authHeader, {
                   idempotencyKey: newKey("stop"),
                   reason: "host_stop",
@@ -295,6 +337,26 @@ export function NativeBroadcastPanel({
         <p>
           Phase: <strong>{phaseLabel}</strong>
           {row?.providerIngestActive ? " · ingest active" : null}
+          {row?.dailyRoomReady ? " · Daily room ready" : null}
+          {row?.youtubeBroadcastPrepared ? " · YouTube draft bound" : null}
+          {row?.phase === "live" && row.liveStartedAt
+            ? ` · live since ${row.liveStartedAt.slice(0, 19)}Z`
+            : null}
+        </p>
+        <p className="text-muted-foreground">
+          Ingest readiness:{" "}
+          {row?.providerIngestActive
+            ? "provider ingest active"
+            : row?.dailyRoomReady
+              ? "room provisioned (awaiting ingest confirm)"
+              : "not provisioned"}
+          {" · "}
+          YouTube lifecycle:{" "}
+          {row?.phase === "live"
+            ? "live (confirmed phase)"
+            : row?.youtubeBroadcastPrepared
+              ? "prepared (not live)"
+              : "not prepared"}
         </p>
         {isCohost && !isHost ? (
           <p className="text-muted-foreground">
@@ -305,11 +367,26 @@ export function NativeBroadcastPanel({
           <p className="text-muted-foreground">
             Publisher lease until {publisherSession.lease.expiresAt.slice(0, 19)}Z
             {publisherSession.dailyPublisher
-              ? " · Daily token ready (join not wired until E1-FA-02)"
+              ? " · scoped Daily token issued"
               : " · Daily token pending room"}
             {publisherSession.rtmpIngestConfigured
               ? " · RTMP active server-side (not exposed here)"
               : null}
+          </p>
+        ) : null}
+        {dailyRoom.phase !== "idle" ? (
+          <p className="text-muted-foreground">
+            Provider room:{" "}
+            {dailyRoom.phase === "mock_joined"
+              ? "mock joined (local tracks only; real Daily when mode=real)"
+              : dailyRoom.phase === "joined"
+                ? "Daily WebRTC joined"
+                : dailyRoom.phase}
+          </p>
+        ) : null}
+        {dailyRoom.error ? (
+          <p className="text-destructive" role="alert">
+            {dailyRoom.error}
           </p>
         ) : null}
         {message ? <p className="text-emerald-700">{message}</p> : null}
