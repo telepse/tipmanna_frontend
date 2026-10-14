@@ -23,6 +23,7 @@ import {
   Banknote,
   Globe,
   GlobeCheck,
+  Radio,
 } from "lucide-react";
 import {
   Sidebar,
@@ -124,6 +125,12 @@ export function AppSidebar({ numOfEvents }: Props) {
       url: `/host/${eventSlug}/manage-event`,
       icon: Calendar,
       // freezed: isFreezed,
+    },
+    {
+      title: "Native streaming",
+      url: `/host/${eventSlug}/streaming`,
+      icon: Radio,
+      disabled: false,
     },
     {
       title: "Venue Display",

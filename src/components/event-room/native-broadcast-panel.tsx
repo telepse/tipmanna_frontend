@@ -21,6 +21,7 @@ import {
   type NativeOrientation,
 } from "@/hooks/use-native-broadcast-preview";
 import { useDailyPublisherRoom } from "@/hooks/use-daily-publisher-room";
+import { useNativeBroadcastStatusPoll } from "@/hooks/use-native-broadcast-status-poll";
 
 type Props = {
   eventId: string;
@@ -62,6 +63,9 @@ export function NativeBroadcastPanel({
   const canStop = canManage && Boolean(authHeader);
 
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
+  const pollActive = row?.phase === "starting" || row?.phase === "live";
+
+  useNativeBroadcastStatusPoll(pollActive && Boolean(authHeader), () => void refresh());
 
   useEffect(() => {
     const el = videoRef.current;
@@ -132,10 +136,14 @@ export function NativeBroadcastPanel({
       <div>
         <h4 className="font-semibold">Native broadcast</h4>
         <p className="text-xs text-muted-foreground mt-1">
-          Preview uses your camera or screen locally only. Provider billing and YouTube
-          ingest stay off until staging experiments pass. Public starts remain disabled
-          globally.
+          Preview uses your camera or screen locally only. On staging mock mode, provider
+          Start is allowed for entitled hosts while public viewer starts stay disabled.
         </p>
+        <ol className="mt-2 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
+          <li>Start preview → Activate credits → Create intent → Preflight</li>
+          <li>Claim publisher → Join provider room → Start (mock worker)</li>
+          <li>Stop when finished; leave provider room and stop preview</li>
+        </ol>
       </div>
 
       <div className="flex flex-wrap gap-2">
