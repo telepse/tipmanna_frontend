@@ -22,6 +22,9 @@ export type EventBroadcastRow = {
   initiatedByUserId: string | null;
   initiatedByRole: string | null;
   providerIngestActive: boolean;
+  dailyRoomReady: boolean;
+  youtubeBroadcastPrepared: boolean;
+  liveStartedAt: string | null;
   updatedAt: string;
 };
 
