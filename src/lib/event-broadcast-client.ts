@@ -87,7 +87,7 @@ export async function createEventBroadcastIntent(
   input: { idempotencyKey: string; eventChannelId?: string }
 ): Promise<{ broadcastId: string; created: boolean }> {
   const base = apiBase();
-  const res = await fetch(`${base}/api/v1/events/${eventId}/broadcasts`, {
+  const res = await fetch(`${base}/events/${eventId}/broadcasts`, {
     method: "POST",
     headers: authHeaders(authHeader),
     body: JSON.stringify(input),
@@ -101,7 +101,7 @@ export async function activateNativeStreamingWallet(
 ): Promise<NativeActivationResult> {
   const base = apiBase();
   const res = await fetch(
-    `${base}/api/v1/events/${eventId}/broadcasts/native-activation`,
+    `${base}/events/${eventId}/broadcasts/native-activation`,
     {
       method: "POST",
       headers: authHeaders(authHeader),
@@ -151,7 +151,7 @@ export async function issueEventBroadcastPublisherSession(
 ): Promise<PublisherSessionResult> {
   const base = apiBase();
   const res = await fetch(
-    `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/publisher-session`,
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/publisher-session`,
     {
       method: "POST",
       headers: authHeaders(authHeader),
@@ -169,7 +169,7 @@ export async function preflightEventBroadcast(
 ): Promise<Record<string, unknown>> {
   const base = apiBase();
   const res = await fetch(
-    `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/preflight`,
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/preflight`,
     {
       method: "POST",
       headers: authHeaders(authHeader),
@@ -191,7 +191,7 @@ export async function startEventBroadcast(
 }> {
   const base = apiBase();
   const res = await fetch(
-    `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/start`,
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/start`,
     {
       method: "POST",
       headers: authHeaders(authHeader),
@@ -209,7 +209,7 @@ export async function stopEventBroadcast(
 ): Promise<Record<string, unknown>> {
   const base = apiBase();
   const res = await fetch(
-    `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/stop`,
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/stop`,
     {
       method: "POST",
       headers: authHeaders(authHeader),
