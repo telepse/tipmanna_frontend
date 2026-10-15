@@ -182,6 +182,7 @@ export const EventScreenSettings = ({
   };
 
   useEffect(() => {
+    if (!open) return;
     setBackground(initialBackground || "");
     setMoneyFor(initialMoneyFor);
     setShowLatest(initialShowLatest);
@@ -593,15 +594,15 @@ export const EventScreenSettings = ({
           />
         </div>
 
-        {/* Hide progress bar amount */}
+        {/* hideProgressBarAmount in API: true = hide amounts. UI label is "show". */}
         <div className="flex items-center justify-between">
           <Label htmlFor="hideProgressAmount">
             Show amount on progress bar
           </Label>
           <Switch
             id="hideProgressAmount"
-            checked={hideProgressAmount}
-            onCheckedChange={setHideProgressAmount}
+            checked={!hideProgressAmount}
+            onCheckedChange={show => setHideProgressAmount(!show)}
           />
         </div>
 
