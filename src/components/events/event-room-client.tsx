@@ -271,6 +271,30 @@ export const EventRoomClient = ({
     funnelPosition: normalizeScreenFunnelPosition(initialFunnelPosition),
   });
 
+  useEffect(() => {
+    setScreenSettings(prev => ({
+      ...prev,
+      eventBackground,
+      hideProgressBarAmount,
+      showLatestAmount,
+      tipUsageDisclosure,
+      performers,
+      projects,
+      showPinnedOnScreen: initialShowPinnedOnScreen,
+      funnelPosition: normalizeScreenFunnelPosition(initialFunnelPosition),
+    }));
+  }, [
+    eventId,
+    eventBackground,
+    hideProgressBarAmount,
+    showLatestAmount,
+    tipUsageDisclosure,
+    performers,
+    projects,
+    initialShowPinnedOnScreen,
+    initialFunnelPosition,
+  ]);
+
   const [openDrawer, setOpenDrawer] = useState(false);
   const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);
   const pathname = usePathname();

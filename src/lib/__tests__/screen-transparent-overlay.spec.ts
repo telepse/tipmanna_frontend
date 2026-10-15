@@ -50,9 +50,10 @@ describe("transparent screen overlay", () => {
     );
   });
 
-  it("room pusher does not bind public screen-display-state", () => {
+  it("room pusher mirrors public screen-display-state for host indicator sync", () => {
     const provider = readSrc("components/events/event-pusher-provider.tsx");
-    expect(provider).not.toContain('bind("screen-display-state"');
+    expect(provider).toContain('bind("screen-display-state"');
+    expect(provider).toContain('bind("screen-settings-updated"');
   });
 
   it("overlay layout sets transparent root before paint", () => {

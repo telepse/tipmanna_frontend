@@ -23,6 +23,10 @@ import {
   normalizeScreenFunnelPosition,
   type ScreenFunnelPosition,
 } from "@/lib/screen-funnel-position";
+import {
+  hideProgressBarAmountFromShowToggle,
+  showAmountOnProgressBarToggleChecked,
+} from "@/lib/screen-display-progress-toggle";
 
 // Local imports
 import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
@@ -601,8 +605,11 @@ export const EventScreenSettings = ({
           </Label>
           <Switch
             id="hideProgressAmount"
-            checked={!hideProgressAmount}
-            onCheckedChange={show => setHideProgressAmount(!show)}
+            checked={showAmountOnProgressBarToggleChecked(hideProgressAmount)}
+            onCheckedChange={show =>
+              setHideProgressAmount(hideProgressBarAmountFromShowToggle(show))
+            }
+            disabled={loading}
           />
         </div>
 
