@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  activateNativeStreamingWallet,
-  broadcastAuthHeader,
-  createEventBroadcastIntent,
-  fetchCurrentEventBroadcast,
+  activateNativeStreamingWalletAction,
+  createEventBroadcastIntentAction,
+  fetchCurrentEventBroadcastAction,
+  issueEventBroadcastPublisherSessionAction,
+  preflightEventBroadcastAction,
+  startEventBroadcastAction,
+  stopEventBroadcastAction,
+  type EventBroadcastActionOptions,
+} from "@/actions/event-broadcast";
+import type { ActionResult } from "@/lib/action-fetch";
+import {
   getNativeBroadcastDeviceSessionId,
-  issueEventBroadcastPublisherSession,
-  preflightEventBroadcast,
-  startEventBroadcast,
-  stopEventBroadcast,
   type EventBroadcastRow,
   type PublisherSessionResult,
 } from "@/lib/event-broadcast-client";
@@ -33,6 +36,13 @@ type Props = {
 
 function newKey(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function unwrapBroadcastAction<T>(res: ActionResult<T>): T {
+  if (!res.success) {
+    throw new Error(res.error ?? "action_failed");
+  }
+  return res.data as T;
 }
 
 /**
@@ -59,17 +69,18 @@ export function NativeBroadcastPanel({
   const dailyRoom = useDailyPublisherRoom();
 
   const canManage = isHost || isCohost;
-  const authHeader = useMemo(() => broadcastAuthHeader(), []);
-  const canStart = canManage && Boolean(authHeader);
-  const canStop = canManage && Boolean(authHeader);
+  const canStart = canManage;
+  const canStop = canManage;
+  /** Host dashboard owner surface uses hostToken; event-room cohost uses scoped cohostToken. */
+  const broadcastAuthOptions = useMemo<EventBroadcastActionOptions>(
+    () => ({ preferHostSession: isHost && !isCohost }),
+    [isHost, isCohost]
+  );
 
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
   const pollActive = row?.phase === "starting" || row?.phase === "live";
 
-  useNativeBroadcastStatusPoll(
-    pollActive && Boolean(authHeader),
-    () => void refresh()
-  );
+  useNativeBroadcastStatusPoll(pollActive && canManage, () => void refresh());
 
   useEffect(() => {
     const el = videoRef.current;
@@ -81,28 +92,22 @@ export function NativeBroadcastPanel({
   }, [preview.stream]);
 
   const refresh = useCallback(async () => {
-    if (!authHeader) {
-      setError("host_auth_required");
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const current = await fetchCurrentEventBroadcast(eventId, authHeader);
+      const current = unwrapBroadcastAction(
+        await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
+      );
       setRow(current);
     } catch (e) {
       setError(e instanceof Error ? e.message : "status_unavailable");
     } finally {
       setLoading(false);
     }
-  }, [eventId, authHeader]);
+  }, [eventId, broadcastAuthOptions]);
 
   const run = useCallback(
     async (label: string, fn: () => Promise<void>) => {
-      if (!authHeader) {
-        setError("host_auth_required");
-        return;
-      }
       setLoading(true);
       setError(null);
       setMessage(null);
@@ -116,22 +121,13 @@ export function NativeBroadcastPanel({
         setLoading(false);
       }
     },
-    [authHeader, refresh]
+    [refresh]
   );
 
   if (!canManage) {
     return (
       <p className="text-muted-foreground text-sm">
         Native streaming controls require host or cohost access.
-      </p>
-    );
-  }
-
-  if (!authHeader) {
-    return (
-      <p className="text-sm text-amber-800">
-        Sign in as host or cohost to manage native broadcast (session token
-        required).
       </p>
     );
   }
@@ -224,7 +220,12 @@ export function NativeBroadcastPanel({
           disabled={loading}
           onClick={() =>
             void run("Wallet activation requested", async () => {
-              await activateNativeStreamingWallet(eventId, authHeader);
+              unwrapBroadcastAction(
+                await activateNativeStreamingWalletAction(
+                  eventId,
+                  broadcastAuthOptions
+                )
+              );
             })
           }
         >
@@ -234,13 +235,15 @@ export function NativeBroadcastPanel({
           disabled={loading}
           onClick={() =>
             void run("Broadcast intent created", async () => {
-              const result = await createEventBroadcastIntent(
-                eventId,
-                authHeader,
-                {
-                  idempotencyKey: newKey("create"),
-                  eventChannelId,
-                }
+              const result = unwrapBroadcastAction(
+                await createEventBroadcastIntentAction(
+                  eventId,
+                  {
+                    idempotencyKey: newKey("create"),
+                    eventChannelId,
+                  },
+                  broadcastAuthOptions
+                )
               );
               setRow(prev =>
                 prev?.id === result.broadcastId
@@ -271,11 +274,13 @@ export function NativeBroadcastPanel({
           onClick={() =>
             void run("Preflight complete", async () => {
               if (!row?.id) return;
-              await preflightEventBroadcast(
-                eventId,
-                row.id,
-                authHeader,
-                newKey("preflight")
+              unwrapBroadcastAction(
+                await preflightEventBroadcastAction(
+                  eventId,
+                  row.id,
+                  newKey("preflight"),
+                  broadcastAuthOptions
+                )
               );
             })
           }
@@ -287,11 +292,13 @@ export function NativeBroadcastPanel({
           onClick={() =>
             void run("Publisher slot claimed", async () => {
               if (!row?.id) return;
-              const session = await issueEventBroadcastPublisherSession(
-                eventId,
-                row.id,
-                authHeader,
-                getNativeBroadcastDeviceSessionId()
+              const session = unwrapBroadcastAction(
+                await issueEventBroadcastPublisherSessionAction(
+                  eventId,
+                  row.id,
+                  getNativeBroadcastDeviceSessionId(),
+                  broadcastAuthOptions
+                )
               );
               setPublisherSession(session);
             })
@@ -327,11 +334,13 @@ export function NativeBroadcastPanel({
             onClick={() =>
               void run("Start accepted (mock provider)", async () => {
                 if (!row?.id) return;
-                await startEventBroadcast(
-                  eventId,
-                  row.id,
-                  authHeader,
-                  newKey("start")
+                unwrapBroadcastAction(
+                  await startEventBroadcastAction(
+                    eventId,
+                    row.id,
+                    newKey("start"),
+                    broadcastAuthOptions
+                  )
                 );
               })
             }
@@ -346,10 +355,17 @@ export function NativeBroadcastPanel({
               void run("Stop requested", async () => {
                 if (!row?.id) return;
                 await dailyRoom.leave();
-                await stopEventBroadcast(eventId, row.id, authHeader, {
-                  idempotencyKey: newKey("stop"),
-                  reason: "host_stop",
-                });
+                unwrapBroadcastAction(
+                  await stopEventBroadcastAction(
+                    eventId,
+                    row.id,
+                    {
+                      idempotencyKey: newKey("stop"),
+                      reason: "host_stop",
+                    },
+                    broadcastAuthOptions
+                  )
+                );
               })
             }
           >
