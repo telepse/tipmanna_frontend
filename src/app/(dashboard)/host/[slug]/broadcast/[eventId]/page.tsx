@@ -10,7 +10,10 @@ interface Props {
 export default async function HostEventBroadcastPage({ params }: Props) {
   const hostId = await getHostID();
   const { slug, eventId } = await params;
-  const { data: eventDetails } = await getHostEventDetailsAction(hostId!, eventId);
+  const { data: eventDetails } = await getHostEventDetailsAction(
+    hostId!,
+    eventId
+  );
   const details = eventDetails as {
     eventName?: string;
     channels?: { id: string }[];

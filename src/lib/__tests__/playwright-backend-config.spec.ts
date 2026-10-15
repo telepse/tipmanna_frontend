@@ -39,13 +39,16 @@ describe("playwright-backend-config", () => {
   it("uses PLAYWRIGHT_BACKEND_URL without /api/v1 suffix", () => {
     process.env.PLAYWRIGHT_BASE_URL =
       "https://tipmanna-fj3ffgvfq-test01.vercel.app";
-    process.env.PLAYWRIGHT_BACKEND_URL = "https://tipmanna.onrender.com/api/v1";
+    process.env.PLAYWRIGHT_BACKEND_URL =
+      "https://tipmanna-staging.onrender.com/api/v1";
     const resolved = resolvePlaywrightBackendRoot();
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
-      expect(resolved.backendRoot).toBe("https://tipmanna.onrender.com");
+      expect(resolved.backendRoot).toBe(
+        "https://tipmanna-staging.onrender.com"
+      );
       expect(hostnameFromUrl(resolved.backendRoot)).toBe(
-        "tipmanna.onrender.com"
+        "tipmanna-staging.onrender.com"
       );
     }
   });

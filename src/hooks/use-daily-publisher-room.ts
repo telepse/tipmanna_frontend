@@ -13,9 +13,10 @@ export type DailyPublisherJoinPhase =
   | "error";
 
 export function useDailyPublisherRoom() {
-  const callRef = useRef<{ leave: () => Promise<void>; destroy: () => void } | null>(
-    null
-  );
+  const callRef = useRef<{
+    leave: () => Promise<void>;
+    destroy: () => void;
+  } | null>(null);
   const [phase, setPhase] = useState<DailyPublisherJoinPhase>("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -78,9 +79,12 @@ export function useDailyPublisherRoom() {
     [leave]
   );
 
-  useEffect(() => () => {
-    void leave();
-  }, [leave]);
+  useEffect(
+    () => () => {
+      void leave();
+    },
+    [leave]
+  );
 
   return { phase, error, join, leave };
 }

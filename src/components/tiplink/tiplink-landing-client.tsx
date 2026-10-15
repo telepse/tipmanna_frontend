@@ -140,6 +140,10 @@ import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-
 import { getCurrentUser } from "../events/event-room-client";
 import { usePusherTracking } from "@/hooks/use-pusher-tracking";
 
+import { useCommentDrawerData } from "@/hooks/use-comment-drawer-data";
+import { toggleCommentLikeAction } from "@/actions/messages";
+import { Heart, Send } from "lucide-react";
+
 type TipLinkSignInPurpose = "create" | "saveVideo" | "saveHost";
 
 const DOCK_WIDTH_MOBILE = 96;
@@ -348,6 +352,58 @@ export function TipLinkLandingClient({
   }, [trackActivity]);
 
   const [showOnlineCount, setShowOnlineCount] = useState(false);
+
+  const authUser = useSelector((state: RootState) => state.auth.user);
+
+  const {
+    drawerData: inlineCommentData,
+    loading: inlineCommentsLoading,
+    revalidate: revalidateInlineComments,
+  } = useCommentDrawerData(eventId, channelId, true);
+
+  const inlineComments = inlineCommentData?.comments ?? [];
+
+  const [inlineCommentText, setInlineCommentText] = useState("");
+  const [inlineLikeBusyId, setInlineLikeBusyId] = useState<string | null>(null);
+
+  const handleInlineAddComment = useCallback(() => {
+    if (!inlineCommentText.trim()) {
+      toast.error("Enter a comment first");
+      return;
+    }
+
+    // Reuse the existing, supported comment/tip workflow.
+    // CommentDrawer owns the text-tip draft and payment process.
+    setShowCommentDrawer(true);
+  }, [inlineCommentText]);
+
+  const handleInlineCommentLike = useCallback(
+    async (commentId: string) => {
+      if (!authUser || authUser.role === "VISITOR") {
+        setShowCommentDrawer(true);
+        toast.info("Sign in to like comments");
+        return;
+      }
+
+      setInlineLikeBusyId(commentId);
+
+      try {
+        const result = await toggleCommentLikeAction(commentId);
+
+        if (!result.success || !result.data) {
+          toast.error(result.message ?? "Could not update like");
+          return;
+        }
+
+        await revalidateInlineComments();
+      } catch {
+        toast.error("Could not update like");
+      } finally {
+        setInlineLikeBusyId(null);
+      }
+    },
+    [authUser, revalidateInlineComments]
+  );
 
   const {
     isFullView,
@@ -1924,6 +1980,136 @@ export function TipLinkLandingClient({
                   </p>
                 </section>
               ) : null}
+
+              {/* INLINE COMMENTS — directly underneath the pitch */}
+              <section
+                id="tiplink-comments"
+                className="mt-4 space-y-4 rounded-2xl border border-white/10 bg-black/25 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Comments
+                    </h2>
+                    <p className="mt-1 text-xs text-white/60">
+                      Join the conversation about this video.
+                    </p>
+                  </div>
+
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+                    {inlineCommentData?.metrics?.commentCount ??
+                      inlineComments.length}
+                  </span>
+                </div>
+
+                {/* Comment input */}
+                <form
+                  className="flex items-center gap-2"
+                  onSubmit={event => {
+                    event.preventDefault();
+                    handleInlineAddComment();
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={inlineCommentText}
+                    onChange={event => setInlineCommentText(event.target.value)}
+                    placeholder="Write a comment..."
+                    aria-label="Write a comment"
+                    maxLength={2000}
+                    className="focus:border-primary h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/40"
+                  />
+
+                  <button
+                    type="submit"
+                    className="bg-primary inline-flex h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-black transition hover:opacity-90"
+                  >
+                    <Send className="size-4" />
+                    <span className="hidden sm:inline">Add comment</span>
+                    <span className="sm:hidden">Add</span>
+                  </button>
+                </form>
+
+                {/* Existing comments */}
+                <div className="space-y-3">
+                  {inlineCommentsLoading && inlineComments.length === 0 ? (
+                    <div
+                      className="space-y-3"
+                      aria-busy="true"
+                    >
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="h-16 animate-pulse rounded-xl border border-white/10 bg-white/5"
+                        />
+                      ))}
+                    </div>
+                  ) : inlineComments.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center">
+                      <MessageCircleMore className="mx-auto mb-2 size-7 text-white/40" />
+                      <p className="text-sm text-white/70">
+                        Be the first to comment.
+                      </p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Share your thoughts with the community.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {inlineComments.map(comment => (
+                        <li
+                          key={comment.id}
+                          className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold text-white">
+                              {comment.username}
+                            </p>
+
+                            <time className="shrink-0 text-[10px] text-white/40">
+                              {new Date(comment.createdAt).toLocaleDateString()}
+                            </time>
+                          </div>
+
+                          <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-white/80">
+                            {comment.message}
+                          </p>
+
+                          <button
+                            type="button"
+                            disabled={inlineLikeBusyId === comment.id}
+                            onClick={() =>
+                              void handleInlineCommentLike(comment.id)
+                            }
+                            className={`mt-3 inline-flex items-center gap-1.5 text-xs transition ${
+                              comment.likedByMe
+                                ? "text-primary"
+                                : "text-white/50 hover:text-white"
+                            } disabled:opacity-50`}
+                            aria-label={`Like comment by ${comment.username}`}
+                          >
+                            <Heart
+                              className="size-4"
+                              fill={comment.likedByMe ? "currentColor" : "none"}
+                            />
+                            {comment.likeCount}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {inlineComments.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCommentDrawer(true)}
+                      className="w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+                    >
+                      Open full comments
+                    </button>
+                  ) : null}
+                </div>
+              </section>
 
               <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <p className="mb-3 text-center text-sm text-white/60">
