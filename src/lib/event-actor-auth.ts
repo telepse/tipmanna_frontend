@@ -30,7 +30,9 @@ function scopedCohostToken(
 }
 
 /** Pick Authorization bearer for an event-scoped mutation (no token logging). */
-export function selectEventActorBearer(input: EventActorAuthInput): string | null {
+export function selectEventActorBearer(
+  input: EventActorAuthInput
+): string | null {
   const host = input.hostToken?.trim() || null;
   const primary = input.primaryToken?.trim() || null;
   const cohostForEvent = scopedCohostToken(input.eventId, input.cohost);

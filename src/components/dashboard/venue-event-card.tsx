@@ -87,6 +87,12 @@ export function VenueEventCard({
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLatest, setShowLatest] = useState(showLatestAmount);
+  const [hideProgressAmount, setHideProgressAmount] = useState(
+    hideProgressBarAmount
+  );
+  const [loading, setLoading] = useState(false);
 
   const fetchSessions = async () => {
     try {
@@ -109,15 +115,21 @@ export function VenueEventCard({
     fetchSessions();
   }, []);
 
+  useEffect(() => {
+    setShowLatest(showLatestAmount);
+    setHideProgressAmount(hideProgressBarAmount);
+  }, [showLatestAmount, hideProgressBarAmount]);
+
+  useEffect(() => {
+    if (!settingsOpen) return;
+    setShowLatest(showLatestAmount);
+    setHideProgressAmount(hideProgressBarAmount);
+  }, [settingsOpen, showLatestAmount, hideProgressBarAmount]);
+
   const eventCode = hostSession?.eventCode;
   const eventSlug = hostSession?.eventSlug;
 
   const progress = Math.min((amountRaised / amountToRaise) * 100, 100);
-
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showLatest, setShowLatest] = useState(false);
-  const [hideProgressAmount, setHideProgressAmount] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const DEFAULT_BG = "/default.png";
 
