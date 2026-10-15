@@ -15,9 +15,17 @@ function orientationConstraints(
   orientation: NativeOrientation
 ): MediaTrackConstraints {
   if (orientation === "portrait") {
-    return { width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 } };
+    return {
+      width: { ideal: 720 },
+      height: { ideal: 1280 },
+      aspectRatio: { ideal: 9 / 16 },
+    };
   }
-  return { width: { ideal: 1280 }, height: { ideal: 720 }, aspectRatio: { ideal: 16 / 9 } };
+  return {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    aspectRatio: { ideal: 16 / 9 },
+  };
 }
 
 /**
@@ -50,7 +58,10 @@ export function useNativeBroadcastPreview() {
         return;
       }
       try {
-        const audio: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true };
+        const audio: MediaTrackConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+        };
         let stream: MediaStream;
         if (captureMode === "screen") {
           const display = await navigator.mediaDevices.getDisplayMedia({
@@ -60,7 +71,10 @@ export function useNativeBroadcastPreview() {
           stream = display;
         } else {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { ...orientationConstraints(orientation), facingMode: "user" },
+            video: {
+              ...orientationConstraints(orientation),
+              facingMode: "user",
+            },
             audio,
           });
         }

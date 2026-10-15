@@ -27,10 +27,10 @@ export function HostEventBroadcastClient({
         >
           ← Native streaming
         </Link>
-        <h1 className="text-xl font-semibold mt-2">{eventName}</h1>
+        <h1 className="mt-2 text-xl font-semibold">{eventName}</h1>
         <p className="text-muted-foreground text-sm">
-          Explicit Go live controls for the event owner. Preview locally first, then claim
-          publisher and join the scoped provider room when ready.
+          Explicit Go live controls for the event owner. Preview locally first,
+          then claim publisher and join the scoped provider room when ready.
         </p>
       </div>
       <NativeBroadcastPanel

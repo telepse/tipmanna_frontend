@@ -55,8 +55,13 @@ function authHeaders(authHeader: string): HeadersInit {
 
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
-    throw new Error(body.code ?? body.message ?? `broadcast_http_${res.status}`);
+    const body = (await res.json().catch(() => ({}))) as {
+      code?: string;
+      message?: string;
+    };
+    throw new Error(
+      body.code ?? body.message ?? `broadcast_http_${res.status}`
+    );
   }
   return (await res.json()) as T;
 }
@@ -67,7 +72,7 @@ export async function fetchCurrentEventBroadcast(
 ): Promise<EventBroadcastRow | null> {
   const base = apiBase();
   if (!base) return null;
-  const res = await fetch(`${base}/api/v1/events/${eventId}/broadcasts/current`, {
+  const res = await fetch(`${base}/events/${eventId}/broadcasts/current`, {
     headers: { Authorization: authHeader },
     cache: "no-store",
   });
@@ -95,11 +100,14 @@ export async function activateNativeStreamingWallet(
   authHeader: string
 ): Promise<NativeActivationResult> {
   const base = apiBase();
-  const res = await fetch(`${base}/api/v1/events/${eventId}/broadcasts/native-activation`, {
-    method: "POST",
-    headers: authHeaders(authHeader),
-    body: JSON.stringify({}),
-  });
+  const res = await fetch(
+    `${base}/api/v1/events/${eventId}/broadcasts/native-activation`,
+    {
+      method: "POST",
+      headers: authHeaders(authHeader),
+      body: JSON.stringify({}),
+    }
+  );
   return parseJson(res);
 }
 
@@ -176,7 +184,11 @@ export async function startEventBroadcast(
   broadcastId: string,
   authHeader: string,
   idempotencyKey: string
-): Promise<{ operationId: string; accepted: boolean; phase: EventBroadcastPhase }> {
+): Promise<{
+  operationId: string;
+  accepted: boolean;
+  phase: EventBroadcastPhase;
+}> {
   const base = apiBase();
   const res = await fetch(
     `${base}/api/v1/events/${eventId}/broadcasts/${broadcastId}/start`,

@@ -52,7 +52,8 @@ export function NativeBroadcastPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [orientation, setOrientation] = useState<NativeOrientation>("landscape");
+  const [orientation, setOrientation] =
+    useState<NativeOrientation>("landscape");
   const [captureMode, setCaptureMode] = useState<NativeCaptureMode>("camera");
   const preview = useNativeBroadcastPreview();
   const dailyRoom = useDailyPublisherRoom();
@@ -65,7 +66,10 @@ export function NativeBroadcastPanel({
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
   const pollActive = row?.phase === "starting" || row?.phase === "live";
 
-  useNativeBroadcastStatusPoll(pollActive && Boolean(authHeader), () => void refresh());
+  useNativeBroadcastStatusPoll(
+    pollActive && Boolean(authHeader),
+    () => void refresh()
+  );
 
   useEffect(() => {
     const el = videoRef.current;
@@ -117,7 +121,7 @@ export function NativeBroadcastPanel({
 
   if (!canManage) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Native streaming controls require host or cohost access.
       </p>
     );
@@ -126,20 +130,22 @@ export function NativeBroadcastPanel({
   if (!authHeader) {
     return (
       <p className="text-sm text-amber-800">
-        Sign in as host or cohost to manage native broadcast (session token required).
+        Sign in as host or cohost to manage native broadcast (session token
+        required).
       </p>
     );
   }
 
   return (
-    <div className="rounded-lg border bg-white p-3 space-y-3 text-sm">
+    <div className="space-y-3 rounded-lg border bg-white p-3 text-sm">
       <div>
         <h4 className="font-semibold">Native broadcast</h4>
-        <p className="text-xs text-muted-foreground mt-1">
-          Preview uses your camera or screen locally only. On staging mock mode, provider
-          Start is allowed for entitled hosts while public viewer starts stay disabled.
+        <p className="text-muted-foreground mt-1 text-xs">
+          Preview uses your camera or screen locally only. On staging mock mode,
+          provider Start is allowed for entitled hosts while public viewer
+          starts stay disabled.
         </p>
-        <ol className="mt-2 list-decimal pl-4 text-xs text-muted-foreground space-y-0.5">
+        <ol className="text-muted-foreground mt-2 list-decimal space-y-0.5 pl-4 text-xs">
           <li>Start preview → Activate credits → Create intent → Preflight</li>
           <li>Claim publisher → Join provider room → Start (mock worker)</li>
           <li>Stop when finished; leave provider room and stop preview</li>
@@ -150,7 +156,7 @@ export function NativeBroadcastPanel({
         <label className="flex items-center gap-1 text-xs">
           Orientation
           <select
-            className="border rounded px-1 py-0.5"
+            className="rounded border px-1 py-0.5"
             value={orientation}
             onChange={e => setOrientation(e.target.value as NativeOrientation)}
           >
@@ -161,7 +167,7 @@ export function NativeBroadcastPanel({
         <label className="flex items-center gap-1 text-xs">
           Capture
           <select
-            className="border rounded px-1 py-0.5"
+            className="rounded border px-1 py-0.5"
             value={captureMode}
             onChange={e => setCaptureMode(e.target.value as NativeCaptureMode)}
           >
@@ -180,7 +186,7 @@ export function NativeBroadcastPanel({
           autoPlay
         />
         {!preview.active ? (
-          <p className="absolute inset-0 flex items-center justify-center text-xs text-gray-300 px-2 text-center">
+          <p className="absolute inset-0 flex items-center justify-center px-2 text-center text-xs text-gray-300">
             Start local preview to check framing (no provider connection).
           </p>
         ) : null}
@@ -203,10 +209,15 @@ export function NativeBroadcastPanel({
           Stop preview
         </ActionButton>
       </div>
-      {preview.error ? <p className="text-xs text-destructive">{preview.error}</p> : null}
+      {preview.error ? (
+        <p className="text-destructive text-xs">{preview.error}</p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2 border-t pt-2">
-        <ActionButton disabled={loading} onClick={() => void refresh()}>
+        <ActionButton
+          disabled={loading}
+          onClick={() => void refresh()}
+        >
           {loading ? "Working…" : "Refresh status"}
         </ActionButton>
         <ActionButton
@@ -223,10 +234,14 @@ export function NativeBroadcastPanel({
           disabled={loading}
           onClick={() =>
             void run("Broadcast intent created", async () => {
-              const result = await createEventBroadcastIntent(eventId, authHeader, {
-                idempotencyKey: newKey("create"),
-                eventChannelId,
-              });
+              const result = await createEventBroadcastIntent(
+                eventId,
+                authHeader,
+                {
+                  idempotencyKey: newKey("create"),
+                  eventChannelId,
+                }
+              );
               setRow(prev =>
                 prev?.id === result.broadcastId
                   ? prev
@@ -256,7 +271,12 @@ export function NativeBroadcastPanel({
           onClick={() =>
             void run("Preflight complete", async () => {
               if (!row?.id) return;
-              await preflightEventBroadcast(eventId, row.id, authHeader, newKey("preflight"));
+              await preflightEventBroadcast(
+                eventId,
+                row.id,
+                authHeader,
+                newKey("preflight")
+              );
             })
           }
         >
@@ -307,7 +327,12 @@ export function NativeBroadcastPanel({
             onClick={() =>
               void run("Start accepted (mock provider)", async () => {
                 if (!row?.id) return;
-                await startEventBroadcast(eventId, row.id, authHeader, newKey("start"));
+                await startEventBroadcast(
+                  eventId,
+                  row.id,
+                  authHeader,
+                  newKey("start")
+                );
               })
             }
           >
@@ -333,7 +358,7 @@ export function NativeBroadcastPanel({
         ) : null}
       </div>
 
-      <div className="text-xs space-y-1">
+      <div className="space-y-1 text-xs">
         <p>
           Phase: <strong>{phaseLabel}</strong>
           {row?.providerIngestActive ? " · ingest active" : null}
@@ -360,12 +385,14 @@ export function NativeBroadcastPanel({
         </p>
         {isCohost && !isHost ? (
           <p className="text-muted-foreground">
-            Cohost: stop may be denied if you did not initiate this broadcast (server enforced).
+            Cohost: stop may be denied if you did not initiate this broadcast
+            (server enforced).
           </p>
         ) : null}
         {publisherSession ? (
           <p className="text-muted-foreground">
-            Publisher lease until {publisherSession.lease.expiresAt.slice(0, 19)}Z
+            Publisher lease until{" "}
+            {publisherSession.lease.expiresAt.slice(0, 19)}Z
             {publisherSession.dailyPublisher
               ? " · scoped Daily token issued"
               : " · Daily token pending room"}
@@ -385,13 +412,19 @@ export function NativeBroadcastPanel({
           </p>
         ) : null}
         {dailyRoom.error ? (
-          <p className="text-destructive" role="alert">
+          <p
+            className="text-destructive"
+            role="alert"
+          >
             {dailyRoom.error}
           </p>
         ) : null}
         {message ? <p className="text-emerald-700">{message}</p> : null}
         {error ? (
-          <p className="text-destructive" role="alert">
+          <p
+            className="text-destructive"
+            role="alert"
+          >
             {error}
           </p>
         ) : null}
@@ -412,7 +445,7 @@ function ActionButton({
   return (
     <button
       type="button"
-      className="text-xs rounded border px-2 py-1 disabled:opacity-50"
+      className="rounded border px-2 py-1 text-xs disabled:opacity-50"
       disabled={disabled}
       onClick={onClick}
     >
