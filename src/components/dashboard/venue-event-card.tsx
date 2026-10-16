@@ -19,9 +19,7 @@ import { useHostSession } from "@/hooks/use-host-session";
 import { useRouter } from "next/navigation";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
-import {
-  progressBarAmountVisible,
-} from "@/lib/screen-display-progress-toggle";
+import { progressBarAmountVisible } from "@/lib/screen-display-progress-toggle";
 import { reconcileVenueScreenSettingsFromPersisted } from "@/lib/persisted-screen-settings";
 
 interface Performer {
@@ -205,9 +203,7 @@ export function VenueEventCard({
         setHideProgressAmount(
           reconciled.hideProgressBarAmount ?? values.hideProgressAmount
         );
-        setPreviewBackground(
-          reconciled.eventBackground ?? values.background
-        );
+        setPreviewBackground(reconciled.eventBackground ?? values.background);
         setSettingsOpen(false);
         router.refresh();
       } else {
@@ -257,16 +253,12 @@ export function VenueEventCard({
               <h6
                 className={`text-center text-[12px] font-semibold ${textColor} md:text-[10px]`}
               >
-                {showLatest
-                  ? "Latest amount sent"
-                  : "Together you've sent"}
+                {showLatest ? "Latest amount sent" : "Together you've sent"}
               </h6>
 
               <h4 className={`font-semibold ${textColor}`}>
                 &pound;
-                {showLatest
-                  ? latestTipAmount
-                  : amountRaised.toLocaleString()}
+                {showLatest ? latestTipAmount : amountRaised.toLocaleString()}
               </h4>
 
               <p

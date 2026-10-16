@@ -8,7 +8,10 @@ import { Loader2, Play, Share2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 
 import type { HostPlaylistSummary } from "@/actions/host-playlist";
-import { postPlaylistVisitAction } from "@/actions/host-playlist";
+import {
+  postPlaylistPlayAllClickAction,
+  postPlaylistVisitAction,
+} from "@/actions/host-playlist";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { Button } from "@/components/ui/button";
 import { exploreCommunityJoinHref } from "@/lib/community-links";
@@ -89,8 +92,9 @@ export function PlaylistPageClient({
       toast.info("This playlist has no videos");
       return;
     }
+    void postPlaylistPlayAllClickAction(playlist.id);
     playItem(0, true);
-  }, [items.length, locked, playItem]);
+  }, [items.length, locked, playItem, playlist.id]);
 
   const metricsLine = useMemo(() => {
     const parts = [

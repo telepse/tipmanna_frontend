@@ -4,13 +4,17 @@ import {
 } from "@/lib/screen-display-progress-toggle";
 
 /** Reconcile venue/dashboard toggle state from persisted hide flag. */
-export function venueProgressToggleFromPersisted(hideProgressBarAmount: boolean): {
+export function venueProgressToggleFromPersisted(
+  hideProgressBarAmount: boolean
+): {
   hideProgressAmount: boolean;
   showAmountChecked: boolean;
 } {
   return {
     hideProgressAmount: hideProgressBarAmount,
-    showAmountChecked: showAmountOnProgressBarToggleChecked(hideProgressBarAmount),
+    showAmountChecked: showAmountOnProgressBarToggleChecked(
+      hideProgressBarAmount
+    ),
   };
 }
 

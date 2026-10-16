@@ -211,6 +211,18 @@ export async function postPlaylistVisitAction(id: string, path: string) {
   );
 }
 
+export async function postPlaylistPlayAllClickAction(id: string) {
+  return runServerFetch<{ ok: boolean }>(
+    `${base()}/playlists/${encodeURIComponent(id)}/play-all-click`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    },
+    "postPlaylistPlayAllClickAction"
+  );
+}
+
 export async function getDiscoveryPlaylistsAction(limit = 20) {
   const bounded = Math.max(1, Math.min(40, limit));
   return runServerFetch<DiscoveryPlaylistRow[]>(
