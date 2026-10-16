@@ -25,6 +25,7 @@ import {
 } from "@/hooks/use-native-broadcast-preview";
 import { useDailyPublisherRoom } from "@/hooks/use-daily-publisher-room";
 import { useNativeBroadcastStatusPoll } from "@/hooks/use-native-broadcast-status-poll";
+import { usePublisherSessionSync } from "@/hooks/use-publisher-session-sync";
 
 type Props = {
   eventId: string;
@@ -81,6 +82,21 @@ export function NativeBroadcastPanel({
   const pollActive = row?.phase === "starting" || row?.phase === "live";
 
   useNativeBroadcastStatusPoll(pollActive && canManage, () => void refresh());
+
+  usePublisherSessionSync({
+    eventId,
+    broadcastId: row?.id,
+    dailyRoomReady: Boolean(row?.dailyRoomReady),
+    broadcastAuthOptions,
+    publisherSession,
+    setPublisherSession,
+  });
+
+  useEffect(() => {
+    if (row?.phase === "stopped") {
+      setPublisherSession(null);
+    }
+  }, [row?.phase]);
 
   useEffect(() => {
     const el = videoRef.current;
