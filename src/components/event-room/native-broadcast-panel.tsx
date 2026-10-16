@@ -80,23 +80,29 @@ export function NativeBroadcastPanel({
 
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
   const pollActive = row?.phase === "starting" || row?.phase === "live";
+  const sessionSyncActive =
+    pollActive && canManage && Boolean(publisherSession);
 
   useNativeBroadcastStatusPoll(pollActive && canManage, () => void refresh());
 
   usePublisherSessionSync({
     eventId,
     broadcastId: row?.id,
+    sessionSyncActive,
     dailyRoomReady: Boolean(row?.dailyRoomReady),
     broadcastAuthOptions,
     publisherSession,
     setPublisherSession,
+    onSyncError: msg => setError(msg),
   });
 
   useEffect(() => {
     if (row?.phase === "stopped") {
+      void dailyRoom.leave();
       setPublisherSession(null);
+      setError(null);
     }
-  }, [row?.phase]);
+  }, [row?.phase, dailyRoom]);
 
   useEffect(() => {
     const el = videoRef.current;
