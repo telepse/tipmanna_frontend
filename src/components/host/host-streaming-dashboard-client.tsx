@@ -108,8 +108,9 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
         <p className="text-muted-foreground text-xs">
           Pack checkout uses{" "}
           <code className="text-[11px]">STRIPE_PRICE_STREAMING_PACK_240</code> on
-          the staging API. Subscription period grants use your existing Host
-          Premium checkout.
+          the staging API. After payment, open a broadcast console and use{" "}
+          <strong>Activate credits</strong> for the one-time pack activation bonus
+          (not Host Premium — that path is for subscribers only).
         </p>
         <div className="flex flex-wrap gap-2">
           <button
