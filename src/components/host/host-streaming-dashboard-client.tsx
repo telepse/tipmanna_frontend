@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { getHostEventsAction } from "@/actions/events";
-import { streamingPackCheckoutAction } from "@/actions/streaming-stripe";
+import {
+  streamingPackCheckoutAction,
+  streamingPackOrderStatusAction,
+} from "@/actions/streaming-stripe";
 import { useHostSession } from "@/hooks/use-host-session";
 import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 import type { Event } from "@/types";
@@ -26,24 +29,24 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
   const [packMessage, setPackMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const cancelLoad = { value: false };
     (async () => {
       setLoading(true);
       setError(null);
       try {
         const result = await getHostEventsAction({ limit: 50 });
         const rows = unwrapPaginatedList<Event>(result.data);
-        if (!cancelled) setEvents(rows);
+        if (!cancelLoad.value) setEvents(rows);
       } catch (e) {
-        if (!cancelled) {
+        if (!cancelLoad.value) {
           setError(e instanceof Error ? e.message : "events_load_failed");
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelLoad.value) setLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
+      cancelLoad.value = true;
     };
   }, []);
 
@@ -70,10 +73,16 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
         setPackMessage(res.error ?? "Unable to start pack checkout.");
         return;
       }
+      const packOrderId = res.data?.packOrderId;
       const url = res.data?.url;
-      if (!url) {
+      if (!url || !packOrderId) {
         setPackMessage("Checkout session created without a redirect URL.");
         return;
+      }
+      try {
+        sessionStorage.setItem("streaming_pack_return_order", packOrderId);
+      } catch {
+        /* ignore */
       }
       window.location.href = url;
     } finally {
@@ -85,14 +94,90 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("pack") !== "return") return;
-    if (params.get("checkout") === "success") {
-      setPackMessage(
-        "Pack checkout completed — credits apply after Stripe webhook delivery (usually seconds)."
-      );
-    } else if (params.get("checkout") === "cancel") {
+
+    if (params.get("checkout") === "cancel") {
       setPackMessage("Pack checkout cancelled.");
+      return;
     }
-  }, []);
+
+    if (params.get("checkout") !== "success") return;
+
+    const hostId = hostSession.hostId;
+    const packOrderId =
+      params.get("packOrderId")?.trim() ||
+      (() => {
+        try {
+          return sessionStorage.getItem("streaming_pack_return_order")?.trim();
+        } catch {
+          return undefined;
+        }
+      })();
+
+    if (!hostId || !packOrderId) {
+      setPackMessage(
+        "Checkout returned — sign in as the host owner to confirm pack fulfilment status."
+      );
+      return;
+    }
+
+    const cancelPoll = { value: false };
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts += 1;
+      const statusRes = await streamingPackOrderStatusAction({
+        hostId,
+        packOrderId,
+      });
+      if (cancelPoll.value) return;
+
+      if (!statusRes.success || !statusRes.data) {
+        setPackMessage(
+          statusRes.error ??
+            "Could not load pack status — reload this page after signing in."
+        );
+        return;
+      }
+
+      const data = statusRes.data;
+      if (data.fulfilmentConfirmed) {
+        setPackMessage(
+          `Pack fulfilment confirmed on server — ${data.grantUnitsAwarded ?? "14400"} units awarded.`
+        );
+        return;
+      }
+
+      if (data.status === "failed") {
+        setPackMessage("Pack checkout failed — no credits were granted.");
+        return;
+      }
+
+      if (data.paymentProcessing || data.status === "pending") {
+        if (attempts < 12) {
+          setPackMessage(
+            "Payment received — waiting for Stripe webhook fulfilment (usually seconds)…"
+          );
+          window.setTimeout(() => void poll(), 2500);
+          return;
+        }
+        setPackMessage(
+          "Payment still processing — check superadmin wallet-summary or retry shortly."
+        );
+        return;
+      }
+
+      if (data.status === "paid" && !data.fulfilmentConfirmed) {
+        setPackMessage(
+          "Order marked paid — ledger grant not confirmed yet; check wallet-summary."
+        );
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelPoll.value = true;
+    };
+  }, [hostSession.hostId]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4">

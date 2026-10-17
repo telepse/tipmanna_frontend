@@ -33,3 +33,35 @@ export async function streamingPackCheckoutAction(input: {
     "streamingPackCheckoutAction"
   );
 }
+
+export async function streamingPackOrderStatusAction(input: {
+  hostId: string;
+  packOrderId: string;
+}) {
+  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace(/\/$/, "");
+  if (!base) {
+    return {
+      success: false as const,
+      error: "Backend API URL is not configured",
+    };
+  }
+
+  const packOrderId = encodeURIComponent(input.packOrderId.trim());
+  const hostId = encodeURIComponent(input.hostId.trim());
+
+  return runServerFetch<{
+    packOrderId: string;
+    status: "pending" | "paid" | "failed";
+    fulfilmentConfirmed: boolean;
+    grantUnitsAwarded: string | null;
+    paidAt: string | null;
+    paymentProcessing: boolean;
+  }>(
+    `${base}/hosts/${hostId}/streaming/pack/orders/${packOrderId}/status`,
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+    },
+    "streamingPackOrderStatusAction"
+  );
+}
