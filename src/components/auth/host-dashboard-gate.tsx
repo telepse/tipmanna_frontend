@@ -18,6 +18,7 @@ import {
   shouldInitDashboardReady,
   shouldKeepDashboardContentDuringProbe,
 } from "@/lib/host-dashboard-gate-state";
+import { resolveHostDashboardRedirect } from "@/lib/host-dashboard-gate-redirect";
 
 type Props = {
   children: ReactNode;
@@ -91,21 +92,37 @@ function HostDashboardGateInner({ children }: Props) {
       return;
     }
 
-    if (!canReadAsHost) {
-      if (hostSession?.code === AUTH_ERROR_CODES.EMAIL_VERIFICATION_REQUIRED) {
-        router.replace(
-          buildVerifyEmailPath({
-            email: user.email,
-            accountType: "HOST",
-          })
-        );
-        return;
+    if (hostSession?.code === AUTH_ERROR_CODES.EMAIL_VERIFICATION_REQUIRED) {
+      router.replace(
+        buildVerifyEmailPath({
+          email: user.email,
+          accountType: "HOST",
+        })
+      );
+      return;
+    }
+
+    const redirectDecision = resolveHostDashboardRedirect({
+      canReadAsHost,
+      canWriteAsHost,
+      capabilityStatus: capability.status,
+      probeLoading,
+      hostSessionLoading: hostSession?.isLoading ?? false,
+    });
+
+    if (redirectDecision === "wait") {
+      if (!keepContentDuringProbe) {
+        setReady(false);
       }
+      return;
+    }
+
+    if (redirectDecision === "tipper_fallback") {
       router.replace(user.username ? `/tipper/${user.username}` : "/sign-in");
       return;
     }
 
-    if (canWriteAsHost) {
+    if (redirectDecision === "ready") {
       authRequestedRef.current = false;
       setReady(true);
       return;
@@ -127,6 +144,7 @@ function HostDashboardGateInner({ children }: Props) {
   }, [
     canReadAsHost,
     canWriteAsHost,
+    capability.status,
     keepContentDuringProbe,
     probeLoading,
     probeTransient,
@@ -135,6 +153,7 @@ function HostDashboardGateInner({ children }: Props) {
     grantValid,
     user,
     hostSession?.code,
+    hostSession?.isLoading,
   ]);
 
   if (!ready) {
