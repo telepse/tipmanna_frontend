@@ -78,12 +78,38 @@ export function NativeBroadcastPanel({
     [isHost, isCohost]
   );
 
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const current = unwrapBroadcastAction(
+        await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
+      );
+      setRow(current);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "status_unavailable");
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId, broadcastAuthOptions]);
+
   const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
   const pollActive = row?.phase === "starting" || row?.phase === "live";
   const sessionSyncActive =
     pollActive && canManage && Boolean(publisherSession);
 
   useNativeBroadcastStatusPoll(pollActive && canManage, () => void refresh());
+  /** Idle cohost/owner sync when Pusher is unavailable (15s). */
+  useNativeBroadcastStatusPoll(
+    canManage && !pollActive,
+    () => void refresh(),
+    15_000
+  );
+
+  useEffect(() => {
+    if (!canManage) return;
+    void refresh();
+  }, [canManage, eventId, refresh]);
 
   usePublisherSessionSync({
     eventId,
@@ -112,21 +138,6 @@ export function NativeBroadcastPanel({
       void el.play().catch(() => {});
     }
   }, [preview.stream]);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const current = unwrapBroadcastAction(
-        await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
-      );
-      setRow(current);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "status_unavailable");
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId, broadcastAuthOptions]);
 
   const run = useCallback(
     async (label: string, fn: () => Promise<void>) => {
