@@ -10,6 +10,7 @@ import { AddProjectsModal } from "./add-projects-modal";
 import { AddPerformersModal } from "./add-performers-modal";
 import { SelectDefaultVideoModal } from "./select-default-video-modal";
 import { NativeBroadcastPanel } from "@/components/event-room/native-broadcast-panel";
+import { pickNativeBroadcastEventChannelId } from "@/lib/native-broadcast-channel";
 interface SectionItem {
   title: string;
   // icon: React.ReactNode;
@@ -72,6 +73,7 @@ export const ContentRoomSettings = ({
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
   const canManageChannel = isHost || isCohost;
+  const nativeBroadcastChannelId = pickNativeBroadcastEventChannelId(channels);
   const [visitStats, setVisitStats] = useState<{
     visits90d: number;
     visits7d: number;
@@ -145,7 +147,7 @@ export const ContentRoomSettings = ({
               eventId={eventId}
               isHost={isHost}
               isCohost={isCohost}
-              eventChannelId={channels[0]?.id}
+              eventChannelId={nativeBroadcastChannelId}
             />
           ) : null}
           {canManageChannel ? (
