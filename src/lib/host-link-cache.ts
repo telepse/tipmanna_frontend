@@ -24,6 +24,14 @@ export function getCachedHostLink(userId: string): HostLinkResponse | null {
   return cache.get(userId) ?? null;
 }
 
+export function setCachedHostLink(
+  userId: string,
+  data: HostLinkResponse
+): void {
+  cache.set(userId, data);
+  notifyListeners();
+}
+
 /** Clears cached host-link rows (all users or one tipper id). */
 export function invalidateHostLinkCache(userId?: string): void {
   if (userId) {

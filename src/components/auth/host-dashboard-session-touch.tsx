@@ -13,7 +13,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
-const INITIAL_TOUCH_DELAY_MS = 3_000;
+const INITIAL_TOUCH_DELAY_MS = 0;
 
 async function touchHostSession(): Promise<Response | null> {
   return fetch("/api/auth/host-session/touch", {
