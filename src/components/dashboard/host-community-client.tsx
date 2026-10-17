@@ -1187,10 +1187,14 @@ export function HostCommunityClient() {
     const onBankUpdated = () => {
       void refreshBank();
     };
+    const onDisplayUpdated = () => {
+      toast.info("Community room display updated");
+    };
     if (communityIdForPusher) {
       const cname = `community-${communityIdForPusher}`;
       communityChannel = subscribeChannel(cname);
       communityChannel?.bind("content-bank-updated", onBankUpdated);
+      communityChannel?.bind("display-updated", onDisplayUpdated);
     }
 
     return () => {
@@ -1201,6 +1205,7 @@ export function HostCommunityClient() {
       }
       if (communityChannel && communityIdForPusher) {
         communityChannel.unbind("content-bank-updated", onBankUpdated);
+        communityChannel.unbind("display-updated", onDisplayUpdated);
         unsubscribeChannel(`community-${communityIdForPusher}`);
       }
     };

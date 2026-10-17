@@ -14,6 +14,8 @@ import { truncateText } from "@/lib/utils";
 import { ScreenDisplay } from "@/components/events/screen-display";
 import { EventScreenSettings } from "@/components/events/event-screen-settings";
 import { changeEventScreenSettings } from "@/actions/events";
+import { getHostEventDetailsAction } from "@/actions/host";
+import { mapHostEventToScreenSettingsSnapshot } from "@/lib/host-event-screen-settings";
 import { getEventSessionsAction } from "@/actions/community-host-dashboard";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useRouter } from "next/navigation";
@@ -124,13 +126,8 @@ export function VenueEventCard({
     setPreviewBackground(eventBackground);
   }, [showLatestAmount, hideProgressBarAmount, eventBackground]);
 
-  useEffect(() => {
-    if (!settingsOpen) return;
-    setShowLatest(showLatestAmount);
-    setHideProgressAmount(hideProgressBarAmount);
-  }, [settingsOpen, showLatestAmount, hideProgressBarAmount]);
-
   const eventCode = hostSession?.eventCode;
+  const hostId = hostSession?.hostId ?? null;
   const eventSlug = hostSession?.eventSlug;
 
   const progress = Math.min((amountRaised / amountToRaise) * 100, 100);
@@ -185,19 +182,32 @@ export function VenueEventCard({
       if (result.success) {
         toast.success("Event screen settings changed");
 
-        const persisted = (result.data ?? {}) as {
-          hideProgressBarAmount?: boolean;
-          showLatestAmount?: boolean;
-          eventBackground?: string;
-        };
-        const reconciled = reconcileVenueScreenSettingsFromPersisted(
+        let reconciled = reconcileVenueScreenSettingsFromPersisted(
           {
             hideProgressBarAmount: values.hideProgressAmount,
             showLatestAmount: values.showLatest,
             eventBackground: values.background,
           },
-          persisted
+          (result.data ?? {}) as {
+            hideProgressBarAmount?: boolean;
+            showLatestAmount?: boolean;
+            eventBackground?: string;
+          }
         );
+
+        if (hostId) {
+          const fresh = await getHostEventDetailsAction(hostId, id);
+          if (fresh.success && fresh.data) {
+            const snap = mapHostEventToScreenSettingsSnapshot(
+              fresh.data as Record<string, unknown>
+            );
+            reconciled = {
+              hideProgressBarAmount: snap.hideProgressAmount,
+              showLatestAmount: snap.showLatest,
+              eventBackground: snap.background,
+            };
+          }
+        }
 
         setShowLatest(reconciled.showLatestAmount ?? values.showLatest);
         setHideProgressAmount(
@@ -340,6 +350,7 @@ export function VenueEventCard({
         loading={loading}
         tipUsageDisclosure={tipUsageDisclosure as TipUsageDisclosure[]}
         eventId={id}
+        hostId={hostId}
         initialPerformers={performers}
         initialProjects={projects}
         sessions={sessions}

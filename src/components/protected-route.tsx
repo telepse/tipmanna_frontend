@@ -1,11 +1,12 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
 
 import { RootState } from "@/redux/store";
+import { isProtectedRouteSessionReady } from "@/lib/protected-route-session";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -15,30 +16,67 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
-  const { user, token, isAuthenticated, requiresVerification } = useSelector(
-    (state: RootState) => state.auth
-  );
+  const {
+    user,
+    token,
+    isAuthenticated,
+    requiresVerification,
+    persistAuthHydrationComplete,
+  } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
-    /**
-     * Authorize strictly from Redux: right after login, `setCredentials` has run
-     * synchronously before navigation, while redux-persist may not have flushed
-     * `persist:root` yet, and `token` may be HttpOnly so `Cookies.get("token")` is
-     * empty. The old cookie↔persist “sync” deleted valid cookies and forced
-     * `/sign-in` — see host sign-in → dashboard flow.
-     */
-    const sessionOk =
-      isAuthenticated &&
-      !requiresVerification &&
-      Boolean(user?.id && token?.trim());
+    let cancelled = false;
 
-    if (!sessionOk) {
-      router.replace("/sign-in");
-      return;
-    }
+    const decide = async () => {
+      const local = isProtectedRouteSessionReady({
+        persistAuthHydrationComplete,
+        isAuthenticated,
+        requiresVerification,
+        userId: user?.id,
+        token,
+      });
 
-    setChecking(false);
-  }, [isAuthenticated, requiresVerification, user, token, router]);
+      if (local === "pending") {
+        return;
+      }
+
+      if (local === "allowed") {
+        if (!cancelled) setChecking(false);
+        return;
+      }
+
+      // Stale persist without cookies — confirm HttpOnly session before sign-out redirect.
+      try {
+        const res = await fetch("/api/auth/session/status", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const body = (await res.json()) as { authenticated?: boolean };
+          if (body.authenticated) {
+            setChecking(false);
+            return;
+          }
+        }
+      } catch {
+        /* fall through to sign-in */
+      }
+
+      if (!cancelled) {
+        router.replace("/sign-in");
+      }
+    };
+
+    void decide();
+  }, [
+    isAuthenticated,
+    requiresVerification,
+    user,
+    token,
+    persistAuthHydrationComplete,
+    router,
+  ]);
 
   if (checking) {
     return (

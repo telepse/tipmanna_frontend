@@ -50,7 +50,9 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
   const startPackCheckout = useCallback(async () => {
     const hostId = hostSession.hostId;
     if (!hostId) {
-      setPackMessage("Sign in as the host owner to purchase streaming credits.");
+      setPackMessage(
+        "Sign in as the host owner to purchase streaming credits."
+      );
       return;
     }
     setPackBusy(true);
@@ -104,13 +106,15 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
       </div>
 
       <section className="space-y-2 rounded-md border bg-white p-4">
-        <h2 className="text-sm font-semibold">Streaming credits (Stripe test)</h2>
+        <h2 className="text-sm font-semibold">
+          Streaming credits (Stripe test)
+        </h2>
         <p className="text-muted-foreground text-xs">
           Pack checkout uses{" "}
-          <code className="text-[11px]">STRIPE_PRICE_STREAMING_PACK_240</code> on
-          the staging API. After payment, open a broadcast console and use{" "}
-          <strong>Activate credits</strong> for the one-time pack activation bonus
-          (not Host Premium — that path is for subscribers only).
+          <code className="text-[11px]">STRIPE_PRICE_STREAMING_PACK_240</code>{" "}
+          on the staging API. After payment, open a broadcast console and use{" "}
+          <strong>Activate credits</strong> for the one-time pack activation
+          bonus (not Host Premium — that path is for subscribers only).
         </p>
         <div className="flex flex-wrap gap-2">
           <button
