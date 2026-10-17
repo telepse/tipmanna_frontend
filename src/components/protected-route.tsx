@@ -6,52 +6,55 @@ import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
 
 import { RootState } from "@/redux/store";
-import { isProtectedRouteSessionReady } from "@/lib/protected-route-session";
+import { isProtectedRouteHydrationPending } from "@/lib/protected-route-session";
+import { safeInternalPath } from "@/lib/post-host-auth-destination";
 
 interface ProtectedRouteProps {
   children: ReactNode;
+}
+
+function currentReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  return safeInternalPath(
+    `${window.location.pathname}${window.location.search}`
+  );
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
-  const {
-    user,
-    token,
-    isAuthenticated,
-    requiresVerification,
-    persistAuthHydrationComplete,
-  } = useSelector((state: RootState) => state.auth);
+  const { persistAuthHydrationComplete, requiresVerification } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   useEffect(() => {
-    let cancelled = false;
+    const cancel = { value: false };
 
     const decide = async () => {
-      const local = isProtectedRouteSessionReady({
-        persistAuthHydrationComplete,
-        isAuthenticated,
-        requiresVerification,
-        userId: user?.id,
-        token,
-      });
-
-      if (local === "pending") {
+      if (
+        isProtectedRouteHydrationPending({ persistAuthHydrationComplete })
+      ) {
         return;
       }
 
-      if (local === "allowed") {
-        if (!cancelled) setChecking(false);
+      if (requiresVerification) {
+        if (!cancel.value) {
+          const returnTo = currentReturnPath();
+          const next = returnTo
+            ? `/sign-in?next=${encodeURIComponent(returnTo)}`
+            : "/sign-in";
+          router.replace(next);
+        }
         return;
       }
 
-      // Stale persist without cookies — confirm HttpOnly session before sign-out redirect.
       try {
         const res = await fetch("/api/auth/session/status", {
           credentials: "include",
           cache: "no-store",
         });
-        if (cancelled) return;
+        if (cancel.value) return;
         if (res.ok) {
           const body = (await res.json()) as { authenticated?: boolean };
           if (body.authenticated) {
@@ -60,23 +63,23 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
           }
         }
       } catch {
-        /* fall through to sign-in */
+        /* fall through */
       }
 
-      if (!cancelled) {
-        router.replace("/sign-in");
+      if (!cancel.value) {
+        const returnTo = currentReturnPath();
+        const next = returnTo
+          ? `/sign-in?next=${encodeURIComponent(returnTo)}`
+          : "/sign-in";
+        router.replace(next);
       }
     };
 
     void decide();
-  }, [
-    isAuthenticated,
-    requiresVerification,
-    user,
-    token,
-    persistAuthHydrationComplete,
-    router,
-  ]);
+    return () => {
+      cancel.value = true;
+    };
+  }, [persistAuthHydrationComplete, requiresVerification, router]);
 
   if (checking) {
     return (
