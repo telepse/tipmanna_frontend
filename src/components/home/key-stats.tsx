@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { StatCard } from "./stat-card";
 import { KeyStat, KeyStatLastWeek } from "@/types/keystat.types";
 import { formatWithCommas } from "@/lib/utils";
+import { PARTNER_HOMEPAGE_TOTAL_ENCOUNTERS_LABEL } from "@/lib/partner-homepage-public-copy";
 import { Badge } from "../shared/badge";
 
 interface Props {
@@ -222,7 +223,7 @@ export default function KeyStats({ stats }: Props) {
               )}
             />
             <StatCard
-              label="Total TV Plays"
+              label={PARTNER_HOMEPAGE_TOTAL_ENCOUNTERS_LABEL}
               value={liveStats.totalEncounters}
               subtitle={previousPeriodSubtitle(
                 liveStats.totalEncounters,
