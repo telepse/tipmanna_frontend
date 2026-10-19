@@ -185,6 +185,10 @@ export const EventRoomClient = ({
       isDefault: c.isDefault === true,
       durationSeconds:
         typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+      mediaSource:
+        c.mediaSource === "native" || c.mediaSource === "linked"
+          ? c.mediaSource
+          : undefined,
     }))
   );
 
@@ -198,6 +202,10 @@ export const EventRoomClient = ({
         isDefault: c.isDefault === true,
         durationSeconds:
           typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+        mediaSource:
+          c.mediaSource === "native" || c.mediaSource === "linked"
+            ? c.mediaSource
+            : undefined,
       }))
     );
   }, [serverChannelKey, safeChannels]);
