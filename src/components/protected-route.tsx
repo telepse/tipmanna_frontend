@@ -69,6 +69,9 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     };
 
     void decide();
+    return () => {
+      cancelled = true;
+    };
   }, [
     isAuthenticated,
     requiresVerification,
