@@ -39,6 +39,7 @@ import {
 import { mergeEventRoomChannel } from "@/lib/content-channel-payload";
 import { useEventChannelCreatedRealtime } from "@/hooks/use-event-channel-created-realtime";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { useEventRoomChannelsPoll } from "@/hooks/use-event-room-channels-poll";
 import { appendUniqueChatMessage } from "@/lib/append-unique-chat-message";
 import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
 
@@ -218,11 +219,28 @@ export const EventRoomClient = ({
 
   useDefaultChannelRealtime(eventId, payload => {
     setChannelList(prev =>
-      prev.map(c => ({
-        ...c,
-        isDefault: String(c.id) === payload.channelId,
-      }))
+      prev.map(c => {
+        const isTarget = String(c.id) === payload.channelId;
+        return {
+          ...c,
+          isDefault: isTarget,
+          ...(isTarget && payload.url?.trim()
+            ? { url: payload.url.trim() }
+            : {}),
+        };
+      })
     );
+  });
+
+  useEventRoomChannelsPoll(eventId, rows => {
+    setChannelList(prev => {
+      const byId = new Map(prev.map(c => [String(c.id), c]));
+      for (const row of rows) {
+        const existing = byId.get(String(row.id));
+        byId.set(String(row.id), existing ? { ...existing, ...row } : row);
+      }
+      return [...byId.values()];
+    });
   });
 
   const safeEventSession = Array.isArray(EventSession) ? EventSession : [];
