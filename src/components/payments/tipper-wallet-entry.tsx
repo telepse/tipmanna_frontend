@@ -20,9 +20,18 @@ import {
 import {
   createWalletTopupIntentRequest,
   debitWalletRequest,
+  WalletDebitRequestError,
   setWalletPinRequest,
   type WalletStatusResponse,
 } from "@/lib/wallet-client";
+import {
+  clearWalletDebitPendingIdempotency,
+  planWalletDebitIdempotencyKey,
+  rememberWalletDebitPendingTipQuoteId,
+  resolveWalletDebitPendingTipQuoteId,
+  walletDebitFailureDisposition,
+  type WalletDebitAttemptIdentity,
+} from "@/lib/wallet-debit-pending-idempotency";
 import {
   Elements,
   ExpressCheckoutElement,
@@ -427,19 +436,37 @@ export function TipperWalletDialog({
     }
     setBusy(true);
     setErr(null);
-    const idem =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random()}`;
+    const debitIdentity: WalletDebitAttemptIdentity = {
+      eventId,
+      amount: totalAmount,
+      characters,
+      paymentSurface,
+      paymentContentId: paymentChannelId?.trim() || undefined,
+      communityId: paymentCommunityId?.trim() || undefined,
+      videoFeatureCardId: videoFeatureCardId?.trim() || undefined,
+      performerId: performerId ?? undefined,
+      projectId: projectId ?? undefined,
+      selectedTips,
+      secondaryText: secondaryText || undefined,
+    };
+    const { idempotencyKey: idem } =
+      planWalletDebitIdempotencyKey(debitIdentity);
     try {
-      let tipQuoteId: string | undefined;
+      let tipQuoteId: string | undefined = resolveWalletDebitPendingTipQuoteId(
+        debitIdentity
+      );
       if (
         ensureTipQuoteId &&
         (paymentSurface === "event_room" ||
           paymentSurface === "community_room") &&
         mode === "tip"
       ) {
-        tipQuoteId = await ensureTipQuoteId();
+        if (!tipQuoteId) {
+          tipQuoteId = await ensureTipQuoteId();
+          if (tipQuoteId) {
+            rememberWalletDebitPendingTipQuoteId(debitIdentity, tipQuoteId);
+          }
+        }
       }
       await debitWalletRequest({
         pin,
@@ -473,6 +500,7 @@ export function TipperWalletDialog({
         ...(performerId ? { performerId } : {}),
         ...(projectId ? { projectId } : {}),
       });
+      clearWalletDebitPendingIdempotency();
       void refresh();
       try {
         localStorage.removeItem("walletPendingTipAfterTopup");
@@ -494,6 +522,13 @@ export function TipperWalletDialog({
         setPin("");
       }
     } catch (e: unknown) {
+      const httpStatus =
+        e instanceof WalletDebitRequestError ? e.httpStatus : undefined;
+      if (
+        walletDebitFailureDisposition(httpStatus) === "clear_pending"
+      ) {
+        clearWalletDebitPendingIdempotency();
+      }
       setErr(e instanceof Error ? e.message : "Payment failed");
     } finally {
       setBusy(false);
