@@ -12,6 +12,15 @@ describe("native-broadcast-panel-status", () => {
     expect(formatRecordedStopReason("maxStartingDuration")).toMatch(/timed out/i);
   });
 
+  it("appends OAuth hint when provider job failed invalid_grant", () => {
+    expect(
+      formatRecordedStopReason(
+        "maxStartingDuration",
+        'Google token refresh failed: { "error": "invalid_grant" }'
+      )
+    ).toMatch(/E1-FA-01/i);
+  });
+
   it("uses stamped provider mode for start message", () => {
     expect(
       startAcceptedMessage({

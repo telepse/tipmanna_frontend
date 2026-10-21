@@ -54,7 +54,7 @@ async function broadcastHeaders(
 export async function fetchCurrentEventBroadcastAction(
   eventId: string,
   options?: EventBroadcastActionOptions
-): Promise<ActionResult<EventBroadcastRow | null>> {
+): Promise<ActionResult<import("@/lib/event-broadcast-client").EventBroadcastCurrentPayload>> {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
 
@@ -62,7 +62,10 @@ export async function fetchCurrentEventBroadcastAction(
   if (isAuthActionFail(headersOrFail)) return headersOrFail;
 
   const url = `${base}/events/${eventId}/broadcasts/current`;
-  const result = await runServerFetch<{ broadcast: EventBroadcastRow | null }>(
+  const result = await runServerFetch<{
+    broadcast: EventBroadcastRow | null;
+    terminal?: import("@/lib/event-broadcast-client").EventBroadcastTerminal | null;
+  }>(
     url,
     {
       method: "GET",
@@ -72,7 +75,9 @@ export async function fetchCurrentEventBroadcastAction(
     "fetchCurrentEventBroadcastAction"
   );
   if (!result.success) {
-    if (result.httpStatus === 404) return actionOk(null);
+    if (result.httpStatus === 404) {
+      return actionOk({ broadcast: null, terminal: null });
+    }
     return {
       data: null,
       error: result.error,
@@ -82,8 +87,14 @@ export async function fetchCurrentEventBroadcastAction(
       validationBody: result.validationBody,
     };
   }
-  const payload = result.data as { broadcast?: EventBroadcastRow | null };
-  return actionOk(payload?.broadcast ?? null);
+  const payload = result.data as {
+    broadcast?: EventBroadcastRow | null;
+    terminal?: import("@/lib/event-broadcast-client").EventBroadcastTerminal | null;
+  };
+  return actionOk({
+    broadcast: payload?.broadcast ?? null,
+    terminal: payload?.terminal ?? null,
+  });
 }
 
 export async function createEventBroadcastIntentAction(

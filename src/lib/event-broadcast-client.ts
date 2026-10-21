@@ -10,6 +10,19 @@ export type EventBroadcastPhase =
   | "interrupted"
   | "stopped";
 
+export type EventBroadcastTerminal = {
+  id: string;
+  recordedStopReason: string | null;
+  providerExecutionMode: string | null;
+  billableEndedAt: string | null;
+  lastProviderError: string | null;
+};
+
+export type EventBroadcastCurrentPayload = {
+  broadcast: EventBroadcastRow | null;
+  terminal: EventBroadcastTerminal | null;
+};
+
 export type EventBroadcastRow = {
   id: string;
   ownerHostId: string;
