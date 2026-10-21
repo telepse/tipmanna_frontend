@@ -74,6 +74,7 @@ export function NativeBroadcastPanel({
     id: string;
     recordedStopReason: string | null;
     providerExecutionMode: string | null;
+    lastProviderError: string | null;
   } | null>(null);
   const previousRowRef = useRef<EventBroadcastRow | null>(null);
   const [orientation, setOrientation] =
@@ -98,16 +99,27 @@ export function NativeBroadcastPanel({
         setError(null);
       }
       try {
-        const current = unwrapBroadcastAction(
+        const payload = unwrapBroadcastAction(
           await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
         );
-        if (current === null && previousRowRef.current?.phase === "starting") {
+        const current = payload.broadcast;
+        if (payload.terminal) {
+          setLastTerminal({
+            id: payload.terminal.id,
+            recordedStopReason: payload.terminal.recordedStopReason,
+            providerExecutionMode: payload.terminal.providerExecutionMode,
+            lastProviderError: payload.terminal.lastProviderError,
+          });
+        } else if (
+          current === null &&
+          previousRowRef.current?.phase === "starting"
+        ) {
           setLastTerminal({
             id: previousRowRef.current.id,
-            recordedStopReason:
-              previousRowRef.current.recordedStopReason ?? "session_ended",
+            recordedStopReason: previousRowRef.current.recordedStopReason,
             providerExecutionMode:
               previousRowRef.current.providerExecutionMode ?? null,
+            lastProviderError: null,
           });
         }
         setRow(current);
@@ -174,6 +186,7 @@ export function NativeBroadcastPanel({
         id: row.id,
         recordedStopReason: row.recordedStopReason,
         providerExecutionMode: row.providerExecutionMode ?? null,
+        lastProviderError: null,
       });
       void dailyRoom.leave();
       setPublisherSession(null);
@@ -215,7 +228,10 @@ export function NativeBroadcastPanel({
 
   const publisherUiActive = showPublisherSurface(row);
   const terminalCopy = lastTerminal
-    ? formatRecordedStopReason(lastTerminal.recordedStopReason)
+    ? formatRecordedStopReason(
+        lastTerminal.recordedStopReason,
+        lastTerminal.lastProviderError
+      )
     : null;
 
   if (!canManage) {
