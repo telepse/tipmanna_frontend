@@ -62,7 +62,10 @@ export async function fetchCurrentEventBroadcastAction(
   if (isAuthActionFail(headersOrFail)) return headersOrFail;
 
   const url = `${base}/events/${eventId}/broadcasts/current`;
-  const result = await runServerFetch<{ broadcast: EventBroadcastRow | null }>(
+  const result = await runServerFetch<{
+    broadcast: EventBroadcastRow | null;
+    terminal?: { id: string; recordedStopReason: string | null } | null;
+  }>(
     url,
     {
       method: "GET",
@@ -82,8 +85,29 @@ export async function fetchCurrentEventBroadcastAction(
       validationBody: result.validationBody,
     };
   }
-  const payload = result.data as { broadcast?: EventBroadcastRow | null };
-  return actionOk(payload?.broadcast ?? null);
+  const payload = result.data as {
+    broadcast?: EventBroadcastRow | null;
+    terminal?: { id: string; recordedStopReason: string | null } | null;
+  };
+  const broadcast = payload?.broadcast ?? null;
+  if (!broadcast && payload?.terminal) {
+    return actionOk({
+      id: payload.terminal.id,
+      ownerHostId: "",
+      phase: "stopped",
+      billableEndedAt: null,
+      recordedStopReason: payload.terminal.recordedStopReason,
+      eventChannelId: null,
+      initiatedByUserId: null,
+      initiatedByRole: null,
+      providerIngestActive: false,
+      dailyRoomReady: false,
+      youtubeBroadcastPrepared: false,
+      liveStartedAt: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  return actionOk(broadcast);
 }
 
 export async function createEventBroadcastIntentAction(

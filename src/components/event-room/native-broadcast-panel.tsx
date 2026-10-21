@@ -127,6 +127,7 @@ export function NativeBroadcastPanel({
       void dailyRoom.leave();
       setPublisherSession(null);
       setError(null);
+      setMessage(null);
     }
   }, [row?.phase, dailyRoom]);
 
