@@ -153,7 +153,7 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
     if (catalog.success && catalog.data?.partners) {
       setOutboundPartners(catalog.data.partners);
       if (catalog.data.partners.length === 1) {
-        setSelectedOutboundPartnerId(catalog.data.partners[0]!.id);
+        setSelectedOutboundPartnerId(prev => prev || catalog.data!.partners[0]!.id);
       }
     }
     const enr = await getTayeEnrollmentsAction(eventId);
@@ -512,7 +512,7 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
             </Button>
           </div>
         )}
-        {outboundFailed ? (
+        {outboundFailed && !isOutboundPublished ? (
           <div className="border-destructive/40 bg-destructive/5 rounded-md border p-3 text-sm">
             <p className="font-medium">Last publish attempt failed</p>
             {eventMeta?.partnerId ? (
