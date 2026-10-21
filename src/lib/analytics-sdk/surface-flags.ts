@@ -1,49 +1,53 @@
 import type { PaymentSurface } from "../analytics-types";
 import { isAnalyticsSdkEnabled } from "./flags";
 
-function readSurfaceFlag(envKey: string): boolean {
-  if (typeof process === "undefined") return false;
-  return process.env[envKey] === "true";
-}
-
 /** Staging pilot: channel_client canonical producer (default off). */
 export function isChannelClientAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_CHANNEL_CLIENT_V2");
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_CHANNEL_CLIENT_V2 === "true"
+  );
 }
 
 export function isContentClientAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_CONTENT_CLIENT_V2");
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_CONTENT_CLIENT_V2 === "true"
+  );
 }
 
 export function isEventRoomAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_EVENT_ROOM_V2");
+  return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_EVENT_ROOM_V2 === "true";
 }
 
 export function isTiplinkAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2");
+  return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2 === "true";
 }
 
 export function isTvLooperAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_TV_LOOPER_V2");
+  return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TV_LOOPER_V2 === "true";
 }
 
 export function isCommunityTvLooperAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag(
-    "NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_TV_LOOPER_V2"
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_TV_LOOPER_V2 === "true"
   );
 }
 
 export function isHomepagePreviewAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_HOMEPAGE_PREVIEW_V2");
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_HOMEPAGE_PREVIEW_V2 === "true"
+  );
 }
 
 export function isTvFullscreenAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_TV_FULLSCREEN_V2");
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TV_FULLSCREEN_V2 === "true"
+  );
 }
 
 export function isCommunityFeaturedOverlayAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag(
-    "NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEATURED_OVERLAY_V2"
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEATURED_OVERLAY_V2 ===
+    "true"
   );
 }
 
@@ -58,11 +62,13 @@ export function isCommunityFeaturedOverlaySdkCollectionActive(): boolean {
 }
 
 export function isExploreFeedAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_EXPLORE_FEED_V2");
+  return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_EXPLORE_FEED_V2 === "true";
 }
 
 export function isCommunityFeedAnalyticsV2Enabled(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEED_V2");
+  return (
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEED_V2 === "true"
+  );
 }
 
 export function isExploreFeedSdkCollectionActive(): boolean {
@@ -75,7 +81,7 @@ export function isCommunityFeedSdkCollectionActive(): boolean {
 
 /** Wave 4 — explore watch_duration producer (default off; P2-0 legacy views fence). */
 export function isExploreWatchDurationCollectionActive(): boolean {
-  return readSurfaceFlag("NEXT_PUBLIC_ANALYTICS_EXPLORE_DURATION");
+  return process.env.NEXT_PUBLIC_ANALYTICS_EXPLORE_DURATION === "true";
 }
 
 export function isExplorePlaybackSdkCollectionActive(
