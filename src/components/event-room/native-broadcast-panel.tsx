@@ -26,6 +26,12 @@ import {
 import { useDailyPublisherRoom } from "@/hooks/use-daily-publisher-room";
 import { useNativeBroadcastStatusPoll } from "@/hooks/use-native-broadcast-status-poll";
 import { usePublisherSessionSync } from "@/hooks/use-publisher-session-sync";
+import {
+  formatProviderExecutionModeLabel,
+  formatRecordedStopReason,
+  showPublisherSurface,
+  startAcceptedMessage,
+} from "@/lib/native-broadcast-panel-status";
 
 type Props = {
   eventId: string;
@@ -63,6 +69,13 @@ export function NativeBroadcastPanel({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pollStale, setPollStale] = useState(false);
+  const [lastTerminal, setLastTerminal] = useState<{
+    id: string;
+    recordedStopReason: string | null;
+    providerExecutionMode: string | null;
+  } | null>(null);
+  const previousRowRef = useRef<EventBroadcastRow | null>(null);
   const [orientation, setOrientation] =
     useState<NativeOrientation>("landscape");
   const [captureMode, setCaptureMode] = useState<NativeCaptureMode>("camera");
@@ -78,31 +91,64 @@ export function NativeBroadcastPanel({
     [isHost, isCohost]
   );
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const current = unwrapBroadcastAction(
-        await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
-      );
-      setRow(current);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "status_unavailable");
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId, broadcastAuthOptions]);
+  const refresh = useCallback(
+    async (opts?: { silent?: boolean }): Promise<EventBroadcastRow | null> => {
+      if (!opts?.silent) {
+        setLoading(true);
+        setError(null);
+      }
+      try {
+        const current = unwrapBroadcastAction(
+          await fetchCurrentEventBroadcastAction(eventId, broadcastAuthOptions)
+        );
+        if (current === null && previousRowRef.current?.phase === "starting") {
+          setLastTerminal({
+            id: previousRowRef.current.id,
+            recordedStopReason:
+              previousRowRef.current.recordedStopReason ?? "session_ended",
+            providerExecutionMode:
+              previousRowRef.current.providerExecutionMode ?? null,
+          });
+        }
+        setRow(current);
+        setPollStale(false);
+        return current;
+      } catch (e) {
+        if (opts?.silent) {
+          setPollStale(true);
+        } else {
+          setError(e instanceof Error ? e.message : "status_unavailable");
+        }
+        return null;
+      } finally {
+        if (!opts?.silent) {
+          setLoading(false);
+        }
+      }
+    },
+    [eventId, broadcastAuthOptions]
+  );
 
-  const phaseLabel = useMemo(() => row?.phase ?? "none", [row?.phase]);
+  useEffect(() => {
+    previousRowRef.current = row;
+  }, [row]);
+
+  const phaseLabel = useMemo(
+    () => row?.phase ?? (lastTerminal ? "stopped" : "none"),
+    [row?.phase, lastTerminal]
+  );
   const pollActive = row?.phase === "starting" || row?.phase === "live";
   const sessionSyncActive =
     pollActive && canManage && Boolean(publisherSession);
 
-  useNativeBroadcastStatusPoll(pollActive && canManage, () => void refresh());
+  useNativeBroadcastStatusPoll(
+    pollActive && canManage,
+    () => void refresh({ silent: true })
+  );
   /** Idle cohost/owner sync when Pusher is unavailable (15s). */
   useNativeBroadcastStatusPoll(
     canManage && !pollActive,
-    () => void refresh(),
+    () => void refresh({ silent: true }),
     15_000
   );
 
@@ -124,11 +170,17 @@ export function NativeBroadcastPanel({
 
   useEffect(() => {
     if (row?.phase === "stopped") {
+      setLastTerminal({
+        id: row.id,
+        recordedStopReason: row.recordedStopReason,
+        providerExecutionMode: row.providerExecutionMode ?? null,
+      });
       void dailyRoom.leave();
       setPublisherSession(null);
+      setMessage(null);
       setError(null);
     }
-  }, [row?.phase, dailyRoom]);
+  }, [row, dailyRoom]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -140,14 +192,18 @@ export function NativeBroadcastPanel({
   }, [preview.stream]);
 
   const run = useCallback(
-    async (label: string, fn: () => Promise<void>) => {
+    async (fn: () => Promise<void>, successMessage?: string) => {
       setLoading(true);
       setError(null);
       setMessage(null);
       try {
         await fn();
-        setMessage(label);
-        await refresh();
+        const updated = await refresh();
+        if (successMessage) {
+          setMessage(successMessage);
+        } else if (updated) {
+          setMessage(startAcceptedMessage(updated));
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "action_failed");
       } finally {
@@ -156,6 +212,11 @@ export function NativeBroadcastPanel({
     },
     [refresh]
   );
+
+  const publisherUiActive = showPublisherSurface(row);
+  const terminalCopy = lastTerminal
+    ? formatRecordedStopReason(lastTerminal.recordedStopReason)
+    : null;
 
   if (!canManage) {
     return (
@@ -252,14 +313,14 @@ export function NativeBroadcastPanel({
         <ActionButton
           disabled={loading}
           onClick={() =>
-            void run("Wallet activation requested", async () => {
+            void run(async () => {
               unwrapBroadcastAction(
                 await activateNativeStreamingWalletAction(
                   eventId,
                   broadcastAuthOptions
                 )
               );
-            })
+            }, "Wallet activation requested")
           }
         >
           Activate credits
@@ -267,7 +328,7 @@ export function NativeBroadcastPanel({
         <ActionButton
           disabled={loading}
           onClick={() =>
-            void run("Broadcast intent created", async () => {
+            void run(async () => {
               const result = unwrapBroadcastAction(
                 await createEventBroadcastIntentAction(
                   eventId,
@@ -293,11 +354,12 @@ export function NativeBroadcastPanel({
                       providerIngestActive: false,
                       dailyRoomReady: false,
                       youtubeBroadcastPrepared: false,
+                      providerExecutionMode: null,
                       liveStartedAt: null,
                       updatedAt: new Date().toISOString(),
                     }
               );
-            })
+            }, "Broadcast intent created")
           }
         >
           Create intent
@@ -305,7 +367,7 @@ export function NativeBroadcastPanel({
         <ActionButton
           disabled={loading || !row?.id}
           onClick={() =>
-            void run("Preflight complete", async () => {
+            void run(async () => {
               if (!row?.id) return;
               unwrapBroadcastAction(
                 await preflightEventBroadcastAction(
@@ -315,7 +377,7 @@ export function NativeBroadcastPanel({
                   broadcastAuthOptions
                 )
               );
-            })
+            }, "Preflight complete")
           }
         >
           Preflight
@@ -323,7 +385,7 @@ export function NativeBroadcastPanel({
         <ActionButton
           disabled={loading || !row?.id}
           onClick={() =>
-            void run("Publisher slot claimed", async () => {
+            void run(async () => {
               if (!row?.id) return;
               const session = unwrapBroadcastAction(
                 await issueEventBroadcastPublisherSessionAction(
@@ -334,7 +396,7 @@ export function NativeBroadcastPanel({
                 )
               );
               setPublisherSession(session);
-            })
+            }, "Publisher slot claimed")
           }
         >
           Claim publisher
@@ -365,8 +427,9 @@ export function NativeBroadcastPanel({
           <ActionButton
             disabled={loading || !row?.id}
             onClick={() =>
-              void run("Start accepted (mock provider)", async () => {
+              void run(async () => {
                 if (!row?.id) return;
+                setLastTerminal(null);
                 unwrapBroadcastAction(
                   await startEventBroadcastAction(
                     eventId,
@@ -385,7 +448,7 @@ export function NativeBroadcastPanel({
           <ActionButton
             disabled={loading || !row?.id}
             onClick={() =>
-              void run("Stop requested", async () => {
+              void run(async () => {
                 if (!row?.id) return;
                 await dailyRoom.leave();
                 unwrapBroadcastAction(
@@ -399,7 +462,7 @@ export function NativeBroadcastPanel({
                     broadcastAuthOptions
                   )
                 );
-              })
+              }, "Stop requested")
             }
           >
             Stop
@@ -408,8 +471,32 @@ export function NativeBroadcastPanel({
       </div>
 
       <div className="space-y-1 text-xs">
+        {terminalCopy ? (
+          <p
+            className="text-destructive font-medium"
+            role="alert"
+          >
+            {terminalCopy}
+            {lastTerminal?.providerExecutionMode ? (
+              <>
+                {" "}
+                (mode:{" "}
+                {formatProviderExecutionModeLabel(
+                  lastTerminal.providerExecutionMode
+                )}
+                )
+              </>
+            ) : null}
+          </p>
+        ) : null}
         <p>
           Phase: <strong>{phaseLabel}</strong>
+          {row?.providerExecutionMode ? (
+            <>
+              {" · "}
+              {formatProviderExecutionModeLabel(row.providerExecutionMode)}
+            </>
+          ) : null}
           {row?.providerIngestActive ? " · ingest active" : null}
           {row?.dailyRoomReady ? " · Daily room ready" : null}
           {row?.youtubeBroadcastPrepared ? " · YouTube draft bound" : null}
@@ -420,25 +507,33 @@ export function NativeBroadcastPanel({
         <p className="text-muted-foreground">
           Ingest readiness:{" "}
           {row?.providerIngestActive
-            ? "provider ingest active"
+            ? "provider ingest active (not the same as playable live)"
             : row?.dailyRoomReady
               ? "room provisioned (awaiting ingest confirm)"
               : "not provisioned"}
           {" · "}
           YouTube lifecycle:{" "}
           {row?.phase === "live"
-            ? "live (confirmed phase)"
+            ? "live (Tipmanna confirmed — playable for viewers)"
             : row?.youtubeBroadcastPrepared
-              ? "prepared (not live)"
+              ? row?.providerIngestActive
+                ? "prepared with ingest (YouTube may be testing until live confirm)"
+                : "prepared (not live)"
               : "not prepared"}
         </p>
+        {pollStale ? (
+          <p className="text-amber-700">
+            Status poll failed temporarily — showing last known state. Use Refresh
+            status.
+          </p>
+        ) : null}
         {isCohost && !isHost ? (
           <p className="text-muted-foreground">
             Cohost: stop may be denied if you did not initiate this broadcast
             (server enforced).
           </p>
         ) : null}
-        {publisherSession ? (
+        {publisherUiActive && publisherSession ? (
           <p className="text-muted-foreground">
             Publisher lease until{" "}
             {publisherSession.lease.expiresAt.slice(0, 19)}Z
@@ -450,11 +545,11 @@ export function NativeBroadcastPanel({
               : null}
           </p>
         ) : null}
-        {dailyRoom.phase !== "idle" ? (
+        {publisherUiActive && dailyRoom.phase !== "idle" ? (
           <p className="text-muted-foreground">
             Provider room:{" "}
             {dailyRoom.phase === "mock_joined"
-              ? "mock joined (local tracks only; real Daily when mode=real)"
+              ? "mock joined (local tracks only)"
               : dailyRoom.phase === "joined"
                 ? "Daily WebRTC joined"
                 : dailyRoom.phase}

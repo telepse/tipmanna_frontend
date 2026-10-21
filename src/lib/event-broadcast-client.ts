@@ -22,6 +22,8 @@ export type EventBroadcastRow = {
   providerIngestActive: boolean;
   dailyRoomReady: boolean;
   youtubeBroadcastPrepared: boolean;
+  /** Stamped at Start acceptance — mock vs real worker path (not Render env alone). */
+  providerExecutionMode: string | null;
   liveStartedAt: string | null;
   updatedAt: string;
 };
