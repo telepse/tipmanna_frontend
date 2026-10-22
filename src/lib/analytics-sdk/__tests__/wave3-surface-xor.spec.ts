@@ -50,6 +50,17 @@ describe("Wave 3 surface XOR (playback via adapters)", () => {
     assertSurfaceXor("components/tv/home-tv-looper.tsx", "tv-looper-analytics");
   });
 
+  it("tv-live-preview-player (homepage_preview on /partner)", () => {
+    assertSurfaceXor(
+      "components/home/tv-live-preview-player.tsx",
+      "tv-looper-analytics"
+    );
+    const src = read("components/home/tv-live-preview-player.tsx");
+    expect(src).toMatch(/homepage_preview/);
+    expect(src).not.toMatch(/analyticsSurface:\s*["']tv_looper["']/);
+    expect(src).not.toMatch(/analyticsSurface:\s*["']community_tv_looper["']/);
+  });
+
   it("tv-fullscreen", () => {
     assertSurfaceXor(
       "components/tv/tv-fullscreen.tsx",

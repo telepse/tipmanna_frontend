@@ -96,7 +96,7 @@ export const E2E_JOIN_FORM_PUBLIC = {
   createdAt: null,
   totalTips: 0,
   memberCount: 1,
-  numVideos: 0,
+  numVideos: 1,
   joinMethod: "request" as const,
   customQuestion: null,
   officialEmailDomain: null,
@@ -105,6 +105,23 @@ export const E2E_JOIN_FORM_PUBLIC = {
   defaultMonths: 1,
   subscriptionFeeGbp: null,
 };
+
+/** Featured join-panel row for overlay / community_featured_overlay runtime proofs (`?e2e=1`). */
+export const E2E_JOIN_FEATURED_VIDEOS = [
+  {
+    id: "e2e-featured-channel-1",
+    channelId: "e2e-featured-channel-1",
+    eventId: "e2e-featured-event-1",
+    title: "E2E Featured overlay clip",
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    durationSeconds: 212,
+    numOfTips: 0,
+    numOfSeen: 0,
+    numOfSaves: 0,
+    numOfShares: 0,
+    numOfComments: 0,
+  },
+] as const;
 
 /** Deterministic TV schedule for dual-gated handoff tests (`?e2e=1&e2eTv=1`). */
 export const E2E_TV_HANDOFF = {

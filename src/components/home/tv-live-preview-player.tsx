@@ -24,8 +24,20 @@ import {
 } from "@/lib/tv-live-preview";
 import type { ScheduleItem } from "@/lib/tv/broadcastResolver";
 import { cn } from "@/lib/utils";
+import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
+import type { PaymentSurface } from "@/lib/analytics-types";
+import {
+  syncTvLooperAnalyticsContext,
+  trackTvLooperVideoComplete,
+  trackTvLooperVideoEncounter,
+  trackTvLooperVideoEnd,
+  trackTvLooperVideoStart,
+  trackTvLooperWatchDuration,
+} from "@/lib/analytics/tv-looper-analytics";
 
 const LIVE_FOLLOW_MS = 2000;
+const HOMEPAGE_PREVIEW_ANALYTICS_SURFACE =
+  "homepage_preview" as const satisfies PaymentSurface;
 
 type Props = {
   isNarrow?: boolean;
@@ -59,6 +71,10 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const [, setPlayerPlayingState] = useState(false);
+  const encounterLoggedForScheduleItemRef = useRef<string | null>(null);
+  const lastTrackedItemIdRef = useRef<string | null>(null);
+  const segmentStartMsRef = useRef(0);
+  const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
 
   const enterLocalMode = useCallback((_reason: string) => {
     setMode("LOCAL");
@@ -267,14 +283,116 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
     if (mode === "GLOBAL") enterLocalMode("pause");
   }, [enterLocalMode, mode]);
 
+  const currentItem = loadedPlayback?.item ?? null;
+  const isNotice = isNoticeScheduleItem(currentItem);
+  const currentScheduleIndex = loadedPlayback?.scheduleIndex ?? 0;
+  const currentEventId = resolveTvScheduleEventId(
+    currentItem as Parameters<typeof resolveTvScheduleEventId>[0]
+  );
+  const currentChannelId = (
+    currentItem?.channel as { id?: string } | undefined
+  )?.id;
+
+  const tvAnalyticsCtx = useMemo(
+    () => ({
+      eventId: currentEventId || null,
+      channelId: currentChannelId ?? null,
+      analyticsSurface: HOMEPAGE_PREVIEW_ANALYTICS_SURFACE,
+      communityId: null as string | null,
+    }),
+    [currentEventId, currentChannelId]
+  );
+
+  useEffect(() => {
+    encounterLoggedForScheduleItemRef.current = null;
+  }, [currentItem?.id]);
+
+  useEffect(() => {
+    void syncTvLooperAnalyticsContext(tvAnalyticsCtx);
+  }, [tvAnalyticsCtx]);
+
+  const emitEncounterWhenVideoLoads = useCallback(() => {
+    if (!currentItem?.id || isNotice) return;
+    const scheduleItemId = String(currentItem.id);
+    if (encounterLoggedForScheduleItemRef.current === scheduleItemId) return;
+    encounterLoggedForScheduleItemRef.current = scheduleItemId;
+    void syncTvLooperAnalyticsContext(tvAnalyticsCtx).then(() => {
+      trackTvLooperVideoEncounter(tvAnalyticsCtx, {
+        mode,
+        scheduleIndex: currentScheduleIndex,
+        scheduleItemId,
+      });
+    });
+  }, [
+    currentItem?.id,
+    currentScheduleIndex,
+    isNotice,
+    mode,
+    tvAnalyticsCtx,
+  ]);
+
+  const finalizeWatchSegment = useCallback(
+    (endReason: "ended" | "interrupted" | "slot_change") => {
+      const id = lastTrackedItemIdRef.current;
+      const ch = lastSegmentChannelIdRef.current;
+      if (!id || segmentStartMsRef.current <= 0) return;
+      const sec = (Date.now() - segmentStartMsRef.current) / 1000;
+      trackTvLooperVideoEnd(tvAnalyticsCtx, id, sec, endReason, mode, ch);
+      trackTvLooperWatchDuration(tvAnalyticsCtx, id, sec, mode, ch);
+      if (endReason === "ended") {
+        trackTvLooperVideoComplete(tvAnalyticsCtx, id, {
+          channelId: ch,
+          mode,
+        });
+      }
+      lastTrackedItemIdRef.current = null;
+      lastSegmentChannelIdRef.current = undefined;
+      segmentStartMsRef.current = 0;
+    },
+    [mode, tvAnalyticsCtx]
+  );
+
+  const handlePlaybackStartAnalytics = useCallback(() => {
+    if (!currentItem?.id || isNotice) return;
+    emitEncounterWhenVideoLoads();
+    const itemId = String(currentItem.id);
+    if (itemId === lastTrackedItemIdRef.current) return;
+    if (lastTrackedItemIdRef.current && segmentStartMsRef.current > 0) {
+      finalizeWatchSegment("interrupted");
+    }
+    lastTrackedItemIdRef.current = itemId;
+    lastSegmentChannelIdRef.current = currentChannelId;
+    segmentStartMsRef.current = Date.now();
+    trackTvLooperVideoStart(
+      tvAnalyticsCtx,
+      itemId,
+      mode,
+      currentScheduleIndex,
+      currentChannelId
+    );
+  }, [
+    currentChannelId,
+    currentItem?.id,
+    currentScheduleIndex,
+    emitEncounterWhenVideoLoads,
+    finalizeWatchSegment,
+    isNotice,
+    mode,
+    tvAnalyticsCtx,
+  ]);
+
   const handleVideoEnd = useCallback(() => {
+    finalizeWatchSegment("ended");
     if (mode !== "GLOBAL") return;
     const playback = resolveCurrentLivePlayback(false);
     if (playback) applyLivePlayback(playback, true);
-  }, [applyLivePlayback, mode, resolveCurrentLivePlayback]);
+  }, [
+    applyLivePlayback,
+    finalizeWatchSegment,
+    mode,
+    resolveCurrentLivePlayback,
+  ]);
 
-  const currentItem = loadedPlayback?.item ?? null;
-  const isNotice = isNoticeScheduleItem(currentItem);
   const noticeRemainingSec = computeNoticeRemainingSec(
     currentItem,
     liveLoopPosition
@@ -382,11 +500,13 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
               flushPendingLoad();
               syncFromPlayer();
               setIsPlayerLoading(false);
+              emitEncounterWhenVideoLoads();
             }}
             onPlay={() => {
               notifyPlayerPlaying();
               syncFromPlayer();
               setIsPlayerLoading(false);
+              handlePlaybackStartAnalytics();
             }}
             onPause={() => notifyPlayerPaused()}
             onUserPause={handleUserPause}
@@ -394,6 +514,7 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
             onPlaybackReady={() => {
               flushPendingLoad();
               setIsPlayerLoading(false);
+              emitEncounterWhenVideoLoads();
             }}
           />
         ) : null}
