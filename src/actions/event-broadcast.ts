@@ -91,8 +91,11 @@ export async function fetchCurrentEventBroadcastAction(
     broadcast?: EventBroadcastRow | null;
     terminal?: import("@/lib/event-broadcast-client").EventBroadcastTerminal | null;
   };
+  const { resolveEventBroadcastCurrentRow } = await import(
+    "@/lib/event-broadcast-current-row"
+  );
   return actionOk({
-    broadcast: payload?.broadcast ?? null,
+    broadcast: resolveEventBroadcastCurrentRow(payload ?? {}),
     terminal: payload?.terminal ?? null,
   });
 }

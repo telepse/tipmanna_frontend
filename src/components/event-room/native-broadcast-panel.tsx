@@ -192,6 +192,7 @@ export function NativeBroadcastPanel({
       setPublisherSession(null);
       setMessage(null);
       setError(null);
+      setMessage(null);
     }
   }, [row, dailyRoom]);
 
