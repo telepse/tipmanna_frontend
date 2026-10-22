@@ -19,6 +19,7 @@ import {
 } from "@/actions/communities";
 import {
   E2E_JOIN_COMMUNITY_ID,
+  E2E_JOIN_FEATURED_VIDEOS,
   E2E_JOIN_FORM_PUBLIC,
 } from "@/lib/e2e-explore-fixtures";
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
@@ -405,6 +406,7 @@ export function CommunityJoinPanel({
         communityId === E2E_JOIN_COMMUNITY_ID
       ) {
         setForm(E2E_JOIN_FORM_PUBLIC);
+        setFeaturedVideos([...E2E_JOIN_FEATURED_VIDEOS]);
         formLoadedForRef.current = communityId;
         return;
       }
