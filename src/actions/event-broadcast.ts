@@ -89,25 +89,10 @@ export async function fetchCurrentEventBroadcastAction(
     broadcast?: EventBroadcastRow | null;
     terminal?: { id: string; recordedStopReason: string | null } | null;
   };
-  const broadcast = payload?.broadcast ?? null;
-  if (!broadcast && payload?.terminal) {
-    return actionOk({
-      id: payload.terminal.id,
-      ownerHostId: "",
-      phase: "stopped",
-      billableEndedAt: null,
-      recordedStopReason: payload.terminal.recordedStopReason,
-      eventChannelId: null,
-      initiatedByUserId: null,
-      initiatedByRole: null,
-      providerIngestActive: false,
-      dailyRoomReady: false,
-      youtubeBroadcastPrepared: false,
-      liveStartedAt: null,
-      updatedAt: new Date().toISOString(),
-    });
-  }
-  return actionOk(broadcast);
+  const { resolveEventBroadcastCurrentRow } = await import(
+    "@/lib/event-broadcast-current-row"
+  );
+  return actionOk(resolveEventBroadcastCurrentRow(payload ?? {}));
 }
 
 export async function createEventBroadcastIntentAction(
