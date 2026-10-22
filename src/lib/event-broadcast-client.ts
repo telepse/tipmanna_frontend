@@ -10,6 +10,19 @@ export type EventBroadcastPhase =
   | "interrupted"
   | "stopped";
 
+export type EventBroadcastTerminal = {
+  id: string;
+  recordedStopReason: string | null;
+  providerExecutionMode: string | null;
+  billableEndedAt: string | null;
+  lastProviderError: string | null;
+};
+
+export type EventBroadcastCurrentPayload = {
+  broadcast: EventBroadcastRow | null;
+  terminal: EventBroadcastTerminal | null;
+};
+
 export type EventBroadcastRow = {
   id: string;
   ownerHostId: string;
@@ -22,6 +35,8 @@ export type EventBroadcastRow = {
   providerIngestActive: boolean;
   dailyRoomReady: boolean;
   youtubeBroadcastPrepared: boolean;
+  /** Stamped at Start acceptance — mock vs real worker path (not Render env alone). */
+  providerExecutionMode: string | null;
   liveStartedAt: string | null;
   updatedAt: string;
 };
