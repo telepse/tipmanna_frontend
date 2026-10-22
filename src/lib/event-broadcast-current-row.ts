@@ -1,8 +1,11 @@
-import type { EventBroadcastRow } from "@/lib/event-broadcast-client";
+import type {
+  EventBroadcastRow,
+  EventBroadcastTerminal,
+} from "@/lib/event-broadcast-client";
 
 export type EventBroadcastCurrentApiPayload = {
   broadcast?: EventBroadcastRow | null;
-  terminal?: { id: string; recordedStopReason: string | null } | null;
+  terminal?: EventBroadcastTerminal | null;
 };
 
 /** Active broadcast always wins over a recent terminal summary (race-safe UI). */
@@ -27,6 +30,7 @@ export function resolveEventBroadcastCurrentRow(
     providerIngestActive: false,
     dailyRoomReady: false,
     youtubeBroadcastPrepared: false,
+    providerExecutionMode: payload.terminal.providerExecutionMode,
     liveStartedAt: null,
     updatedAt: new Date().toISOString(),
   };
