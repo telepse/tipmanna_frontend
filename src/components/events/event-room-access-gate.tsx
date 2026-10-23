@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { Bell, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "react-toastify";
@@ -36,6 +36,7 @@ import {
   EventTayePartialWaitRoom,
   EventTayeUnlockForm,
 } from "@/components/events/event-taye-gate";
+import { shouldReloadRoomAfterAccessGrant } from "@/lib/event-room-access-gate.util";
 
 const inviteStorageKey = (eventId: string) => `event-room-invite:${eventId}`;
 const accessCodeStorageKey = (eventId: string) =>
@@ -917,12 +918,15 @@ export function EventRoomAccessGate({
   isEventOver,
   children,
 }: Props) {
+  const router = useRouter();
+  const reloadAfterGrantRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(true);
   const [accessMode, setAccessMode] = useState<AccessMode>("public");
   const [gate, setGate] = useState<GateHints | undefined>();
   const [pending, setPending] = useState(false);
   const [tayeMeta, setTayeMeta] = useState<AccessPayload["taye"]>();
+  const hasChildren = children != null;
 
   const refreshAccess = useCallback(async () => {
     const inviteToken = getStoredEventRoomInviteToken(eventId);
@@ -934,7 +938,7 @@ export function EventRoomAccessGate({
       email: getStoredAccessEmail(eventId),
     });
     if (!res.success || !res.data) {
-      setAllowed(true);
+      setAllowed(false);
       setLoading(false);
       return;
     }
@@ -956,6 +960,13 @@ export function EventRoomAccessGate({
   useEffect(() => {
     void refreshAccess();
   }, [refreshAccess]);
+
+  useEffect(() => {
+    if (!shouldReloadRoomAfterAccessGrant(allowed, hasChildren)) return;
+    if (reloadAfterGrantRef.current) return;
+    reloadAfterGrantRef.current = true;
+    router.refresh();
+  }, [allowed, hasChildren, router]);
 
   if (loading) {
     return (
@@ -992,6 +1003,14 @@ export function EventRoomAccessGate({
         pending={pending}
         onSuccess={() => void refreshAccess()}
       />
+    );
+  }
+
+  if (shouldReloadRoomAfterAccessGrant(allowed, hasChildren)) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="size-8 animate-spin" />
+      </div>
     );
   }
 
