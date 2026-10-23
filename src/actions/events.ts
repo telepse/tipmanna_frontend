@@ -1149,16 +1149,14 @@ export async function getEventRoomAccessAction(
   const resolvedInvite =
     inviteToken?.trim() || (await getEventRoomInviteToken(eventId));
   const fromCookies = await getEventRoomAccessCredentialsFromCookies(eventId);
+  const { applyEventRoomAccessCredentialHeaders } = await import(
+    "@/lib/event-room-access-code-cookie"
+  );
   const resolved = resolveEventRoomAccessCredentialsForFetch(opts, fromCookies);
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (resolvedInvite) headers["x-event-room-invite-token"] = resolvedInvite;
-  if (resolved.accessCode) {
-    headers["x-event-room-access-code"] = resolved.accessCode;
-  }
-  if (resolved.email) {
-    headers["x-event-room-access-email"] = resolved.email;
-  }
+  applyEventRoomAccessCredentialHeaders(headers, resolved);
 
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,

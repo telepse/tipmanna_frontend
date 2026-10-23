@@ -41,6 +41,19 @@ export function resolveEventRoomAccessCredentialsForFetch(
   return { accessCode, email };
 }
 
+/** Shared by room-access checks and gated event GET/channels/messages SSR fetches. */
+export function applyEventRoomAccessCredentialHeaders(
+  headers: Record<string, string>,
+  resolved: { accessCode: string | null; email: string | null }
+): void {
+  if (resolved.accessCode) {
+    headers["x-event-room-access-code"] = resolved.accessCode;
+  }
+  if (resolved.email) {
+    headers["x-event-room-access-email"] = resolved.email;
+  }
+}
+
 export function shouldPersistAccessCodeCookies(params: {
   accessCode?: string;
   allowed: boolean;
