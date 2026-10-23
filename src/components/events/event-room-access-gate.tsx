@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import { Bell, Loader2, Lock, Mail } from "lucide-react";
 import { toast } from "react-toastify";
@@ -36,7 +36,8 @@ import {
   EventTayePartialWaitRoom,
   EventTayeUnlockForm,
 } from "@/components/events/event-taye-gate";
-import { shouldReloadRoomAfterAccessGrant } from "@/lib/event-room-access-gate.util";
+import { reloadRoomPageAfterAccessGrant } from "@/lib/event-room-access-code-cookie";
+import { shouldHardReloadRoomAfterAccessGrant } from "@/lib/event-room-access-gate.util";
 
 const inviteStorageKey = (eventId: string) => `event-room-invite:${eventId}`;
 const accessCodeStorageKey = (eventId: string) =>
@@ -918,7 +919,6 @@ export function EventRoomAccessGate({
   isEventOver,
   children,
 }: Props) {
-  const router = useRouter();
   const reloadAfterGrantRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(true);
@@ -961,12 +961,17 @@ export function EventRoomAccessGate({
     void refreshAccess();
   }, [refreshAccess]);
 
-  useEffect(() => {
-    if (!shouldReloadRoomAfterAccessGrant(allowed, hasChildren)) return;
-    if (reloadAfterGrantRef.current) return;
-    reloadAfterGrantRef.current = true;
-    router.refresh();
-  }, [allowed, hasChildren, router]);
+  const handleAccessGranted = useCallback(() => {
+    if (
+      shouldHardReloadRoomAfterAccessGrant(true, hasChildren) &&
+      !reloadAfterGrantRef.current
+    ) {
+      reloadAfterGrantRef.current = true;
+      reloadRoomPageAfterAccessGrant();
+      return;
+    }
+    void refreshAccess();
+  }, [hasChildren, refreshAccess]);
 
   if (loading) {
     return (
@@ -1001,16 +1006,8 @@ export function EventRoomAccessGate({
         accessMode={accessMode}
         gate={gate}
         pending={pending}
-        onSuccess={() => void refreshAccess()}
+        onSuccess={() => handleAccessGranted()}
       />
-    );
-  }
-
-  if (shouldReloadRoomAfterAccessGrant(allowed, hasChildren)) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin" />
-      </div>
     );
   }
 
