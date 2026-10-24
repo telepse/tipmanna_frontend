@@ -3,6 +3,10 @@
 import Link from "next/link";
 
 import { NativeBroadcastPanel } from "@/components/event-room/native-broadcast-panel";
+import { AdvancedStudioPanel } from "@/components/host/advanced-studio-panel";
+import { fetchCurrentEventBroadcastAction } from "@/actions/event-broadcast";
+import { useCallback, useEffect, useState } from "react";
+import type { EventBroadcastRow } from "@/lib/event-broadcast-client";
 
 type Props = {
   hostSlug: string;
@@ -18,6 +22,19 @@ export function HostEventBroadcastClient({
   eventName,
   eventChannelId,
 }: Props) {
+  const [broadcast, setBroadcast] = useState<EventBroadcastRow | null>(null);
+
+  const refreshBroadcast = useCallback(async () => {
+    const res = await fetchCurrentEventBroadcastAction(eventId, {
+      preferHostSession: true,
+    });
+    if (res.success) setBroadcast(res.data);
+  }, [eventId]);
+
+  useEffect(() => {
+    void refreshBroadcast();
+  }, [refreshBroadcast]);
+
   return (
     <div className="mx-auto max-w-lg space-y-4 p-4">
       <div>
@@ -39,6 +56,13 @@ export function HostEventBroadcastClient({
         isCohost={false}
         eventChannelId={eventChannelId}
       />
+      {broadcast ? (
+        <AdvancedStudioPanel
+          eventId={eventId}
+          broadcast={broadcast}
+          onRefresh={refreshBroadcast}
+        />
+      ) : null}
     </div>
   );
 }
