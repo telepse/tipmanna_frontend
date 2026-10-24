@@ -9,6 +9,7 @@ import {
   downgradeAdvancedStudioAction,
   prepareAdvancedStudioAction,
   redeemContributorInviteAction,
+  patchAdvancedProgrammeAction,
 } from "@/actions/event-advanced-studio";
 import type { ActionResult } from "@/lib/action-fetch";
 import {
@@ -156,6 +157,55 @@ export function AdvancedStudioPanel({ eventId, broadcast, onRefresh }: Props) {
         >
           Activate Advanced
         </button>
+        {broadcast.advancedPrepStatus === "active" ? (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-md border px-3 py-1.5 text-xs"
+              onClick={() =>
+                run("Programme: camera A", async () => {
+                  unwrap(
+                    await patchAdvancedProgrammeAction(
+                      eventId,
+                      broadcast.id,
+                      {
+                        expectedVersion: broadcast.programmeVersion ?? 0,
+                        layout: "camera_a",
+                        mainAudioSource: "camera_a",
+                      },
+                      { preferHostSession: true }
+                    )
+                  );
+                })
+              }
+            >
+              Camera A
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              className="rounded-md border px-3 py-1.5 text-xs"
+              onClick={() =>
+                run("Programme: split", async () => {
+                  unwrap(
+                    await patchAdvancedProgrammeAction(
+                      eventId,
+                      broadcast.id,
+                      {
+                        expectedVersion: broadcast.programmeVersion ?? 0,
+                        layout: "split",
+                      },
+                      { preferHostSession: true }
+                    )
+                  );
+                })
+              }
+            >
+              Split view
+            </button>
+          </>
+        ) : null}
         <button
           type="button"
           disabled={busy}
