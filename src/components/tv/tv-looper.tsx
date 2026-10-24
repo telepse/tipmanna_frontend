@@ -56,6 +56,7 @@ import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
+  resolveLooperEffectiveAnalyticsSurface,
   syncTvLooperAnalyticsContext,
   trackTvLooperVideoComplete,
   trackTvLooperVideoEncounter,
@@ -666,17 +667,25 @@ export const TvLooper = ({
     encounterLoggedForScheduleItemRef.current = null;
   }, [current?.id]);
 
+  const effectiveAnalyticsSurface = useMemo(
+    () =>
+      resolveLooperEffectiveAnalyticsSurface(analyticsSurface, {
+        immersive: isFullView || desktopEnlarged || isFullscreen,
+      }),
+    [analyticsSurface, isFullView, desktopEnlarged, isFullscreen]
+  );
+
   const tvAnalyticsCtx = useMemo(
     () => ({
       eventId: currentEventId || null,
       channelId: currentChannelId ?? null,
-      analyticsSurface,
+      analyticsSurface: effectiveAnalyticsSurface,
       communityId: scheduleSourceCommunityId ?? null,
     }),
     [
       currentEventId,
       currentChannelId,
-      analyticsSurface,
+      effectiveAnalyticsSurface,
       scheduleSourceCommunityId,
     ]
   );

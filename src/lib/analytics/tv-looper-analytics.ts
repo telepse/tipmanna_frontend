@@ -21,6 +21,17 @@ export type TvLooperAnalyticsContext = {
   communityId: string | null;
 };
 
+/** Immersive /tv chrome maps global looper playback to tv_fullscreen (Wave 3 S7b). */
+export function resolveLooperEffectiveAnalyticsSurface(
+  base: PaymentSurface,
+  opts: { immersive: boolean }
+): PaymentSurface {
+  if (opts.immersive && base === "tv_looper") {
+    return "tv_fullscreen";
+  }
+  return base;
+}
+
 function buildSdkContext(ctx: TvLooperAnalyticsContext) {
   return {
     sessionId: getAnalyticsSessionId(),
@@ -35,18 +46,19 @@ function buildSdkContext(ctx: TvLooperAnalyticsContext) {
 export async function syncTvLooperAnalyticsContext(
   ctx: TvLooperAnalyticsContext
 ): Promise<void> {
-  if (isTvSurfaceSdkCollectionActive(ctx.analyticsSurface)) {
-    await flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
-    setAnalyticsSdkRuntimeContext(buildSdkContext(ctx));
-    return;
-  }
-  await flushTvAnalytics();
   setTvAnalyticsContext({
     eventId: ctx.eventId,
     channelId: ctx.channelId ?? null,
     surface: ctx.analyticsSurface,
     communityId: ctx.communityId,
   });
+
+  if (isTvSurfaceSdkCollectionActive(ctx.analyticsSurface)) {
+    await flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
+    setAnalyticsSdkRuntimeContext(buildSdkContext(ctx));
+    return;
+  }
+  await flushTvAnalytics();
 }
 
 export function trackTvLooperVideoEncounter(

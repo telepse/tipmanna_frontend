@@ -50,6 +50,13 @@ describe("Wave 3 surface XOR (playback via adapters)", () => {
     assertSurfaceXor("components/tv/home-tv-looper.tsx", "tv-looper-analytics");
   });
 
+  it("tv-live-preview-player (homepage_preview)", () => {
+    assertSurfaceXor(
+      "components/home/tv-live-preview-player.tsx",
+      "homepage-preview-analytics"
+    );
+  });
+
   it("tv-fullscreen", () => {
     assertSurfaceXor(
       "components/tv/tv-fullscreen.tsx",

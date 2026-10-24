@@ -208,6 +208,7 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
 }
 
 const tvLooperPlayback = createTvSurfacePlayback("tv_looper");
+const tvFullscreenPlayback = createTvSurfacePlayback("tv_fullscreen");
 const communityTvPlayback = createTvSurfacePlayback("community_tv_looper");
 const homepagePreviewPlayback = createTvSurfacePlayback("homepage_preview");
 const exploreFeedPlayback = createTvSurfacePlayback("explore_feed");
@@ -217,6 +218,8 @@ export function tvSurfacePlaybackFor(surface: PaymentSurface) {
   switch (surface) {
     case "community_tv_looper":
       return communityTvPlayback;
+    case "tv_fullscreen":
+      return tvFullscreenPlayback;
     case "homepage_preview":
       return homepagePreviewPlayback;
     case "explore_feed":
@@ -231,6 +234,7 @@ export function tvSurfacePlaybackFor(surface: PaymentSurface) {
 
 export function resetTvSurfacePlaybackForTests(): void {
   tvLooperPlayback.resetForTests();
+  tvFullscreenPlayback.resetForTests();
   communityTvPlayback.resetForTests();
   homepagePreviewPlayback.resetForTests();
   exploreFeedPlayback.resetForTests();

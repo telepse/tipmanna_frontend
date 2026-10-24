@@ -24,8 +24,29 @@ import {
 } from "@/lib/tv-live-preview";
 import type { ScheduleItem } from "@/lib/tv/broadcastResolver";
 import { cn } from "@/lib/utils";
+import {
+  buildHomepagePreviewAnalyticsContext,
+  initHomepagePreviewAnalyticsRuntime,
+  syncHomepagePreviewAnalyticsContext,
+  trackHomepagePreviewVideoEncounter,
+  trackHomepagePreviewVideoStart,
+  trackHomepagePreviewWatchDuration,
+} from "@/lib/analytics/homepage-preview-analytics";
 
 const LIVE_FOLLOW_MS = 2000;
+
+function previewPlaybackIds(item: ScheduleItem | null): {
+  eventId: string | null;
+  channelId: string | null;
+} {
+  const ch = item?.channel as
+    | { id?: string; eventId?: string; event?: { id?: string } }
+    | undefined;
+  return {
+    channelId: ch?.id != null ? String(ch.id) : null,
+    eventId: ch?.eventId ?? ch?.event?.id ?? null,
+  };
+}
 
 type Props = {
   isNarrow?: boolean;
@@ -59,6 +80,10 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const [, setPlayerPlayingState] = useState(false);
+  const encounterLoggedForItemRef = useRef<string | null>(null);
+  const watchSegStartRef = useRef(0);
+  const prevPlayingForStartRef = useRef(false);
+  const isPlayingRef = useRef(false);
 
   const enterLocalMode = useCallback((_reason: string) => {
     setMode("LOCAL");
@@ -83,6 +108,112 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
     enterLocalMode,
     setPlayerPlayingState,
   });
+
+  const currentItem = loadedPlayback?.item ?? null;
+
+  useEffect(() => {
+    initHomepagePreviewAnalyticsRuntime();
+  }, []);
+
+  const analyticsCtx = useMemo(
+    () =>
+      buildHomepagePreviewAnalyticsContext({
+        ...previewPlaybackIds(currentItem),
+        scheduleItemId: currentItem?.id ?? null,
+      }),
+    [currentItem]
+  );
+
+  useEffect(() => {
+    void syncHomepagePreviewAnalyticsContext(analyticsCtx);
+  }, [analyticsCtx]);
+
+  useEffect(() => {
+    encounterLoggedForItemRef.current = null;
+  }, [currentItem?.id]);
+
+  isPlayingRef.current = isPlaying;
+
+  useEffect(() => {
+    if (isPlaying && !prevPlayingForStartRef.current && currentItem?.id) {
+      trackHomepagePreviewVideoStart(
+        analyticsCtx,
+        String(currentItem.id),
+        mode === "GLOBAL" ? "GLOBAL" : "LOCAL",
+        loadedScheduleIndexRef.current ?? 0,
+        analyticsCtx.channelId ?? undefined
+      );
+    }
+    prevPlayingForStartRef.current = isPlaying;
+  }, [isPlaying, analyticsCtx, currentItem?.id, mode]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      if (watchSegStartRef.current > 0 && currentItem?.id) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackHomepagePreviewWatchDuration(
+            analyticsCtx,
+            String(currentItem.id),
+            Math.min(sec, 600),
+            mode === "GLOBAL" ? "GLOBAL" : "LOCAL",
+            analyticsCtx.channelId ?? undefined
+          );
+        }
+      }
+      return;
+    }
+    if (document.visibilityState !== "visible") return;
+    watchSegStartRef.current = Date.now();
+    const tick = window.setInterval(() => {
+      if (document.visibilityState !== "visible" || !isPlayingRef.current) {
+        return;
+      }
+      if (watchSegStartRef.current <= 0 || !currentItem?.id) return;
+      const now = Date.now();
+      const sec = (now - watchSegStartRef.current) / 1000;
+      watchSegStartRef.current = now;
+      if (sec > 0.3) {
+        trackHomepagePreviewWatchDuration(
+          analyticsCtx,
+          String(currentItem.id),
+          Math.min(sec, 300),
+          modeRef.current === "GLOBAL" ? "GLOBAL" : "LOCAL",
+          analyticsCtx.channelId ?? undefined
+        );
+      }
+    }, 15_000);
+    return () => {
+      clearInterval(tick);
+      if (watchSegStartRef.current > 0 && currentItem?.id) {
+        const sec = (Date.now() - watchSegStartRef.current) / 1000;
+        watchSegStartRef.current = 0;
+        if (sec > 0.3) {
+          trackHomepagePreviewWatchDuration(
+            analyticsCtx,
+            String(currentItem.id),
+            Math.min(sec, 300),
+            modeRef.current === "GLOBAL" ? "GLOBAL" : "LOCAL",
+            analyticsCtx.channelId ?? undefined
+          );
+        }
+      }
+    };
+  }, [isPlaying, analyticsCtx, currentItem?.id, mode]);
+
+  const emitHomepagePreviewEncounter = useCallback(() => {
+    if (!currentItem?.id) return;
+    if (encounterLoggedForItemRef.current === currentItem.id) return;
+    encounterLoggedForItemRef.current = currentItem.id;
+    void syncHomepagePreviewAnalyticsContext(analyticsCtx).then(() => {
+      trackHomepagePreviewVideoEncounter(analyticsCtx, {
+        mode: modeRef.current === "GLOBAL" ? "GLOBAL" : "LOCAL",
+        scheduleIndex: loadedScheduleIndexRef.current ?? 0,
+        scheduleItemId: String(currentItem.id),
+      });
+    });
+  }, [analyticsCtx, currentItem?.id]);
 
   const flushPendingLoad = useCallback(() => {
     const pending = pendingLoadRef.current;
@@ -273,7 +404,6 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
     if (playback) applyLivePlayback(playback, true);
   }, [applyLivePlayback, mode, resolveCurrentLivePlayback]);
 
-  const currentItem = loadedPlayback?.item ?? null;
   const isNotice = isNoticeScheduleItem(currentItem);
   const noticeRemainingSec = computeNoticeRemainingSec(
     currentItem,
@@ -382,11 +512,13 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
               flushPendingLoad();
               syncFromPlayer();
               setIsPlayerLoading(false);
+              emitHomepagePreviewEncounter();
             }}
             onPlay={() => {
               notifyPlayerPlaying();
               syncFromPlayer();
               setIsPlayerLoading(false);
+              emitHomepagePreviewEncounter();
             }}
             onPause={() => notifyPlayerPaused()}
             onUserPause={handleUserPause}
