@@ -28,7 +28,7 @@ export function HostEventBroadcastClient({
     const res = await fetchCurrentEventBroadcastAction(eventId, {
       preferHostSession: true,
     });
-    if (res.success) setBroadcast(res.data);
+    if (res.success) setBroadcast(res.data?.broadcast ?? null);
   }, [eventId]);
 
   useEffect(() => {

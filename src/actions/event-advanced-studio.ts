@@ -22,10 +22,18 @@ function apiBase(): string {
   return base.replace(/\/$/, "");
 }
 
-async function headers(
+type BroadcastAuthHeaders = Record<string, string>;
+
+function isAuthActionFail(
+  value: BroadcastAuthHeaders | ActionResult<never>
+): value is ActionResult<never> {
+  return "success" in value;
+}
+
+async function broadcastHeaders(
   eventId: string,
   options?: EventBroadcastActionOptions
-): Promise<Record<string, string> | ActionResult<never>> {
+): Promise<BroadcastAuthHeaders | ActionResult<never>> {
   const h = await serverEventActorAuthHeaders({
     eventId,
     preferHostSession: options?.preferHostSession,
@@ -43,8 +51,8 @@ export async function prepareAdvancedStudioAction(
 ): Promise<ActionResult<{ advancedPrepStatus: string; consumptionRate: string }>> {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/prepare`,
     { method: "POST", headers: { ...h, "Content-Type": "application/json" } },
@@ -60,8 +68,8 @@ export async function acquireDirectorLeaseAction(
 ): Promise<ActionResult<{ expiresAt: string; deviceSessionId: string }>> {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/director-lease`,
     {
@@ -86,8 +94,8 @@ export async function createContributorInviteAction(
 > {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/contributor-invites`,
     { method: "POST", headers: { ...h, "Content-Type": "application/json" } },
@@ -103,8 +111,8 @@ export async function redeemContributorInviteAction(
 ): Promise<ActionResult<{ contributorSessionId: string; expiresAt: string }>> {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/contributor-invites/redeem`,
     {
@@ -130,8 +138,8 @@ export async function activateAdvancedStudioAction(
 > {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/activate`,
     {
@@ -150,8 +158,8 @@ export async function downgradeAdvancedStudioAction(
 ): Promise<ActionResult<{ consumptionRate: string; advancedPrepStatus: string }>> {
   const base = apiBase();
   if (!base) return actionFail("Backend API URL is not configured");
-  const h = await headers(eventId, options);
-  if ("success" in h) return h;
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
   return runServerFetch(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/downgrade`,
     {
