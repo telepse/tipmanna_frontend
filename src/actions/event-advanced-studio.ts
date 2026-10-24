@@ -176,6 +176,11 @@ export async function patchAdvancedProgrammeAction(
   );
 }
 
+export type AssistedPresetId =
+  | "stable_source_failover"
+  | "louder_audio"
+  | "activity_priority";
+
 export async function fetchAssistedPresetsAction(
   eventId: string,
   broadcastId: string,
@@ -189,6 +194,103 @@ export async function fetchAssistedPresetsAction(
     `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/assisted-presets`,
     { method: "GET", headers: h },
     "fetchAssistedPresetsAction"
+  );
+}
+
+export async function patchAssistedPresetAction(
+  eventId: string,
+  broadcastId: string,
+  input: {
+    presetId: AssistedPresetId;
+    enabled?: boolean;
+    manualOverride?: boolean;
+  },
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<{ presets: unknown[] }>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/assisted-presets`,
+    {
+      method: "PATCH",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    "patchAssistedPresetAction"
+  );
+}
+
+export async function applyAssistedPresetAction(
+  eventId: string,
+  broadcastId: string,
+  presetId: AssistedPresetId,
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<unknown>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/assisted-presets/apply`,
+    {
+      method: "POST",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify({ presetId }),
+    },
+    "applyAssistedPresetAction"
+  );
+}
+
+export async function fetchHostBrandingRotationAction(
+  eventId: string,
+  broadcastId: string,
+  options?: EventBroadcastActionOptions
+): Promise<
+  ActionResult<{
+    slots: Array<{ id: string; label: string; durationSeconds: number }>;
+    activeOverlay: {
+      slotId: string;
+      label: string;
+      cycleIndex: number;
+      secondsIntoSlot: number;
+    } | null;
+  }>
+> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/branding`,
+    { method: "GET", headers: h },
+    "fetchHostBrandingRotationAction"
+  );
+}
+
+export async function fetchInteractionAlertsAction(
+  eventId: string,
+  broadcastId: string,
+  options?: EventBroadcastActionOptions
+): Promise<
+  ActionResult<{
+    alerts: Array<{
+      id: string;
+      kind: string;
+      payload: Record<string, unknown>;
+      occurredAt: string;
+    }>;
+  }>
+> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/interaction-alerts`,
+    { method: "GET", headers: h },
+    "fetchInteractionAlertsAction"
   );
 }
 
