@@ -19,6 +19,7 @@ import {
 } from "@/actions/communities";
 import {
   E2E_JOIN_COMMUNITY_ID,
+  E2E_JOIN_FEATURED_VIDEOS,
   E2E_JOIN_FORM_PUBLIC,
 } from "@/lib/e2e-explore-fixtures";
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
@@ -405,6 +406,7 @@ export function CommunityJoinPanel({
         communityId === E2E_JOIN_COMMUNITY_ID
       ) {
         setForm(E2E_JOIN_FORM_PUBLIC);
+        setFeaturedVideos([...E2E_JOIN_FEATURED_VIDEOS]);
         formLoadedForRef.current = communityId;
         return;
       }
@@ -817,12 +819,18 @@ export function CommunityJoinPanel({
                       className="relative aspect-[9/16] overflow-hidden rounded bg-neutral-100"
                       disabled={!eventId || !channelId}
                       onClick={() => {
-                        if (eventId && channelId) {
+                        if (!eventId || !channelId) return;
+                        if (isDrawer) {
                           playFeaturedFromDrawer(eventId, channelId, {
                             url: video.url,
                             title: video.title,
                           });
+                          return;
                         }
+                        openOverlayPlay(eventId, channelId, {
+                          url: video.url,
+                          title: video.title,
+                        });
                       }}
                       aria-label={`Play ${video.title}`}
                     >

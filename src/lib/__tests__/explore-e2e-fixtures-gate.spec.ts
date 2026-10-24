@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  EXPLORE_E2E_FIXTURES_CLIENT_BUILD_ANCHOR,
+  exploreE2eFixturesClientBuildAnchor,
   isExploreE2eFixturesEnabled,
   isExploreE2eFixturesEnvEnabled,
 } from "../explore-e2e-fixtures-gate";
@@ -42,5 +44,17 @@ describe("explore E2E fixtures gate", () => {
     delete process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES;
     expect(isExploreE2eFixturesEnabled(new URLSearchParams())).toBe(false);
     expect(isExploreE2eFixturesEnvEnabled()).toBe(false);
+  });
+
+  it("client build anchor null when env off", () => {
+    delete process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES;
+    expect(exploreE2eFixturesClientBuildAnchor()).toBeNull();
+  });
+
+  it("client build anchor set when env on", () => {
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES", "1");
+    expect(exploreE2eFixturesClientBuildAnchor()).toBe(
+      EXPLORE_E2E_FIXTURES_CLIENT_BUILD_ANCHOR
+    );
   });
 });
