@@ -151,6 +151,47 @@ export async function activateAdvancedStudioAction(
   );
 }
 
+export async function patchAdvancedProgrammeAction(
+  eventId: string,
+  broadcastId: string,
+  input: {
+    expectedVersion: number;
+    layout?: "camera_a" | "camera_b" | "split";
+    mainAudioSource?: string;
+  },
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<unknown>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/programme`,
+    {
+      method: "PATCH",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    "patchAdvancedProgrammeAction"
+  );
+}
+
+export async function fetchAssistedPresetsAction(
+  eventId: string,
+  broadcastId: string,
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<{ presets: unknown[] }>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+  const h = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(h)) return h;
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/advanced/assisted-presets`,
+    { method: "GET", headers: h },
+    "fetchAssistedPresetsAction"
+  );
+}
+
 export async function downgradeAdvancedStudioAction(
   eventId: string,
   broadcastId: string,
