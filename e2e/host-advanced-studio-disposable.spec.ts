@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 import { assertPlaywrightBackendAligned } from "./helpers/playwright-backend-config";
+import { loadStreamingB1Seed } from "./helpers/streaming-b1-seed";
 
 /**
  * Host Advanced Studio dashboard smoke against disposable/local API (LIVE-014 / Finish B).
@@ -18,16 +19,25 @@ test.describe("host advanced studio (disposable API)", () => {
     const health = await page.request.get(`${backend.backendRoot}/health`);
     expect(health.ok()).toBeTruthy();
 
-    const eventId = process.env.STREAMING_B1_E2E_EVENT_ID;
-    const hostSlug = process.env.STREAMING_B1_E2E_HOST_SLUG;
-    if (!eventId || !hostSlug) {
-      test.skip(true, "STREAMING_B1_E2E_EVENT_ID and STREAMING_B1_E2E_HOST_SLUG required");
-    }
+    const seed = loadStreamingB1Seed();
+    const eventId =
+      process.env.STREAMING_B1_E2E_EVENT_ID?.trim() ?? seed.eventId;
+    const hostSlug =
+      process.env.STREAMING_B1_E2E_HOST_SLUG?.trim() ?? seed.hostSlug;
 
     await page.goto(`/host/${hostSlug}/broadcast/${eventId}`);
     await expect(page.getByRole("heading", { name: /Advanced Studio/i })).toBeVisible({
       timeout: 60_000,
     });
     await expect(page.getByTestId("stream-branding-preview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Set up Advanced" })).toBeEnabled();
+
+    await page.getByRole("button", { name: "Set up Advanced" }).click();
+    await expect(page.getByText("Advanced preparation started")).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.locator("dd", { hasText: "preparing" })).toBeVisible({
+      timeout: 30_000,
+    });
   });
 });
