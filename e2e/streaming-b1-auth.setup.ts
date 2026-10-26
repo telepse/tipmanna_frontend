@@ -3,7 +3,7 @@
  */
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { test as setup } from "@playwright/test";
+import { test as setup, expect } from "@playwright/test";
 
 import {
   applyStreamingB1SeedEnv,
@@ -22,12 +22,30 @@ setup("streaming b1 host session (disposable seed)", async ({ page, baseURL }) =
   applyStreamingB1SeedEnv(seed);
   mkdirSync(path.dirname(authFile), { recursive: true });
 
-  const origin = baseURL ?? "http://127.0.0.1:3000";
+  const origin = baseURL ?? "http://127.0.0.1:3014";
   await page.goto(origin);
 
-  await page.evaluate(async seedPayload => {
+  const sessionRes = await page.request.post(`${origin}/api/auth/session`, {
+    data: {
+      token: seed.primaryToken,
+      user: seed.tipperUser,
+      expiresDays: 60,
+    },
+  });
+  expect(sessionRes.ok()).toBeTruthy();
+
+  const hostRes = await page.request.post(`${origin}/api/auth/host-session`, {
+    data: {
+      token: seed.hostToken,
+      user: seed.hostUser,
+      expiresDays: 7,
+    },
+  });
+  expect(hostRes.ok()).toBeTruthy();
+
+  await page.evaluate(tipperUser => {
     const authState = {
-      user: seedPayload.tipperUser,
+      user: tipperUser,
       token: null,
       isAuthenticated: true,
       requiresVerification: false,
@@ -42,28 +60,7 @@ setup("streaming b1 host session (disposable seed)", async ({ page, baseURL }) =
         _persist: JSON.stringify({ version: -1, rehydrated: true }),
       })
     );
-
-    await fetch("/api/auth/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        token: seedPayload.primaryToken,
-        user: seedPayload.tipperUser,
-        expiresDays: 60,
-      }),
-    });
-    await fetch("/api/auth/host-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        token: seedPayload.hostToken,
-        user: seedPayload.hostUser,
-        expiresDays: 7,
-      }),
-    });
-  }, seed);
+  }, seed.tipperUser);
 
   await page.context().storageState({ path: authFile });
 });

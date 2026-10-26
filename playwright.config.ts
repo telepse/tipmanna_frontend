@@ -18,6 +18,9 @@ function streamingB1EnvFromSeed(): Record<string, string> {
   return {
     STREAMING_B1_E2E_EVENT_ID: seed.eventId,
     STREAMING_B1_E2E_HOST_SLUG: seed.hostSlug,
+    NEXT_PUBLIC_BACKEND_API_URL:
+      process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+      "http://127.0.0.1:8014/api/v1",
   };
 }
 
@@ -50,11 +53,15 @@ export default defineConfig({
   ...(useLocalWebServer
     ? {
         webServer: {
-          command: `npm run start -- -p ${port}`,
+          command:
+            process.env.PLAYWRIGHT_WEB_SERVER_COMMAND?.trim() ??
+            (streamingB1Enabled
+              ? `npm run dev -- -p ${port}`
+              : `npm run start -- -p ${port}`),
           url: baseURL,
           reuseExistingServer:
             !process.env.CI && !process.env.PLAYWRIGHT_FORCE_BUILD,
-          timeout: 180_000,
+          timeout: streamingB1Enabled ? 300_000 : 180_000,
         },
       }
     : {}),
@@ -70,6 +77,7 @@ export default defineConfig({
             name: "streaming-b1-chromium",
             testMatch: /host-advanced-studio-disposable\.spec\.ts/,
             dependencies: ["setup-streaming-b1"],
+            timeout: 180_000,
             use: {
               ...devices["Desktop Chrome"],
               storageState: ".auth/streaming-b1-host.json",
