@@ -451,6 +451,7 @@ type ExploreFeedSlideVideoProps = {
   playerRetryKey?: number;
   onEngageUnlocked?: () => void;
   tipDrawerOpen?: boolean;
+  onActiveReelPlayStateChange?: (playing: boolean) => void;
 };
 
 function ExploreFeedSlideVideo({
@@ -474,6 +475,7 @@ function ExploreFeedSlideVideo({
   playerRetryKey = 0,
   onEngageUnlocked,
   tipDrawerOpen = false,
+  onActiveReelPlayStateChange,
 }: ExploreFeedSlideVideoProps) {
   const posterObjectFitClass =
     fullPresentationFit === "contain" ? "object-contain" : "object-cover";
@@ -748,6 +750,7 @@ function ExploreFeedSlideVideo({
             onPlayStateChange={playing => {
               if (slideIndex === activeIndex) {
                 setIsPaused(!playing);
+                onActiveReelPlayStateChange?.(playing);
                 if (playing) {
                   hasReachedPlayingRef.current = true;
                   setShowTapToPlay(false);
@@ -1234,6 +1237,10 @@ export const ExploreFeedClient = forwardRef<
   const endOfFeedRef = useRef(false);
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
+  const [activeReelPlaying, setActiveReelPlaying] = useState(true);
+  const onActiveReelPlayStateChange = useCallback((playing: boolean) => {
+    setActiveReelPlaying(playing);
+  }, []);
   const lastChannelIdRef = useRef<string | undefined>(undefined);
   const feedModeRef = useRef(feedMode);
   feedModeRef.current = feedMode;
@@ -1758,6 +1765,7 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     setReelEngageUnlocked(false);
+    setActiveReelPlaying(true);
   }, [activeIndex]);
 
   const didMarkFirstPlayRef = useRef(false);
@@ -2761,7 +2769,7 @@ export const ExploreFeedClient = forwardRef<
   ]);
 
   useEffect(() => {
-    if (!feedSurfaceActive || isPaused) return;
+    if (!feedSurfaceActive || !activeReelPlaying) return;
     const cur = items[activeIndex];
     if (!cur?.event?.id) return;
     if (!isExploreFeedWatchDurationEnabled()) return;
@@ -2771,7 +2779,7 @@ export const ExploreFeedClient = forwardRef<
 
     const tick = window.setInterval(() => {
       const active = items[activeIndexRef.current];
-      if (!active || isPaused) return;
+      if (!active || !activeReelPlaying) return;
       const ctx = buildExploreAnalyticsCtx(active);
       emitExploreFeedElapsedWatchDuration(ctx, {
         scheduleItemId,
@@ -2784,14 +2792,14 @@ export const ExploreFeedClient = forwardRef<
     return () => clearInterval(tick);
   }, [
     feedSurfaceActive,
-    isPaused,
+    activeReelPlaying,
     activeIndex,
     items,
     buildExploreAnalyticsCtx,
   ]);
 
   useEffect(() => {
-    if (!isPaused || segmentStartMsRef.current <= 0) return;
+    if (activeReelPlaying || segmentStartMsRef.current <= 0) return;
     const cur = items[activeIndex];
     if (!cur?.event?.id) return;
     const scheduleItemId =
@@ -2803,7 +2811,7 @@ export const ExploreFeedClient = forwardRef<
       channelId: String(cur.id),
     });
     void flushExploreFeedAnalyticsBeforeContext(ctx);
-  }, [isPaused, activeIndex, items, buildExploreAnalyticsCtx]);
+  }, [activeReelPlaying, activeIndex, items, buildExploreAnalyticsCtx]);
 
   if (initialLoading) {
     return <ExploreFeedSkeleton />;
@@ -3055,6 +3063,9 @@ export const ExploreFeedClient = forwardRef<
                               i === activeIndex
                                 ? () => setReelEngageUnlocked(true)
                                 : undefined
+                            }
+                            onActiveReelPlayStateChange={
+                              onActiveReelPlayStateChange
                             }
                           />
                         </div>
