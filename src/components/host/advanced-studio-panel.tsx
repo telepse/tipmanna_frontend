@@ -54,6 +54,7 @@ export function AdvancedStudioPanel({ eventId, broadcast, onRefresh }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [pastedInviteToken, setPastedInviteToken] = useState("");
   const [presets, setPresets] = useState<PresetRow[]>([]);
   const [activeOverlay, setActiveOverlay] = useState<{
     slotId: string;
@@ -189,17 +190,40 @@ export function AdvancedStudioPanel({ eventId, broadcast, onRefresh }: Props) {
           Create invite
         </button>
         {inviteToken ? (
+          <p
+            className="text-muted-foreground break-all font-mono text-[10px]"
+            data-testid="advanced-contributor-invite-token"
+          >
+            Invite token (copy to contributor device): {inviteToken}
+          </p>
+        ) : null}
+        <input
+          type="text"
+          className="w-full rounded-md border px-2 py-1 text-xs"
+          placeholder="Paste invite token from host device"
+          data-testid="contributor-invite-paste"
+          value={pastedInviteToken}
+          onChange={e => setPastedInviteToken(e.target.value)}
+        />
+        {(inviteToken || pastedInviteToken.trim()) ? (
           <button
             type="button"
             disabled={busy}
             className="rounded-md border px-3 py-1.5 text-xs"
             onClick={() =>
               run("Contributor preview session (mock)", async () => {
+                const token = pastedInviteToken.trim() || inviteToken;
+                if (!token) throw new Error("invite_token_required");
                 unwrap(
-                  await redeemContributorInviteAction(eventId, broadcast.id, {
-                    inviteToken,
-                    deviceSessionId: `${deviceId}-contrib`,
-                  })
+                  await redeemContributorInviteAction(
+                    eventId,
+                    broadcast.id,
+                    {
+                      inviteToken: token,
+                      deviceSessionId: `${deviceId}-contrib`,
+                    },
+                    { preferHostSession: true }
+                  )
                 );
               })
             }

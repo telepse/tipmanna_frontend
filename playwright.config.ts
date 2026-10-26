@@ -49,6 +49,9 @@ export default defineConfig({
   use: {
     baseURL,
     trace: process.env.RUNTIME_HUNT ? "on" : "on-first-retry",
+    ...(baseURL.includes("ngrok-free.dev") || baseURL.includes("ngrok.app")
+      ? { extraHTTPHeaders: { "ngrok-skip-browser-warning": "69420" } }
+      : {}),
   },
   ...(useLocalWebServer
     ? {

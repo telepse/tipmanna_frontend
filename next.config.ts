@@ -18,6 +18,19 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  /** Finish B Phase 0: one HTTPS ngrok origin; proxy API to disposable 8014. */
+  async rewrites() {
+    if (process.env.FINISH_B_PHASE0_API_PROXY !== "1") return [];
+    const target =
+      process.env.FINISH_B_PHASE0_API_PROXY_TARGET?.trim() ||
+      "http://127.0.0.1:8014";
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${target.replace(/\/$/, "")}/api/v1/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {

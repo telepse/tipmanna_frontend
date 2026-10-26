@@ -29,7 +29,10 @@ test.describe("host advanced studio (disposable API)", () => {
   }) => {
     test.setTimeout(180_000);
     const backend = assertPlaywrightBackendAligned();
-    const health = await page.request.get(`${backend.backendRoot}/health`);
+    const healthPath = backend.backendRoot.includes("ngrok")
+      ? `${backend.backendRoot}/api/v1/plan-pricing`
+      : `${backend.backendRoot}/health`;
+    const health = await page.request.get(healthPath);
     expect(health.ok()).toBeTruthy();
 
     const seed = loadStreamingB1Seed();
