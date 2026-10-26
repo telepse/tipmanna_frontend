@@ -43,6 +43,20 @@ setup("streaming b1 host session (disposable seed)", async ({ page, baseURL }) =
   });
   expect(hostRes.ok()).toBeTruthy();
 
+  const backendRoot =
+    process.env.PLAYWRIGHT_BACKEND_URL?.replace(/\/$/, "") ??
+    "http://127.0.0.1:8014";
+  const current = await page.request.get(
+    `${backendRoot}/api/v1/events/${seed.eventId}/broadcasts/current`,
+    { headers: { Authorization: `Bearer ${seed.hostToken}` } }
+  );
+  expect(current.ok(), "Re-run npm run streaming:b1:e2e-seed on backend").toBeTruthy();
+  const body = (await current.json()) as { broadcast?: { id?: string } | null };
+  expect(
+    body.broadcast?.id,
+    "Disposable PG missing seeded broadcast — run streaming:b1:e2e-seed"
+  ).toBeTruthy();
+
   await page.evaluate(tipperUser => {
     const authState = {
       user: tipperUser,
