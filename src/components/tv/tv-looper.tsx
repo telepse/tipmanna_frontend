@@ -63,8 +63,9 @@ import {
   trackTvLooperVideoEncounter,
   trackTvLooperVideoEnd,
   trackTvLooperVideoStart,
-  trackTvLooperWatchDuration,
 } from "@/lib/analytics/tv-looper-analytics";
+import { createTvLooperWatchDurationScheduler } from "@/lib/analytics/tv-looper-periodic-watch-duration";
+import { useTvLooperPeriodicWatchDuration } from "@/lib/analytics/use-tv-looper-periodic-watch-duration";
 import {
   trackTvSaveClick,
   trackTvShareClick,
@@ -255,6 +256,9 @@ export const TvLooper = ({
   const pendingSeekTimeRef = useRef<number | null>(null);
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
+  const watchDurationSchedulerRef = useRef(
+    createTvLooperWatchDurationScheduler()
+  );
   const videoErrorReloadsRef = useRef(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -715,6 +719,13 @@ export const TvLooper = ({
     void syncTvLooperAnalyticsContext(tvAnalyticsCtx);
   }, [tvAnalyticsCtx]);
 
+  useTvLooperPeriodicWatchDuration({
+    isPlaying,
+    tvAnalyticsCtx,
+    mode,
+    scheduler: watchDurationSchedulerRef.current,
+  });
+
   useEffect(() => {
     encounterLoggedKeyRef.current = null;
     resetLooperTvSurfaceEncounterStates(analyticsSurface);
@@ -834,7 +845,7 @@ export const TvLooper = ({
     if (id && segmentStartMsRef.current > 0) {
       const sec = (Date.now() - segmentStartMsRef.current) / 1000;
       trackTvLooperVideoEnd(tvAnalyticsCtx, id, sec, "ended", mode, ch);
-      trackTvLooperWatchDuration(tvAnalyticsCtx, id, sec, mode, ch);
+      watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
       if (!userSeekedForCompleteRef.current) {
         trackTvLooperVideoComplete(tvAnalyticsCtx, id, { channelId: ch, mode });
       }
@@ -843,6 +854,7 @@ export const TvLooper = ({
     lastTrackedItemIdRef.current = null;
     lastSegmentChannelIdRef.current = undefined;
     segmentStartMsRef.current = 0;
+    watchDurationSchedulerRef.current.reset();
     onVideoEnd();
   };
 
@@ -1622,6 +1634,7 @@ export const TvLooper = ({
                         const prev = lastTrackedItemIdRef.current;
                         const sec =
                           (Date.now() - segmentStartMsRef.current) / 1000;
+                        watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
                         trackTvLooperVideoEnd(
                           tvAnalyticsCtx,
                           prev,
@@ -1641,6 +1654,11 @@ export const TvLooper = ({
                         currentIndex,
                         currentChannelId
                       );
+                      watchDurationSchedulerRef.current.bindSegment({
+                        itemId: id,
+                        channelId: currentChannelId,
+                        mode,
+                      });
                     }
                   }}
                   onPause={() => {
