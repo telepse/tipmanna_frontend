@@ -116,6 +116,8 @@ import {
   trackExploreFeedVideoEnd,
   trackExploreFeedVideoEncounter,
   trackExploreFeedVideoStart,
+  emitExploreFeedElapsedWatchDuration,
+  isExploreFeedWatchDurationEnabled,
   type ExploreFeedAnalyticsContext,
 } from "@/lib/analytics/explore-feed-analytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
@@ -2757,6 +2759,51 @@ export const ExploreFeedClient = forwardRef<
     feedSurfaceActive,
     buildExploreAnalyticsCtx,
   ]);
+
+  useEffect(() => {
+    if (!feedSurfaceActive || isPaused) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    if (!isExploreFeedWatchDurationEnabled()) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    if (segmentStartMsRef.current <= 0) return;
+
+    const tick = window.setInterval(() => {
+      const active = items[activeIndexRef.current];
+      if (!active || isPaused) return;
+      const ctx = buildExploreAnalyticsCtx(active);
+      emitExploreFeedElapsedWatchDuration(ctx, {
+        scheduleItemId,
+        segmentStartMs: segmentStartMsRef.current,
+        channelId: String(active.id),
+      });
+      void flushExploreFeedAnalyticsBeforeContext(ctx);
+    }, 30_000);
+
+    return () => clearInterval(tick);
+  }, [
+    feedSurfaceActive,
+    isPaused,
+    activeIndex,
+    items,
+    buildExploreAnalyticsCtx,
+  ]);
+
+  useEffect(() => {
+    if (!isPaused || segmentStartMsRef.current <= 0) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    const ctx = buildExploreAnalyticsCtx(cur);
+    emitExploreFeedElapsedWatchDuration(ctx, {
+      scheduleItemId,
+      segmentStartMs: segmentStartMsRef.current,
+      channelId: String(cur.id),
+    });
+    void flushExploreFeedAnalyticsBeforeContext(ctx);
+  }, [isPaused, activeIndex, items, buildExploreAnalyticsCtx]);
 
   if (initialLoading) {
     return <ExploreFeedSkeleton />;

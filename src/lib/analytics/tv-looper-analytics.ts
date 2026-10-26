@@ -1,6 +1,9 @@
 import type { PaymentSurface, TvAnalyticsClipMode } from "../analytics-types";
 import { getAnalyticsSessionId, getDeviceCategory } from "../analytics-session";
-import { tvSurfacePlaybackFor } from "../analytics-sdk/tv-surface-playback";
+import {
+  resetTvSurfacePlaybackEncounterState,
+  tvSurfacePlaybackFor,
+} from "../analytics-sdk/tv-surface-playback";
 import { flushSdkAnalytics } from "../analytics-sdk/transport";
 import { setAnalyticsSdkRuntimeContext } from "../analytics-sdk/runtime";
 import { isTvSurfaceSdkCollectionActive } from "../analytics-sdk/surface-flags";
@@ -22,6 +25,15 @@ export type TvLooperAnalyticsContext = {
 };
 
 /** Immersive /tv chrome maps global looper playback to tv_fullscreen (Wave 3 S7b). */
+/** Reset encounter latches when effective TV analytics surface changes (e.g. fullscreen). */
+export function resetLooperTvSurfaceEncounterStates(
+  _baseSurface: PaymentSurface
+): void {
+  resetTvSurfacePlaybackEncounterState("tv_looper");
+  resetTvSurfacePlaybackEncounterState("tv_fullscreen");
+  resetTvSurfacePlaybackEncounterState("community_tv_looper");
+}
+
 export function resolveLooperEffectiveAnalyticsSurface(
   base: PaymentSurface,
   opts: { immersive: boolean }
@@ -103,6 +115,7 @@ export function trackTvLooperVideoStart(
       eventId: ctx.eventId,
       communityId: ctx.communityId,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvVideoStart(itemId, mode, scheduleIndex, channelId);
@@ -143,6 +156,7 @@ export function trackTvLooperWatchDuration(
       mode,
       channelId,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvWatchDuration(itemId, watchedSec, mode, channelId);

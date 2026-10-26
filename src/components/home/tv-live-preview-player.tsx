@@ -178,12 +178,12 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
         trackHomepagePreviewWatchDuration(
           analyticsCtx,
           String(currentItem.id),
-          Math.min(sec, 300),
+          Math.min(sec, 600),
           modeRef.current === "GLOBAL" ? "GLOBAL" : "LOCAL",
           analyticsCtx.channelId ?? undefined
         );
       }
-    }, 15_000);
+    }, 30_000);
     return () => {
       clearInterval(tick);
       if (watchSegStartRef.current > 0 && currentItem?.id) {
@@ -193,7 +193,7 @@ export function TvLivePreviewPlayer({ isNarrow = false }: Props) {
           trackHomepagePreviewWatchDuration(
             analyticsCtx,
             String(currentItem.id),
-            Math.min(sec, 300),
+            Math.min(sec, 600),
             modeRef.current === "GLOBAL" ? "GLOBAL" : "LOCAL",
             analyticsCtx.channelId ?? undefined
           );

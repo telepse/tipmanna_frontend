@@ -37,7 +37,21 @@ vi.mock("../../analytics-session", () => ({
 import {
   resolveLooperEffectiveAnalyticsSurface,
   syncTvLooperAnalyticsContext,
+  trackTvLooperVideoStart,
 } from "../tv-looper-analytics";
+
+const enqueueSdkEvents = vi.fn();
+vi.mock("../../analytics-sdk/tv-surface-playback", () => ({
+  tvSurfacePlaybackFor: () => ({
+    onPlayStart: vi.fn(),
+    onVideoReadyEncounter: vi.fn(),
+    watchSegment: vi.fn(),
+    onVideoEnd: vi.fn(),
+    complete: vi.fn(),
+    resetEncounterState: vi.fn(),
+  }),
+  resetTvSurfacePlaybackEncounterState: vi.fn(),
+}));
 
 describe("resolveLooperEffectiveAnalyticsSurface", () => {
   it("maps global looper immersive chrome to tv_fullscreen", () => {
@@ -76,6 +90,28 @@ describe("syncTvLooperAnalyticsContext", () => {
 
     expect(setTvAnalyticsContext).toHaveBeenCalledWith(
       expect.objectContaining({ surface: "community_tv_looper" })
+    );
+    expect(flushSdkAnalytics).toHaveBeenCalled();
+  });
+});
+
+describe("trackTvLooperVideoStart v2 flush", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("flushes SDK batch after play start when v2 TV surface active", () => {
+    trackTvLooperVideoStart(
+      {
+        eventId: "evt-1",
+        channelId: "ch-1",
+        analyticsSurface: "tv_fullscreen",
+        communityId: null,
+      },
+      "virt:1",
+      "GLOBAL",
+      0,
+      "ch-1"
     );
     expect(flushSdkAnalytics).toHaveBeenCalled();
   });

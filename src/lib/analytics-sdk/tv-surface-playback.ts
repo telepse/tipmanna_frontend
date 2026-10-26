@@ -46,6 +46,11 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
     encounterSentForActivation = false;
   }
 
+  /** Allow re-emitting encounter when analytics surface changes (e.g. tv_looper → tv_fullscreen). */
+  function resetEncounterState(): void {
+    encounterSentForActivation = false;
+  }
+
   function bindContext(params: {
     eventId: string | null;
     videoChannelId: string | undefined;
@@ -199,6 +204,7 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
 
   return {
     resetForTests,
+    resetEncounterState,
     onVideoReadyEncounter,
     onPlayStart,
     onVideoEnd,
@@ -239,4 +245,10 @@ export function resetTvSurfacePlaybackForTests(): void {
   homepagePreviewPlayback.resetForTests();
   exploreFeedPlayback.resetForTests();
   communityFeedPlayback.resetForTests();
+}
+
+export function resetTvSurfacePlaybackEncounterState(
+  surface: PaymentSurface
+): void {
+  tvSurfacePlaybackFor(surface).resetEncounterState();
 }

@@ -57,6 +57,7 @@ import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
   resolveLooperEffectiveAnalyticsSurface,
+  resetLooperTvSurfaceEncounterStates,
   syncTvLooperAnalyticsContext,
   trackTvLooperVideoComplete,
   trackTvLooperVideoEncounter,
@@ -661,10 +662,10 @@ export const TvLooper = ({
     setIsPlayerLoading(false);
   }, [showPlaybackError, current?.id, effectivePlayerUrl]);
 
-  const encounterLoggedForScheduleItemRef = useRef<string | null>(null);
+  const encounterLoggedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    encounterLoggedForScheduleItemRef.current = null;
+    encounterLoggedKeyRef.current = null;
   }, [current?.id]);
 
   const effectiveAnalyticsSurface = useMemo(
@@ -692,8 +693,9 @@ export const TvLooper = ({
 
   const emitEncounterWhenVideoLoads = useCallback(() => {
     if (!current?.id) return;
-    if (encounterLoggedForScheduleItemRef.current === current.id) return;
-    encounterLoggedForScheduleItemRef.current = current.id;
+    const encounterKey = `${effectiveAnalyticsSurface}:${current.id}`;
+    if (encounterLoggedKeyRef.current === encounterKey) return;
+    encounterLoggedKeyRef.current = encounterKey;
     void syncTvLooperAnalyticsContext(tvAnalyticsCtx).then(() => {
       trackTvLooperVideoEncounter(tvAnalyticsCtx, {
         mode,
@@ -701,11 +703,25 @@ export const TvLooper = ({
         scheduleItemId: String(current.id),
       });
     });
-  }, [current?.id, tvAnalyticsCtx, mode, currentIndex]);
+  }, [
+    current?.id,
+    tvAnalyticsCtx,
+    mode,
+    currentIndex,
+    effectiveAnalyticsSurface,
+  ]);
 
   useEffect(() => {
     void syncTvLooperAnalyticsContext(tvAnalyticsCtx);
   }, [tvAnalyticsCtx]);
+
+  useEffect(() => {
+    encounterLoggedKeyRef.current = null;
+    resetLooperTvSurfaceEncounterStates(analyticsSurface);
+    if (current?.id) {
+      emitEncounterWhenVideoLoads();
+    }
+  }, [effectiveAnalyticsSurface, current?.id, emitEncounterWhenVideoLoads]);
 
   useEffect(() => {
     userSeekedForCompleteRef.current = false;
