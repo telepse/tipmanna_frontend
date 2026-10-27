@@ -53,7 +53,7 @@ describe("Wave 3 surface XOR (playback via adapters)", () => {
   it("tv-live-preview-player (homepage_preview on /partner)", () => {
     assertSurfaceXor(
       "components/home/tv-live-preview-player.tsx",
-      "tv-looper-analytics"
+      "homepage-preview-analytics"
     );
     const src = read("components/home/tv-live-preview-player.tsx");
     expect(src).toMatch(/homepage_preview/);

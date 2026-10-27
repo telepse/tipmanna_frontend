@@ -387,16 +387,16 @@ export const EventLive = ({
       const sec = (now - watchSegStartRef.current) / 1000;
       watchSegStartRef.current = now;
       if (sec > 0.3) {
-        trackEventRoomWatchDuration(chId, Math.min(sec, 300), "LOCAL", chId);
+        trackEventRoomWatchDuration(chId, Math.min(sec, 600), "LOCAL", chId);
       }
-    }, 15_000);
+    }, 30_000);
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         if (watchSegStartRef.current > 0) {
           const s = (Date.now() - watchSegStartRef.current) / 1000;
           watchSegStartRef.current = 0;
           if (s > 0.3) {
-            trackEventRoomWatchDuration(chId, Math.min(s, 300), "LOCAL", chId);
+            trackEventRoomWatchDuration(chId, Math.min(s, 600), "LOCAL", chId);
           }
         }
       } else if (
@@ -414,7 +414,7 @@ export const EventLive = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackEventRoomWatchDuration(chId, Math.min(sec, 300), "LOCAL", chId);
+          trackEventRoomWatchDuration(chId, Math.min(sec, 600), "LOCAL", chId);
         }
       }
     };

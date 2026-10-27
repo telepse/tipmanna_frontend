@@ -1,6 +1,9 @@
 import type { PaymentSurface, TvAnalyticsClipMode } from "../analytics-types";
 import { getAnalyticsSessionId, getDeviceCategory } from "../analytics-session";
-import { tvSurfacePlaybackFor } from "../analytics-sdk/tv-surface-playback";
+import {
+  resetTvSurfacePlaybackEncounterState,
+  tvSurfacePlaybackFor,
+} from "../analytics-sdk/tv-surface-playback";
 import { flushSdkAnalytics } from "../analytics-sdk/transport";
 import { setAnalyticsSdkRuntimeContext } from "../analytics-sdk/runtime";
 import { isTvSurfaceSdkCollectionActive } from "../analytics-sdk/surface-flags";
@@ -21,6 +24,26 @@ export type TvLooperAnalyticsContext = {
   communityId: string | null;
 };
 
+/** Immersive /tv chrome maps global looper playback to tv_fullscreen (Wave 3 S7b). */
+/** Reset encounter latches when effective TV analytics surface changes (e.g. fullscreen). */
+export function resetLooperTvSurfaceEncounterStates(
+  _baseSurface: PaymentSurface
+): void {
+  resetTvSurfacePlaybackEncounterState("tv_looper");
+  resetTvSurfacePlaybackEncounterState("tv_fullscreen");
+  resetTvSurfacePlaybackEncounterState("community_tv_looper");
+}
+
+export function resolveLooperEffectiveAnalyticsSurface(
+  base: PaymentSurface,
+  opts: { immersive: boolean }
+): PaymentSurface {
+  if (opts.immersive && base === "tv_looper") {
+    return "tv_fullscreen";
+  }
+  return base;
+}
+
 function buildSdkContext(ctx: TvLooperAnalyticsContext) {
   return {
     sessionId: getAnalyticsSessionId(),
@@ -35,18 +58,19 @@ function buildSdkContext(ctx: TvLooperAnalyticsContext) {
 export async function syncTvLooperAnalyticsContext(
   ctx: TvLooperAnalyticsContext
 ): Promise<void> {
-  if (isTvSurfaceSdkCollectionActive(ctx.analyticsSurface)) {
-    await flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
-    setAnalyticsSdkRuntimeContext(buildSdkContext(ctx));
-    return;
-  }
-  await flushTvAnalytics();
   setTvAnalyticsContext({
     eventId: ctx.eventId,
     channelId: ctx.channelId ?? null,
     surface: ctx.analyticsSurface,
     communityId: ctx.communityId,
   });
+
+  if (isTvSurfaceSdkCollectionActive(ctx.analyticsSurface)) {
+    await flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
+    setAnalyticsSdkRuntimeContext(buildSdkContext(ctx));
+    return;
+  }
+  await flushTvAnalytics();
 }
 
 export function trackTvLooperVideoEncounter(
@@ -91,6 +115,7 @@ export function trackTvLooperVideoStart(
       eventId: ctx.eventId,
       communityId: ctx.communityId,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvVideoStart(itemId, mode, scheduleIndex, channelId);
@@ -131,6 +156,7 @@ export function trackTvLooperWatchDuration(
       mode,
       channelId,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvWatchDuration(itemId, watchedSec, mode, channelId);

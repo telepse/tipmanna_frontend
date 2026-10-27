@@ -46,6 +46,11 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
     encounterSentForActivation = false;
   }
 
+  /** Allow re-emitting encounter when analytics surface changes (e.g. tv_looper → tv_fullscreen). */
+  function resetEncounterState(): void {
+    encounterSentForActivation = false;
+  }
+
   function bindContext(params: {
     eventId: string | null;
     videoChannelId: string | undefined;
@@ -199,6 +204,7 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
 
   return {
     resetForTests,
+    resetEncounterState,
     onVideoReadyEncounter,
     onPlayStart,
     onVideoEnd,
@@ -208,6 +214,7 @@ export function createTvSurfacePlayback(surface: PaymentSurface) {
 }
 
 const tvLooperPlayback = createTvSurfacePlayback("tv_looper");
+const tvFullscreenPlayback = createTvSurfacePlayback("tv_fullscreen");
 const communityTvPlayback = createTvSurfacePlayback("community_tv_looper");
 const homepagePreviewPlayback = createTvSurfacePlayback("homepage_preview");
 const exploreFeedPlayback = createTvSurfacePlayback("explore_feed");
@@ -217,6 +224,8 @@ export function tvSurfacePlaybackFor(surface: PaymentSurface) {
   switch (surface) {
     case "community_tv_looper":
       return communityTvPlayback;
+    case "tv_fullscreen":
+      return tvFullscreenPlayback;
     case "homepage_preview":
       return homepagePreviewPlayback;
     case "explore_feed":
@@ -231,8 +240,15 @@ export function tvSurfacePlaybackFor(surface: PaymentSurface) {
 
 export function resetTvSurfacePlaybackForTests(): void {
   tvLooperPlayback.resetForTests();
+  tvFullscreenPlayback.resetForTests();
   communityTvPlayback.resetForTests();
   homepagePreviewPlayback.resetForTests();
   exploreFeedPlayback.resetForTests();
   communityFeedPlayback.resetForTests();
+}
+
+export function resetTvSurfacePlaybackEncounterState(
+  surface: PaymentSurface
+): void {
+  tvSurfacePlaybackFor(surface).resetEncounterState();
 }

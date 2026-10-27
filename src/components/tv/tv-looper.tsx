@@ -56,13 +56,16 @@ import { VideoFeatureCardBanner } from "@/components/video-feature/video-feature
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
+  resolveLooperEffectiveAnalyticsSurface,
+  resetLooperTvSurfaceEncounterStates,
   syncTvLooperAnalyticsContext,
   trackTvLooperVideoComplete,
   trackTvLooperVideoEncounter,
   trackTvLooperVideoEnd,
   trackTvLooperVideoStart,
-  trackTvLooperWatchDuration,
 } from "@/lib/analytics/tv-looper-analytics";
+import { createTvLooperWatchDurationScheduler } from "@/lib/analytics/tv-looper-periodic-watch-duration";
+import { useTvLooperPeriodicWatchDuration } from "@/lib/analytics/use-tv-looper-periodic-watch-duration";
 import {
   trackTvSaveClick,
   trackTvShareClick,
@@ -253,6 +256,9 @@ export const TvLooper = ({
   const pendingSeekTimeRef = useRef<number | null>(null);
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
+  const watchDurationSchedulerRef = useRef(
+    createTvLooperWatchDurationScheduler()
+  );
   const videoErrorReloadsRef = useRef(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -660,31 +666,40 @@ export const TvLooper = ({
     setIsPlayerLoading(false);
   }, [showPlaybackError, current?.id, effectivePlayerUrl]);
 
-  const encounterLoggedForScheduleItemRef = useRef<string | null>(null);
+  const encounterLoggedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    encounterLoggedForScheduleItemRef.current = null;
+    encounterLoggedKeyRef.current = null;
   }, [current?.id]);
+
+  const effectiveAnalyticsSurface = useMemo(
+    () =>
+      resolveLooperEffectiveAnalyticsSurface(analyticsSurface, {
+        immersive: isFullView || desktopEnlarged || isFullscreen,
+      }),
+    [analyticsSurface, isFullView, desktopEnlarged, isFullscreen]
+  );
 
   const tvAnalyticsCtx = useMemo(
     () => ({
       eventId: currentEventId || null,
       channelId: currentChannelId ?? null,
-      analyticsSurface,
+      analyticsSurface: effectiveAnalyticsSurface,
       communityId: scheduleSourceCommunityId ?? null,
     }),
     [
       currentEventId,
       currentChannelId,
-      analyticsSurface,
+      effectiveAnalyticsSurface,
       scheduleSourceCommunityId,
     ]
   );
 
   const emitEncounterWhenVideoLoads = useCallback(() => {
     if (!current?.id) return;
-    if (encounterLoggedForScheduleItemRef.current === current.id) return;
-    encounterLoggedForScheduleItemRef.current = current.id;
+    const encounterKey = `${effectiveAnalyticsSurface}:${current.id}`;
+    if (encounterLoggedKeyRef.current === encounterKey) return;
+    encounterLoggedKeyRef.current = encounterKey;
     void syncTvLooperAnalyticsContext(tvAnalyticsCtx).then(() => {
       trackTvLooperVideoEncounter(tvAnalyticsCtx, {
         mode,
@@ -692,11 +707,32 @@ export const TvLooper = ({
         scheduleItemId: String(current.id),
       });
     });
-  }, [current?.id, tvAnalyticsCtx, mode, currentIndex]);
+  }, [
+    current?.id,
+    tvAnalyticsCtx,
+    mode,
+    currentIndex,
+    effectiveAnalyticsSurface,
+  ]);
 
   useEffect(() => {
     void syncTvLooperAnalyticsContext(tvAnalyticsCtx);
   }, [tvAnalyticsCtx]);
+
+  useTvLooperPeriodicWatchDuration({
+    isPlaying,
+    tvAnalyticsCtx,
+    mode,
+    scheduler: watchDurationSchedulerRef.current,
+  });
+
+  useEffect(() => {
+    encounterLoggedKeyRef.current = null;
+    resetLooperTvSurfaceEncounterStates(analyticsSurface);
+    if (current?.id) {
+      emitEncounterWhenVideoLoads();
+    }
+  }, [effectiveAnalyticsSurface, current?.id, emitEncounterWhenVideoLoads]);
 
   useEffect(() => {
     userSeekedForCompleteRef.current = false;
@@ -809,7 +845,7 @@ export const TvLooper = ({
     if (id && segmentStartMsRef.current > 0) {
       const sec = (Date.now() - segmentStartMsRef.current) / 1000;
       trackTvLooperVideoEnd(tvAnalyticsCtx, id, sec, "ended", mode, ch);
-      trackTvLooperWatchDuration(tvAnalyticsCtx, id, sec, mode, ch);
+      watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
       if (!userSeekedForCompleteRef.current) {
         trackTvLooperVideoComplete(tvAnalyticsCtx, id, { channelId: ch, mode });
       }
@@ -818,6 +854,7 @@ export const TvLooper = ({
     lastTrackedItemIdRef.current = null;
     lastSegmentChannelIdRef.current = undefined;
     segmentStartMsRef.current = 0;
+    watchDurationSchedulerRef.current.reset();
     onVideoEnd();
   };
 
@@ -1597,6 +1634,7 @@ export const TvLooper = ({
                         const prev = lastTrackedItemIdRef.current;
                         const sec =
                           (Date.now() - segmentStartMsRef.current) / 1000;
+                        watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
                         trackTvLooperVideoEnd(
                           tvAnalyticsCtx,
                           prev,
@@ -1616,6 +1654,11 @@ export const TvLooper = ({
                         currentIndex,
                         currentChannelId
                       );
+                      watchDurationSchedulerRef.current.bindSegment({
+                        itemId: id,
+                        channelId: currentChannelId,
+                        mode,
+                      });
                     }
                   }}
                   onPause={() => {

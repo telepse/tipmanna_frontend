@@ -116,6 +116,8 @@ import {
   trackExploreFeedVideoEnd,
   trackExploreFeedVideoEncounter,
   trackExploreFeedVideoStart,
+  emitExploreFeedElapsedWatchDuration,
+  isExploreFeedWatchDurationEnabled,
   type ExploreFeedAnalyticsContext,
 } from "@/lib/analytics/explore-feed-analytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
@@ -449,6 +451,7 @@ type ExploreFeedSlideVideoProps = {
   playerRetryKey?: number;
   onEngageUnlocked?: () => void;
   tipDrawerOpen?: boolean;
+  onActiveReelPlayStateChange?: (playing: boolean) => void;
 };
 
 function ExploreFeedSlideVideo({
@@ -472,6 +475,7 @@ function ExploreFeedSlideVideo({
   playerRetryKey = 0,
   onEngageUnlocked,
   tipDrawerOpen = false,
+  onActiveReelPlayStateChange,
 }: ExploreFeedSlideVideoProps) {
   const posterObjectFitClass =
     fullPresentationFit === "contain" ? "object-contain" : "object-cover";
@@ -746,6 +750,7 @@ function ExploreFeedSlideVideo({
             onPlayStateChange={playing => {
               if (slideIndex === activeIndex) {
                 setIsPaused(!playing);
+                onActiveReelPlayStateChange?.(playing);
                 if (playing) {
                   hasReachedPlayingRef.current = true;
                   setShowTapToPlay(false);
@@ -1232,6 +1237,10 @@ export const ExploreFeedClient = forwardRef<
   const endOfFeedRef = useRef(false);
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
+  const [activeReelPlaying, setActiveReelPlaying] = useState(true);
+  const onActiveReelPlayStateChange = useCallback((playing: boolean) => {
+    setActiveReelPlaying(playing);
+  }, []);
   const lastChannelIdRef = useRef<string | undefined>(undefined);
   const feedModeRef = useRef(feedMode);
   feedModeRef.current = feedMode;
@@ -1756,6 +1765,7 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     setReelEngageUnlocked(false);
+    setActiveReelPlaying(true);
   }, [activeIndex]);
 
   const didMarkFirstPlayRef = useRef(false);
@@ -2758,6 +2768,51 @@ export const ExploreFeedClient = forwardRef<
     buildExploreAnalyticsCtx,
   ]);
 
+  useEffect(() => {
+    if (!feedSurfaceActive || !activeReelPlaying) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    if (!isExploreFeedWatchDurationEnabled()) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    if (segmentStartMsRef.current <= 0) return;
+
+    const tick = window.setInterval(() => {
+      const active = items[activeIndexRef.current];
+      if (!active || !activeReelPlaying) return;
+      const ctx = buildExploreAnalyticsCtx(active);
+      emitExploreFeedElapsedWatchDuration(ctx, {
+        scheduleItemId,
+        segmentStartMs: segmentStartMsRef.current,
+        channelId: String(active.id),
+      });
+      void flushExploreFeedAnalyticsBeforeContext(ctx);
+    }, 30_000);
+
+    return () => clearInterval(tick);
+  }, [
+    feedSurfaceActive,
+    activeReelPlaying,
+    activeIndex,
+    items,
+    buildExploreAnalyticsCtx,
+  ]);
+
+  useEffect(() => {
+    if (activeReelPlaying || segmentStartMsRef.current <= 0) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    const ctx = buildExploreAnalyticsCtx(cur);
+    emitExploreFeedElapsedWatchDuration(ctx, {
+      scheduleItemId,
+      segmentStartMs: segmentStartMsRef.current,
+      channelId: String(cur.id),
+    });
+    void flushExploreFeedAnalyticsBeforeContext(ctx);
+  }, [activeReelPlaying, activeIndex, items, buildExploreAnalyticsCtx]);
+
   if (initialLoading) {
     return <ExploreFeedSkeleton />;
   }
@@ -3008,6 +3063,9 @@ export const ExploreFeedClient = forwardRef<
                               i === activeIndex
                                 ? () => setReelEngageUnlocked(true)
                                 : undefined
+                            }
+                            onActiveReelPlayStateChange={
+                              onActiveReelPlayStateChange
                             }
                           />
                         </div>

@@ -127,6 +127,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   return (
     <>
+      <PageLinkedV2ChunkAnchor />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteJsonLd) }}
@@ -135,7 +136,6 @@ export default async function ExplorePage({ searchParams }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(exploreJsonLd) }}
       />
-      <PageLinkedV2ChunkAnchor />
       <Suspense fallback={null}>
         <ExploreSsrBootStream searchParamsKey={searchParamsKey} />
       </Suspense>

@@ -109,6 +109,7 @@ export default async function PartnerPage() {
 
   return (
     <main id="main-content">
+      <PageLinkedV2ChunkAnchor />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(orgJsonLd) }}
@@ -125,7 +126,6 @@ export default async function PartnerPage() {
       />
 
       <NavbarShell />
-      <PageLinkedV2ChunkAnchor />
       <NewHeroServer />
       <LazySlider />
       <NewTrustBadges />
