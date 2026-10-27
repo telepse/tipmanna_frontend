@@ -9,6 +9,7 @@ import { ExploreSsrBootStream } from "@/components/explore/explore-ssr-boot-stre
 import { getCommunityAccessStateAction } from "@/actions/communities";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { safeJsonLdStringify } from "@/lib/json-ld-safe";
+import { PageLinkedV2ChunkAnchor } from "@/lib/analytics-sdk/page-linked-v2-chunk-anchor";
 
 function exploreSearchParamsKey(
   sp: Record<string, string | string[] | undefined>
@@ -99,6 +100,7 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   return (
     <>
+      <PageLinkedV2ChunkAnchor />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteJsonLd) }}
