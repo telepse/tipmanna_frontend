@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  type ReactNode,
+} from "react";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import type { RealtimeSurface } from "@/lib/realtime-telemetry";
 import { registerLegacyTipStreamProducer } from "@/lib/legacy-tip-stream-producer";
 import { isSingleTipStreamBrokerEnabled } from "@/lib/single-tip-stream-broker-flag";
@@ -40,6 +46,8 @@ export function GlobalTipStreamProvider({
 
   useEffect(() => {
     if (!shouldOwn || typeof window === "undefined") return;
+    // Explore E2E dual-gate: do not open tip-stream Pusher (broker or legacy).
+    if (isExploreE2eFixturesActiveOnClient()) return;
     if (brokerEnabled) {
       return registerTipStreamConsumer({ eventId, surface });
     }

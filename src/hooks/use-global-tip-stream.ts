@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { createTipGuard, type TipAnimationEvent } from "@/lib/animation-guard";
 import { animLog } from "@/lib/animationDebug";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { logRealtimeTelemetry } from "@/lib/realtime-telemetry";
 import { tracePaymentAnimation } from "@/lib/payment-animation-trace";
 import { isSingleTipStreamBrokerEnabled } from "@/lib/single-tip-stream-broker-flag";
@@ -28,8 +29,10 @@ export function releaseCommunityLiveTvChannel(communityId: string): void {
  * Share one Pusher subscription for channel `global-live-tv` when multiple
  * features on the same page bind different events (e.g. tip-animation vs live-tip).
  * Never throws; returns null if Pusher is unavailable.
+ * Explore E2E dual-gate (`?e2e=1` + build flag): skip subscribe so S7 does not open WS.
  */
 export function acquireGlobalLiveTvChannel(): Channel | null {
+  if (isExploreE2eFixturesActiveOnClient()) return null;
   return subscribeChannel("global-live-tv");
 }
 
@@ -66,6 +69,9 @@ export function useGlobalTipStream(
 
   useEffect(() => {
     if (typeof window === "undefined" || !enabled) return;
+
+    // Same dual-gate as presence: no tip-stream Pusher during Explore E2E fixtures.
+    if (isExploreE2eFixturesActiveOnClient()) return;
 
     if (ownedByProvider) {
       tracePaymentAnimation({
