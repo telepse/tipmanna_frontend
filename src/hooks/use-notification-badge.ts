@@ -70,6 +70,9 @@ export function useNotificationBadge() {
 
   useEffect(() => {
     if (!user?.id) return;
+    // Dual-gate: skip Pusher (and host notification) subscribe under Explore E2E
+    // so S7 does not open WS / SockJS. refresh() is already gated the same way.
+    if (isExploreE2eFixturesActiveOnClient()) return;
 
     const role = user.role?.toLowerCase() ?? "tipper";
     const linkedHostUser = getHostUserFromCookies();

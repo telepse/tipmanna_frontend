@@ -44,6 +44,7 @@ export const usePusherTrackingGlobalTV = ({
 
   const trackActivity = useCallback(
     async (activity: string) => {
+      if (isExploreE2eFixturesActiveOnClient()) return;
       await globalTvPresenceTrackActivity(tvId, activity);
     },
     [tvId]

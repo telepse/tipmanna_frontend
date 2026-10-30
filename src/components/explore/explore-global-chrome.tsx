@@ -33,6 +33,7 @@ import type { RootState } from "@/redux/store";
 import { prefetchExploreFeedInitial } from "@/lib/explore-feed-prefetch-cache";
 import { prefetchWatchTvFromExplore } from "@/lib/explore-watch-tv";
 import { getOrCreateAnonymousViewer } from "@/lib/anonymous-viewer";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { pickContrastFgForHex } from "@/lib/pick-contrast-fg-for-bg";
 import { Bars3BottomLeftIcon } from "@heroicons/react/24/outline";
 
@@ -242,6 +243,10 @@ export function ExploreGlobalChrome({
 
   useEffect(() => {
     if (!isAuthenticated || !userId) {
+      setJoinedMemberships([]);
+      return;
+    }
+    if (isExploreE2eFixturesActiveOnClient()) {
       setJoinedMemberships([]);
       return;
     }

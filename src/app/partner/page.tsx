@@ -189,7 +189,7 @@ export default async function PartnerPage() {
         className="scroll-mt-24"
         aria-label="Pricing"
       >
-        <NewPricingGrid />
+        <NewPricingGrid initialCards={marketingPricing} />
         <PartnerPricingSubscribeSection />
       </section>
 

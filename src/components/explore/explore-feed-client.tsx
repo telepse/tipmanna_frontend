@@ -1681,6 +1681,13 @@ export const ExploreFeedClient = forwardRef<
       return;
     }
 
+    // E2E fixtures: skip metrics Server Action fan-out (Next-Action POSTs).
+    if (isExploreE2eFixturesActiveOnClient()) {
+      setBaseMetrics(null);
+      setMetricsRestrictedCommunity(null);
+      return;
+    }
+
     const len = itemsRef.current.length;
     const idx = activeIndexRef.current;
     if (

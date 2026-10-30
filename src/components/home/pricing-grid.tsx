@@ -42,7 +42,12 @@ function hostDashboardSlug(eventSlug: string | null): string | null {
   return eventSlug?.trim() || null;
 }
 
-export default function NewPricingGrid() {
+export default function NewPricingGrid({
+  initialCards,
+}: {
+  /** SSR-built cards from partner page; when provided, skip client SA refetch. */
+  initialCards?: MarketingPricingCard[];
+} = {}) {
   const ref = useRef<HTMLDivElement>(null);
 
   const swiperRef = useRef<SwiperType | null>(null);
@@ -51,7 +56,10 @@ export default function NewPricingGrid() {
   const { openCreate } = useCreateDialogHost();
   const [signInOpen, setSignInOpen] = useState(false);
   const [pricingCards, setPricingCards] = useState<MarketingPricingCard[]>(
-    buildMarketingPricingCards(null)
+    () =>
+      initialCards !== undefined
+        ? initialCards
+        : buildMarketingPricingCards(null)
   );
 
   const { push } = useAppRouter();
@@ -66,6 +74,8 @@ export default function NewPricingGrid() {
   const isSignedInHost = hostSessionActive;
 
   useEffect(() => {
+    // Partner SSR already fetches plan pricing; avoid a redundant Next-Action POST.
+    if (initialCards !== undefined) return;
     void getPlanPricingAction().then(res => {
       if (res.success && res.data) {
         setPricingCards(
@@ -73,7 +83,7 @@ export default function NewPricingGrid() {
         );
       }
     });
-  }, []);
+  }, [initialCards]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

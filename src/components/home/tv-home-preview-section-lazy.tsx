@@ -59,7 +59,10 @@ export default function TvHomePreviewSectionLazy() {
   }, []);
 
   return (
-    <div ref={sentinelRef}>
+    <div
+      ref={sentinelRef}
+      data-partner-tv-preview-sentinel="1"
+    >
       {inView ? <TvHomePreviewSection /> : <TvHomePreviewSkeleton />}
     </div>
   );

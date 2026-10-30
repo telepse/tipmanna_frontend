@@ -531,20 +531,21 @@ export default function ExplorePageClient({
     }
     let cancelled = false;
     void (async () => {
-      const hostPromise = getMyCommunitiesAction(exploreAuthToken);
       if (e2eFixtures) {
         if (!cancelled) {
           setJoinedMemberships([E2E_JOINED_MEMBERSHIP as JoinedMembershipRow]);
+          setHostTvCommunities({ owned: [], coCreator: [] });
         }
-      } else {
-        const joinedRes = await getMeJoinedCommunitiesAction(exploreAuthToken);
-        if (cancelled) return;
-        const apiMemberships =
-          joinedRes.success && Array.isArray(joinedRes.data?.memberships)
-            ? (joinedRes.data.memberships as JoinedMembershipRow[])
-            : [];
-        setJoinedMemberships(apiMemberships);
+        return;
       }
+      const hostPromise = getMyCommunitiesAction(exploreAuthToken);
+      const joinedRes = await getMeJoinedCommunitiesAction(exploreAuthToken);
+      if (cancelled) return;
+      const apiMemberships =
+        joinedRes.success && Array.isArray(joinedRes.data?.memberships)
+          ? (joinedRes.data.memberships as JoinedMembershipRow[])
+          : [];
+      setJoinedMemberships(apiMemberships);
       const hostRes = await hostPromise;
       if (cancelled) return;
       if (hostRes?.success && hostRes.data) {

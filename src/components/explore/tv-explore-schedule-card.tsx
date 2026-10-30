@@ -14,6 +14,7 @@ import {
 import { getExploreChannelMetricsAction } from "@/actions/contents";
 import { CommentDrawer } from "@/components/events/comment-drawer";
 import { Button } from "@/components/ui/button";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { formatPlaylistClock } from "@/lib/tv/playlistDisplay";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
@@ -114,6 +115,7 @@ export function TvExploreScheduleCard({
 
   useEffect(() => {
     if (!channelId) return;
+    if (isExploreE2eFixturesActiveOnClient()) return;
     let cancelled = false;
     void (async () => {
       const r = await getExploreChannelMetricsAction(channelId);

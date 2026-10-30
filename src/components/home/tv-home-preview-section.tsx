@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useMediaQuery } from "react-responsive";
@@ -13,39 +13,15 @@ import { Paragraph } from "../shared/paragraph";
 
 /**
  * Partner / marketing embed: live renderer of system Tipmanna TV (not full TVProvider).
+ * Playback is click-gated ("Watch live") so intersecting the lazy sentinel loads this
+ * section chunk without mounting YouTube (S7 partner chunk observation).
  */
 export default function TvHomePreviewSection() {
   const [watchLive, setWatchLive] = useState(false);
-  const [inView, setInView] = useState(false);
-  const sectionRef = useRef<HTMLElement | null>(null);
   const isNarrow = useMediaQuery({ maxWidth: "768px" });
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries.some(e => e.isIntersecting)) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px 0px" }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (inView) setWatchLive(true);
-  }, [inView]);
 
   return (
     <section
-      ref={sectionRef}
       className="wrapper section mt-6 flex flex-col items-center lg:mt-12"
       aria-labelledby="tv-home-heading"
     >

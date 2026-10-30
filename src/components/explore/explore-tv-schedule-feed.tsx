@@ -39,6 +39,7 @@ import {
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import {
   prefetchExploreTvSchedule,
   waitExploreTvPrefetch,
@@ -231,6 +232,12 @@ export function ExploreTvScheduleFeed({
     setLoading(true);
     setError(null);
     try {
+      if (isExploreE2eFixturesActiveOnClient()) {
+        setOngoing([]);
+        setUpcoming([]);
+        setLoading(false);
+        return;
+      }
       const warmed = await waitExploreTvPrefetch(filterKey);
       if (warmed) {
         setOngoingLabel(warmed.ongoingLabel);
