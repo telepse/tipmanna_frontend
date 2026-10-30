@@ -5,6 +5,10 @@ import Link from "next/link";
 import { NativeBroadcastPanel } from "@/components/event-room/native-broadcast-panel";
 import { AdvancedStudioPanel } from "@/components/host/advanced-studio-panel";
 import { fetchCurrentEventBroadcastAction } from "@/actions/event-broadcast";
+import {
+  formatEventOwnershipDeniedMessage,
+  isEventOwnershipDeniedMessage,
+} from "@/lib/event-broadcast-authz-message";
 import { useCallback, useEffect, useState } from "react";
 import type { EventBroadcastRow } from "@/lib/event-broadcast-client";
 
@@ -23,13 +27,38 @@ export function HostEventBroadcastClient({
   eventChannelId,
 }: Props) {
   const [broadcast, setBroadcast] = useState<EventBroadcastRow | null>(null);
+  const [ownershipDenied, setOwnershipDenied] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refreshBroadcast = useCallback(async () => {
     const res = await fetchCurrentEventBroadcastAction(eventId, {
       preferHostSession: true,
     });
-    if (res.success) setBroadcast(res.data?.broadcast ?? null);
-  }, [eventId]);
+    if (res.success) {
+      setBroadcast(res.data?.broadcast ?? null);
+      setOwnershipDenied(false);
+      setLoadError(null);
+      return;
+    }
+    const message = String(
+      res.message ?? res.error ?? "Broadcast status failed"
+    );
+    setBroadcast(null);
+    // Owner-only dashboard: any 403 on broadcasts/current means this session
+    // cannot operate the URL event (wrong host / wrong fixture).
+    if (
+      res.httpStatus === 403 ||
+      isEventOwnershipDeniedMessage(message, res.httpStatus)
+    ) {
+      setOwnershipDenied(true);
+      setLoadError(
+        formatEventOwnershipDeniedMessage({ hostSlug, eventId })
+      );
+      return;
+    }
+    setOwnershipDenied(false);
+    setLoadError(message);
+  }, [eventId, hostSlug]);
 
   useEffect(() => {
     void refreshBroadcast();
@@ -50,13 +79,20 @@ export function HostEventBroadcastClient({
           then claim publisher and join the scoped provider room when ready.
         </p>
       </div>
-      <NativeBroadcastPanel
-        eventId={eventId}
-        isHost
-        isCohost={false}
-        eventChannelId={eventChannelId}
-      />
-      {broadcast ? (
+      {loadError ? (
+        <p className="text-sm text-amber-800" role="alert">
+          {loadError}
+        </p>
+      ) : null}
+      {!ownershipDenied ? (
+        <NativeBroadcastPanel
+          eventId={eventId}
+          isHost
+          isCohost={false}
+          eventChannelId={eventChannelId}
+        />
+      ) : null}
+      {broadcast && !ownershipDenied ? (
         <AdvancedStudioPanel
           eventId={eventId}
           broadcast={broadcast}

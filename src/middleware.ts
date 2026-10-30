@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { resolveCreatorAtRewriteUrl } from "@/lib/creator-at-rewrite";
 import {
   getLegacyRedirectMode,
   isDiscoveryHost,
@@ -46,10 +47,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
-  const creatorHandleMatch = url.pathname.match(/^\/@([^/]+)\/?$/);
-  if (creatorHandleMatch) {
-    url.pathname = `/creator/${creatorHandleMatch[1]}`;
-    return NextResponse.rewrite(url);
+  const creatorRewrite = resolveCreatorAtRewriteUrl({
+    pathname: url.pathname,
+    search: url.search,
+    origin: url.origin,
+    forwardedHost: request.headers.get("x-forwarded-host"),
+    forwardedProto: request.headers.get("x-forwarded-proto"),
+  });
+  if (creatorRewrite) {
+    return NextResponse.rewrite(creatorRewrite);
   }
 
   return NextResponse.next();
