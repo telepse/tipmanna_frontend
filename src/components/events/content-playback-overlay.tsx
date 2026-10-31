@@ -75,6 +75,12 @@ export function ContentPlaybackOverlay({
   });
   const [error, setError] = useState<string | null>(null);
 
+  // E2E: load overlay surface chunk marker without ContentClient (S7 post-open scan).
+  useEffect(() => {
+    if (!payload || !isExploreE2eFixturesActiveOnClient()) return;
+    void import("@/lib/analytics-sdk/community-featured-overlay-playback");
+  }, [payload]);
+
   useEffect(() => {
     let cancelled = false;
     setError(null);

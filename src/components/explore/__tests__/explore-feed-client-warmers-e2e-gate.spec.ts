@@ -37,4 +37,13 @@ describe("Explore feed client warmers E2E gate", () => {
     expect(src).toMatch(/prefetchTvEventCatalogs\(/);
     expect(src).toMatch(/loadTvEventCatalog\(/);
   });
+
+  it("skips saved-videos Server Action under ActiveOnClient", () => {
+    const saves = src.slice(
+      src.indexOf("const refreshSavedContents = useCallback"),
+      src.indexOf("const refreshSavedContents = useCallback") + 500
+    );
+    expect(saves).toMatch(/isExploreE2eFixturesActiveOnClient\(\)/);
+    expect(saves).toMatch(/getSavedVideosForTipper/);
+  });
 });

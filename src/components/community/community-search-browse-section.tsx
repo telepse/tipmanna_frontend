@@ -34,6 +34,7 @@ import {
 } from "@/lib/community-explore-catalog-cache";
 import { isTipmannaSystemCommunity } from "@/lib/tv-community-picker";
 import { cn } from "@/lib/utils";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import type { RootState } from "@/redux/store";
 import { useMediaQuery } from "react-responsive";
 import { ExternalLink } from "lucide-react";
@@ -104,6 +105,12 @@ export function CommunitySearchBrowseSection({
   const loadCatalog = useCallback(
     async (options?: { background?: boolean }) => {
       const background = options?.background ?? false;
+      if (isExploreE2eFixturesActiveOnClient()) {
+        setCatalog(null);
+        setCatalogError(null);
+        setCatalogLoading(false);
+        return;
+      }
       if (!background) {
         setCatalogLoading(true);
       }
@@ -176,6 +183,10 @@ export function CommunitySearchBrowseSection({
   useEffect(() => {
     const q = searchQ.trim();
     if (q.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    if (isExploreE2eFixturesActiveOnClient()) {
       setSearchResults([]);
       return;
     }

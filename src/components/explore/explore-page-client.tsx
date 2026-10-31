@@ -396,8 +396,8 @@ export default function ExplorePageClient({
   }, [ssrBoot]);
 
   useEffect(() => {
-    if (tab === "feed") prefetchExploreFeedInitial();
-  }, [tab]);
+    if (tab === "feed" && !e2eFixtures) prefetchExploreFeedInitial();
+  }, [tab, e2eFixtures]);
 
   const [characters, setCharacters] = useState<any[]>(initialCharacters);
   const [characterSets, setCharacterSets] =
@@ -651,7 +651,7 @@ export default function ExplorePageClient({
   }, [e2eFixtures, e2eTvSeed]);
 
   useEffect(() => {
-    if (tab !== "feed") return;
+    if (tab !== "feed" || e2eFixtures) return;
     scheduleExploreFeedPrefetchIdle({
       communityIds: eligibleCommunityIdsForPrefetch,
       tvSource: tvExploreSource,
@@ -663,6 +663,7 @@ export default function ExplorePageClient({
     });
   }, [
     tab,
+    e2eFixtures,
     eligibleCommunityIdsForPrefetch,
     tvExploreSource,
     trendEventTypes,
@@ -675,6 +676,7 @@ export default function ExplorePageClient({
       cancelExploreTvStablePrefetch();
       return;
     }
+    if (e2eFixtures) return;
     if (!isExploreTvPrefetchAfterStableEnabled()) {
       return;
     }
@@ -685,10 +687,11 @@ export default function ExplorePageClient({
       country: trendCountry,
     });
     return () => cancelExploreTvStablePrefetch();
-  }, [tab, tvExploreSource, trendEventTypes, trendLanguage, trendCountry]);
+  }, [tab, e2eFixtures, tvExploreSource, trendEventTypes, trendLanguage, trendCountry]);
 
   useEffect(() => {
     const onAuthChanged = () => {
+      if (e2eFixtures) return;
       clearCommunityExploreCatalogCache();
       prefetchExploreSavesFeed();
       if (eligibleCommunityIdsForPrefetch.length) {
@@ -697,7 +700,7 @@ export default function ExplorePageClient({
     };
     window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
     return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
-  }, [eligibleCommunityIdsForPrefetch]);
+  }, [e2eFixtures, eligibleCommunityIdsForPrefetch]);
 
   const prefetchTvSchedule = useCallback(() => {
     prefetchExploreTvSchedule({

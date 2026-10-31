@@ -1570,6 +1570,10 @@ export const ExploreFeedClient = forwardRef<
   }, [activeChannelId, setActiveVideoFeatureCardId]);
 
   const refreshSavedContents = useCallback(async () => {
+    if (isExploreE2eFixturesActiveOnClient()) {
+      setSavedContents([]);
+      return;
+    }
     if (!user) {
       setSavedContents([]);
       return;

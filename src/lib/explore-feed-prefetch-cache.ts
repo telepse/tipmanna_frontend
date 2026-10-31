@@ -143,6 +143,13 @@ async function fetchSavesSnapshot(): Promise<ExploreFeedPrefetchSnapshot | null>
 async function fetchCommunitySnapshot(
   communityIds: string[]
 ): Promise<ExploreFeedPrefetchSnapshot | null> {
+  if (isExploreE2eFixturesActiveOnClient()) {
+    return {
+      items: E2E_FEED_BOOT.items,
+      seed: E2E_FEED_BOOT.seed,
+      bucketId: E2E_FEED_BOOT.bucketId,
+    };
+  }
   if (!communityIds.length) return null;
   const r = await postExploreFeedBatchAction(
     [],
@@ -219,6 +226,7 @@ export function prefetchExploreFeedInitial(): void {
 
 export function prefetchExploreSavesFeed(): void {
   if (typeof window === "undefined") return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
   if (savesReady || savesInflight) return;
   savesInflight = (async () => {
     try {
@@ -233,6 +241,7 @@ export function prefetchExploreSavesFeed(): void {
 
 export function prefetchExploreCommunityFeed(communityIds: string[]): void {
   if (typeof window === "undefined" || !communityIds.length) return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
   const key = [...communityIds].sort().join("|");
   if (communityReady.has(key) || communityInflight.has(key)) return;
   const p = (async () => {
@@ -419,6 +428,7 @@ export function scheduleExploreFeedPrefetchIdle(opts?: {
   };
 }): void {
   if (typeof window === "undefined") return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
   const tvDeferredAfterStable = isExploreTvPrefetchAfterStableEnabled();
   const run = () => {
     prefetchExploreFeedInitial();

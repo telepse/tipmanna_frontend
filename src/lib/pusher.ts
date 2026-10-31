@@ -1,4 +1,5 @@
 import Pusher, { type Channel } from "pusher-js";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import {
   tracePaymentAnimation,
   tracePusherRuntimeIdentity,
@@ -12,6 +13,8 @@ const channelRefCounts = new Map<string, number>();
  */
 export function getPusherClient(): Pusher | null {
   if (typeof window === "undefined") return null;
+  // Dual-gate: no shared Pusher client during Explore E2E fixtures (S7).
+  if (isExploreE2eFixturesActiveOnClient()) return null;
 
   const key = process.env.NEXT_PUBLIC_PUSHER_KEY;
   const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;

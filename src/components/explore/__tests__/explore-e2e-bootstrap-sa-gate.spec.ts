@@ -49,6 +49,15 @@ describe("Explore E2E bootstrap Server Action gates", () => {
     );
   });
 
+  it("explore-page-client skips idle feed/TV prefetch schedulers when e2eFixtures", () => {
+    expect(pageClient).toMatch(
+      /if \(tab !== "feed" \|\| e2eFixtures\) return;\s*\n\s*scheduleExploreFeedPrefetchIdle/
+    );
+    expect(pageClient).toMatch(
+      /if \(tab === "feed" && !e2eFixtures\) prefetchExploreFeedInitial/
+    );
+  });
+
   it("explore-page-client skips character-catalog SAs when e2eFixtures", () => {
     expect(pageClient).toMatch(/if \(e2eFixtures\) return;/);
     const charBlock = pageClient.slice(

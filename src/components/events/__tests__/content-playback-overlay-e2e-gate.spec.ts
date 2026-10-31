@@ -25,6 +25,18 @@ describe("ContentPlaybackOverlay Explore E2E gates", () => {
     );
   });
 
+  it("loads community_featured_overlay surface chunk on E2E open (S7 post-open marker)", () => {
+    expect(src).toMatch(
+      /import\("@\/lib\/analytics-sdk\/community-featured-overlay-playback"\)/
+    );
+    const markerEffect = src.slice(
+      src.indexOf("S7 post-open scan"),
+      src.indexOf("Dual-gate: keep Phase-A seed only")
+    );
+    expect(markerEffect).toMatch(/!payload \|\| !isExploreE2eFixturesActiveOnClient\(\)/);
+    expect(markerEffect).toMatch(/community-featured-overlay-playback/);
+  });
+
   it("still mounts ContentClient for non-E2E payload path", () => {
     expect(src).toMatch(/<ContentClient/);
     expect(src).toMatch(/getContentChannelAction/);

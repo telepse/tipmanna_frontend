@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Pusher, { Channel } from "pusher-js";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import type { UserInfo } from "@/types/tracking.types";
 
 type PusherChannelAuthData = {
@@ -127,6 +128,7 @@ function parsePresenceMembers(members: any): UserInfo[] {
 
 function wirePusher(tvId: string, b: BucketState) {
   if (b.pusher) return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
 
   if (typeof window !== "undefined") {
     const unloadHandler = () => {
@@ -231,6 +233,10 @@ export function subscribeGlobalTvPresence(opts: {
   onUsers: (users: UserInfo[]) => void;
   onConnectedChange?: (connected: boolean) => void;
 }): () => void {
+  if (isExploreE2eFixturesActiveOnClient()) {
+    return () => undefined;
+  }
+
   const { tvId, getJoinUserInfo, onUsers, onConnectedChange } = opts;
 
   const safeUser = (): UserInfo =>

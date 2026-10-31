@@ -2,6 +2,7 @@
 "use client";
 
 import { isExploreTvPrefetchAfterStableEnabled } from "@/lib/explore-feature-flags";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 
 import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 
@@ -53,6 +54,9 @@ async function fetchTvSnapshot(opts?: {
   language?: string;
   country?: string;
 }): Promise<ExploreTvPrefetchSnapshot | null> {
+  if (isExploreE2eFixturesActiveOnClient()) {
+    return null;
+  }
   const tvSource = opts?.tvSource ?? "tipmanna";
   const filterKey = buildFilterKey({ ...opts, tvSource });
   const q = buildTvScheduleQuery(opts);
@@ -88,6 +92,7 @@ export function prefetchExploreTvSchedule(opts?: {
   country?: string;
 }): void {
   if (typeof window === "undefined") return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
   const filterKey = buildFilterKey({
     ...opts,
     tvSource: opts?.tvSource ?? "tipmanna",

@@ -23,6 +23,7 @@ import { getCommunityAccessStateAction } from "@/actions/communities";
 import { fetchSavedHostsMe } from "@/lib/save-host-client";
 import { getAuthToken, getAuthUserFromCookies } from "@/lib/getAuthToken";
 import { normalizeSavedVideosList } from "@/lib/save-video-client";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
 import type { TipFeedRow } from "@/components/events/tips-feed-panel";
 
@@ -219,6 +220,7 @@ export async function fetchCommunityAccessStateCached(
   communityId: string,
   opts?: { force?: boolean }
 ): Promise<unknown | null> {
+  if (isExploreE2eFixturesActiveOnClient()) return null;
   const id = communityId.trim();
   if (!id) return null;
   const key = communityAccessKey(id);
@@ -247,6 +249,7 @@ export async function fetchCommunityAccessStateCached(
 export function prefetchCommunityAccessState(communityId: string) {
   const id = communityId.trim();
   if (!id) return;
+  if (isExploreE2eFixturesActiveOnClient()) return;
   scheduleIdle(() => {
     void fetchCommunityAccessStateCached(id);
   });
@@ -474,6 +477,7 @@ export function prefetchChannelDrawers(input: {
   channelId: string;
   authenticated: boolean;
 }) {
+  if (isExploreE2eFixturesActiveOnClient()) return;
   const { eventId, channelId, authenticated } = input;
   if (!eventId?.trim() || !channelId?.trim()) return;
   scheduleIdle(() => {
@@ -486,6 +490,7 @@ export function prefetchChannelDrawers(input: {
 }
 
 export async function prefetchProfileDrawerData(): Promise<void> {
+  if (isExploreE2eFixturesActiveOnClient()) return;
   const token = getAuthToken();
   if (!token) return;
   const authUser = getAuthUserFromCookies();
