@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { isTipCustomizationEnabled } from "@/lib/tip-customization";
 import type { ActiveTipConfigResponse } from "@/lib/tip-config-types";
@@ -83,6 +84,7 @@ export function useTipConfig(
 
   const fetchConfig = useCallback(
     async (requestId: number) => {
+      if (isExploreE2eFixturesActiveOnClient()) return;
       if (!eventId || !isTipCustomizationEnabled()) return;
       try {
         const res = await fetch(`${apiBase()}/tip-config/${eventId}/active`, {
@@ -125,6 +127,11 @@ export function useTipConfig(
       setState({ status: "disabled" });
       return;
     }
+    // Dual-gate: skip tip-config fetch under Explore E2E (S7).
+    if (isExploreE2eFixturesActiveOnClient()) {
+      setState({ status: "ready", mode: "legacy" });
+      return;
+    }
     if (hasInitialRef.current) {
       hasInitialRef.current = false;
       return;
@@ -147,6 +154,8 @@ export function useTipConfig(
 
   useEffect(() => {
     if (!eventId || !isTipCustomizationEnabled()) return;
+    // Dual-gate: skip tip-config Pusher under Explore E2E (S7).
+    if (isExploreE2eFixturesActiveOnClient()) return;
 
     const channelName = `tip-config-${eventId}`;
     const channel = subscribeChannel(channelName);

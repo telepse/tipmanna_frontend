@@ -405,6 +405,8 @@ export default function ExplorePageClient({
   const charactersLoadStartedRef = useRef(false);
 
   useEffect(() => {
+    // Dual-gate: skip character-catalog Server Actions under Explore E2E (S7).
+    if (e2eFixtures) return;
     if (charactersLoadStartedRef.current) return;
     charactersLoadStartedRef.current = true;
     let cancelled = false;
@@ -429,7 +431,7 @@ export default function ExplorePageClient({
         window.cancelIdleCallback(schedule);
       }
     };
-  }, []);
+  }, [e2eFixtures]);
 
   const headerPullRef = useRef<{ startY: number } | null>(null);
 

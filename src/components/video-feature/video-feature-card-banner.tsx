@@ -22,6 +22,7 @@ import {
   trackVideoFeatureCardEvent,
 } from "@/lib/tvAnalytics";
 import { cn } from "@/lib/utils";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
@@ -157,10 +158,12 @@ export function VideoFeatureCardBanner({
   }, [surfaceChannelId]);
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     void refetchActiveCards();
   }, [refetchActiveCards]);
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     if (!videoRequestsClientEnabled || !surfaceChannelId.trim()) return;
     const targetChannelName = `video-card-target-${surfaceChannelId}`;
     const globalChannelName = "video-card-global";

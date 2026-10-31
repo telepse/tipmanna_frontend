@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Pusher, { Channel } from "pusher-js";
 import { UserInfo, PusherTrackingHook } from "@/types/tracking.types";
 import { getAuthToken } from "@/lib/getAuthToken";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 
 interface UsePusherTrackingProps {
   eventId: string;
@@ -63,6 +64,7 @@ export const usePusherTracking = ({
 
   // Join event function
   const joinEvent = useCallback(async () => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     if (isJoiningRef.current) return;
 
     isJoiningRef.current = true;
@@ -84,6 +86,7 @@ export const usePusherTracking = ({
 
   // Leave event function
   const leaveEvent = useCallback(async () => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     try {
       // Remove current user from local state immediately
       setActiveUsers(prev => prev.filter(user => user.id !== userInfo.id));
@@ -103,6 +106,7 @@ export const usePusherTracking = ({
 
   // Add this right after leaveEvent
   const leaveEventBeacon = useCallback(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     try {
       const url = `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/tracking/events/${eventId}/leave`;
       const payload = JSON.stringify({ userId: userInfo.id });
@@ -132,6 +136,7 @@ export const usePusherTracking = ({
   // Track activity function
   const trackActivity = useCallback(
     async (activity: string) => {
+      if (isExploreE2eFixturesActiveOnClient()) return;
       try {
         await fetch(
           `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/tracking/events/${eventId}/activity`,
@@ -153,6 +158,9 @@ export const usePusherTracking = ({
 
   // Initialize Pusher and event tracking
   useEffect(() => {
+    // Dual-gate: skip event presence Pusher + activity under Explore E2E (S7).
+    if (isExploreE2eFixturesActiveOnClient()) return undefined;
+
     const bearer = getAuthToken()?.trim();
     const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,

@@ -1462,6 +1462,7 @@ export const ExploreFeedClient = forwardRef<
   // any drawer is instant (no first-open wait). Idle-scheduled and cached, so
   // this does not compete with playback/preload work.
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     if (!activeEventId || activeChannelId == null) return;
     prefetchChannelDrawers({
       eventId: activeEventId,
@@ -1477,6 +1478,7 @@ export const ExploreFeedClient = forwardRef<
   }, [activeEventId, activeChannelId, active]);
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     prefetchDrawerUiChunks();
   }, []);
 
@@ -1485,6 +1487,10 @@ export const ExploreFeedClient = forwardRef<
   );
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) {
+      setVideoTipCatalog(null);
+      return;
+    }
     if (!playingVideoKey || !activeEventId) {
       setVideoTipCatalog(null);
       return;
@@ -1503,6 +1509,7 @@ export const ExploreFeedClient = forwardRef<
   }, [playingVideoKey, activeEventId]);
 
   useEffect(() => {
+    if (isExploreE2eFixturesActiveOnClient()) return;
     if (!items.length) return;
     prefetchTvEventCatalogs(collectExploreFeedEventIds(items, 24));
   }, [items]);

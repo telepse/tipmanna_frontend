@@ -48,4 +48,17 @@ describe("Explore E2E bootstrap Server Action gates", () => {
       /isExploreE2eFixturesActiveOnClient\(\)[\s\S]*fetchTvScheduleAction/
     );
   });
+
+  it("explore-page-client skips character-catalog SAs when e2eFixtures", () => {
+    expect(pageClient).toMatch(/if \(e2eFixtures\) return;/);
+    const charBlock = pageClient.slice(
+      pageClient.indexOf(
+        "// Dual-gate: skip character-catalog Server Actions under Explore E2E"
+      ),
+      pageClient.indexOf("getCharactersForTipping()")
+    );
+    expect(charBlock).toMatch(/if \(e2eFixtures\) return;/);
+    expect(pageClient).toMatch(/getCharactersForTipping\(\)/);
+    expect(pageClient).toMatch(/getAllCharacterSets\(\)/);
+  });
 });

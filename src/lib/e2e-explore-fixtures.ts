@@ -2,6 +2,9 @@
  * Deterministic Explore E2E fixtures — synthetic, non-sensitive data only.
  * Activated only when `NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES=1` at build time
  * and the URL includes `?e2e=1`.
+ *
+ * Media URLs are same-origin poster paths (not YouTube). VideoPlayer treats
+ * non-YouTube URLs as invalid and does not load iframes / player network.
  */
 
 import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
@@ -14,13 +17,19 @@ export const E2E_JOIN_COMMUNITY_ID = "11111111-1111-4111-8111-111111111111";
 
 export const E2E_SELECT_COMMUNITY_ID = "22222222-2222-4222-8222-222222222222";
 
+/**
+ * Same-origin fixture media — no YouTube / external player hosts during S7.
+ * Prefer poster-only: extractYoutubeID returns null → no ytimg / iframe.
+ */
+export const E2E_FIXTURE_MEDIA_URL = "/patterns/bg_pattern.webp";
+
 const E2E_FEED_POOL_SIZE = 24;
 
 function buildE2eFeedItem(index: number) {
   return {
     id: `e2e-channel-${index}`,
     title: `E2E Explore clip ${index}`,
-    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    url: E2E_FIXTURE_MEDIA_URL,
     liveStatus: "NOT_LIVE" as const,
     event: {
       id: `e2e-event-${index}`,
@@ -55,7 +64,7 @@ export const E2E_DISCOVER_CONTENTS = [
   {
     id: "e2e-discover-clip",
     title: "E2E Discover clip",
-    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    url: E2E_FIXTURE_MEDIA_URL,
     liveStatus: "NOT_LIVE",
     eventVideoType: "COMEDY",
     event: { id: "e2e-discover-event", numOfTips: 1, amountRaised: 5 },
@@ -123,7 +132,7 @@ export const E2E_JOIN_FEATURED_VIDEOS = [
     channelId: E2E_FEATURED_OVERLAY_CHANNEL_ID,
     eventId: E2E_FEATURED_OVERLAY_EVENT_ID,
     title: "E2E Featured overlay clip",
-    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    url: E2E_FIXTURE_MEDIA_URL,
     durationSeconds: 212,
     numOfTips: 0,
     numOfSeen: 0,
@@ -139,7 +148,7 @@ export const E2E_TV_HANDOFF = {
     channel: {
       id: "e2e-tv-current",
       eventId: "e2e-tv-event-current",
-      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      url: E2E_FIXTURE_MEDIA_URL,
       title: "E2E TV Current Programme",
       liveStatus: "NOT_LIVE",
     },
@@ -150,7 +159,7 @@ export const E2E_TV_HANDOFF = {
     channel: {
       id: "e2e-tv-next",
       eventId: "e2e-tv-event-next",
-      url: "https://www.youtube.com/watch?v=9bZkp7q19f0",
+      url: E2E_FIXTURE_MEDIA_URL,
       title: "E2E TV Next Programme",
       liveStatus: "NOT_LIVE",
     },

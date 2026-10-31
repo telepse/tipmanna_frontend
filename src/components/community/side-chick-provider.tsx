@@ -13,6 +13,7 @@ import { useSelector } from "react-redux";
 
 import { subscribeChannel, unsubscribeChannel } from "@/lib/pusher";
 import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import type { RootState } from "@/redux/store";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
@@ -167,6 +168,8 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!canHydrateSideChick || !user?.id) return;
+    // Dual-gate: skip SideChick Pusher under Explore E2E (S7).
+    if (isExploreE2eFixturesActiveOnClient()) return;
     const name = `user-tipper-${user.id}`;
     const ch = subscribeChannel(name);
     if (!ch) return;
@@ -181,6 +184,7 @@ export function SideChickProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const id = activation?.communityId;
     if (!id || !canHydrateSideChick) return;
+    if (isExploreE2eFixturesActiveOnClient()) return;
     const name = `community-${id}`;
     const ch = subscribeChannel(name);
     if (!ch) return;

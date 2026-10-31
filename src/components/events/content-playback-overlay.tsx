@@ -21,6 +21,7 @@ import {
 } from "@/lib/content-playback-overlay-seed";
 import { takeOverlayPlaySeed } from "@/lib/playback-overlay-seed-handoff";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
+import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { cn } from "@/lib/utils";
 import type { PaymentSurface } from "@/lib/analytics-types";
 
@@ -90,6 +91,14 @@ export function ContentPlaybackOverlay({
     void (async () => {
       const hadPhaseA = Boolean(seedPayload) || phaseAReadyRef.current;
       let playbackMounted = hadPhaseA;
+
+      // Dual-gate: keep Phase-A seed only; skip channel/character/event Server Actions (S7).
+      if (isExploreE2eFixturesActiveOnClient()) {
+        if (!hadPhaseA && !seedPayload) {
+          setError("Could not load video");
+        }
+        return;
+      }
 
       try {
         const contentsRes = await getContentChannelAction(eventId);
@@ -211,6 +220,26 @@ export function ContentPlaybackOverlay({
           <button
             type="button"
             className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium"
+            onClick={onDismiss}
+          >
+            Close
+          </button>
+        </div>
+      ) : payload && isExploreE2eFixturesActiveOnClient() ? (
+        // E2E: open overlay shell without ContentClient (no Pusher / player / SAs).
+        <div
+          className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center text-white"
+          data-e2e-overlay-shell="1"
+        >
+          <p className="text-lg font-medium">
+            {(payload.contents[0] as { title?: string } | undefined)?.title ??
+              seed?.title ??
+              "E2E Featured overlay clip"}
+          </p>
+          <p className="text-sm text-white/70">E2E overlay fixture (no network player)</p>
+          <button
+            type="button"
+            className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white"
             onClick={onDismiss}
           >
             Close

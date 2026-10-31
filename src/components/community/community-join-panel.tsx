@@ -499,6 +499,14 @@ export function CommunityJoinPanel({
 
   useEffect(() => {
     if (!communityId || isDrawer) return;
+    // Dual-gate: skip content-bank Server Action under Explore E2E (S7).
+    if (
+      typeof window !== "undefined" &&
+      isExploreE2eFixturesEnabled(window.location.search)
+    ) {
+      setContentBankVideos([]);
+      return;
+    }
 
     let cancelled = false;
 
