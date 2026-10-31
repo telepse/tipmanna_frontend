@@ -1,76 +1,87 @@
-# Real-provider acceptance card — Exp-05 / R2-10 (rev. 2026-10-31)
+# Real-provider acceptance card — owner approval required
 
-## Scope split (read first)
+**Status:** Proposal only — **not approved.** Prior “90 min wall / 30 min paid” figures were **not** signed off; replace with owner-approved caps below.
 
-| Label | What this card proves |
+## Scope split
+
+| Label | Proves |
 | --- | --- |
-| **R2-10 / LIVE-013 capability** | Real Daily composition: contributor join, programme-driven compositor job, **observable output**, rate transitions, teardown |
-| **Full B1 / Finish B (LIVE-011–018)** | **Not** proved by this card alone — needs production UX second device, owner sign-off, superadmin branding walk, optional ingest, CI Playwright |
+| **R2-10 / LIVE-013** | One real Daily room: contributor publishers, **one** outbound RTMP instance, programme layout/media on **programme output**, billing standard↔advanced, teardown + usage evidence |
+| **Full B1 / Finish B** | Superadmin LIVE-016 UI walk, Playwright disposable E2E, ingest (LIVE-017), production UX — **outside** minimal R2-10 window |
 
-## Compatible revisions
+## Revisions (no credentials)
 
-Use **final RC SHAs** from `finish-b-rc-validation-2026-10-31.md` (FE + BE on `feature/pr-live-b1-finish-b`).
-
-## Isolated environment
-
-| Resource | Setting |
+| Component | SHA |
 | --- | --- |
-| Postgres | Disposable `127.0.0.1:5439` / `streaming_test` — **do not** touch Finish A |
-| API / worker | `8014` stack; `STREAMING_PROVIDER_MODE=mock` until owner flips window |
-| Provider window | `STREAMING_PROVIDER_MODE=real` on **API + worker** only during test |
-| Ingest | **Off** (`NATIVE_STREAMING_INTERACTION_ALERT_INGEST_ENABLED=false`) unless separate LIVE-017 decision |
-| Director lease | **Default 120s** — unset `STREAMING_DIRECTOR_LEASE_TTL_MS` |
-| Daily room | **Dedicated** experiment room ID prefix (not Finish A staging rooms) |
+| Host FE | `ab374ff513dd57e7c309e1e6109e130ba261aa79` |
+| API + worker | `b4a52bf56fdad72b2302802a762208c6e374f6ea` |
+| Superadmin | `05f6a90bf81a7029daa34bc89aae6ca7faa7630a` |
 
-## RTMP destination and pass criteria
+## Exact output destination and viewer
 
-### Primary path (Daily composition — R2-10)
-
-| Item | Detail |
+| Item | Requirement |
 | --- | --- |
-| **RTMP destination** | Daily-provided **publisher ingest URL** for the experiment room (from provider job / room API — owner vault) |
-| **Observable pass** | After programme patch (e.g. `split`), evidence shows: (1) `StreamingProviderJob` success for real compositor, (2) **visible layout change** on Daily dashboard or subscribed test viewer / encoder preview, (3) optional HLS/RTMP tap if owner provides read-only monitor |
-| **Fail** | Mock job only, unchanged layout, or provider error loop without recovery |
+| **Outbound RTMP ingest (layer 3)** | Owner vault: **YouTube Live test broadcast** ingest URL `rtmp://a.rtmp.youtube.com/live2/{stream-key}` **or** dedicated RTMP/HLS tap (e.g. restream.io test endpoint) |
+| **Primary viewer / proof surface** | **YouTube Live Control Room** preview (test broadcast, unlisted) **or** tap’s programme monitor — must show **composed programme**, not in-room self-preview only |
+| **Composition API (layer 2)** | `POST …/rooms/{room}/live-streaming/update` per `daily-live-composition.adapter.ts` + unit tests |
+| **RTMP start (layer 3)** | `POST …/live-streaming/start` with `endpoints: [{ endpoint }]` per `daily-rtmp-streaming.adapter.ts` |
 
-### Optional YouTube path (only if owner authorises)
+## Mandatory sequencing (R2-10)
 
-| Item | Detail |
+1. **Start exactly one** outbound RTMP instance (`live-streaming/start`) to the approved destination **before** programme layout patches that must appear on air.
+2. Confirm ingest **active** on viewer (YouTube “Stream active” / tap equivalent).
+3. **Second device:** contributor redeem invite — WebRTC publishers in room (layer 1).
+4. Director: **standard → advanced** activate — capture billing (ledger/UI **2×**).
+5. Programme: `camera_a` → `split` → `camera_b` — **visible layout change on programme output viewer**.
+6. (Optional) Superadmin branding slot edit → text overlay on programme output when rotation active — **still open** for full B1.
+7. **Advanced → standard** downgrade — billing reverts.
+8. Teardown: `live-streaming/stop`, end/delete YouTube test asset, delete Daily room, worker drain.
+
+## Billing transitions (pass criteria)
+
+| Step | Evidence |
 | --- | --- |
-| **RTMP destination** | `rtmp://a.rtmp.youtube.com/live2/{stream-key}` (or current YouTube ingest URL from API bind) |
-| **Observable pass** | YouTube **Live Control Room** or API poll: `streamStatus=active` **and** normalized `healthStatus` ∈ `{good, ok}` after encoder start; confirm-live does not crash on nested health payload (PR #139 parser on RC BE) |
-| **Fail** | `inactive` / `noData` after budget, or confirm-live fault |
+| Pre-activate | Rate **standard** in UI/API |
+| Post-activate | Rate **advanced** / consumption **2×** per product rules |
+| Post-downgrade | Rate **standard**; reservations/ledger consistent |
 
-## Journey (minimal)
+## External cleanup evidence
 
-1. Seed disposable host/event/broadcast (existing B1 seed pattern).
-2. Director: claim lease → create invite → **real** contributor join on second device.
-3. Activate (standard → **advanced** 2×) → programme change → capture output proof.
-4. Downgrade to standard → stop broadcast → provider teardown.
+- Daily dashboard: room deleted; live-streaming minutes noted.
+- YouTube: broadcast ended; stream binding removed if created for test.
+- Screenshots or API audit log attached to Exp-05 ticket (no secrets).
 
-## Provider resource limits
+## Resource limits (technical)
 
 | Limit | Value |
 | --- | --- |
-| Concurrent Daily rooms | **1** experiment room |
-| Concurrent real compositor jobs | **1** active programme version at a time |
-| Contributor slots | Product default (`ADVANCED_CONTRIBUTOR_SLOT_LIMIT`) |
-| YouTube test broadcast | **0–1** optional; pre-created test asset only |
+| Daily experiment rooms | **1** |
+| Concurrent outbound RTMP instances | **1** |
+| Real compositor/update jobs | **1** active programme version |
+| Contributors | Product default slot limit |
 
-## Teardown (mandatory)
+## Duration and monetary budget — **owner must approve in writing**
 
-- Stop lifecycle worker; drain jobs.
-- Delete Daily room; revoke experiment credentials per vault policy.
-- YouTube: end broadcast + delete stream if used.
-- DB: stop/dispose **5439 disposable** only.
-
-## Duration and monetary budget
-
-| Item | Value |
+| Field | Engineering proposal (not approved) |
 | --- | --- |
-| **Wall clock (NEW PROPOSAL — not pre-approved owner cap)** | **≤ 90 minutes** engineer setup + one pass |
-| **Paid provider window (NEW PROPOSAL — not pre-approved owner cap)** | **≤ 30 minutes** billable Daily/composition time |
-| **Owner action before spend** | Explicit written approval of window + budget + credential injection |
+| Engineer wall clock | Up to **120 minutes** one supervised pass |
+| Billable Daily live-streaming minutes | Up to **45 minutes** |
+| YouTube | Single pre-created **test** broadcast only |
+| **Hard stop** | Owner-named operator aborts on budget exceed |
+
+Do **not** incur provider charges until approval email/ticket references this card revision and approved caps.
+
+## Environment
+
+- Dedicated Daily room prefix (not Finish A staging).
+- `STREAMING_PROVIDER_MODE=real` on API + worker during window only.
+- Production worker: **`npm run build:streaming-lifecycle-worker-dist`** then `streaming:lifecycle-worker:dist` — not ts-node alone.
+- Postgres: disposable gate DB pattern (`5441` class) or owner staging — **never** truncate shared Phase 0 `5439` or Finish A `5440`.
+
+## Automated gates already green (mock / isolated)
+
+See `finish-b-automated-gates-2026-10-31.md` — HTTP integration @ **5441**, superadmin build, worker dist verify, unit mocks. **Playwright disposable journey:** retry pending (port alignment + Docker).
 
 ## Next owner action
 
-Approve Exp-05 **in writing**, supply Daily credentials (and optional YouTube test stream), assign second device operator — engineering keeps **mock + ingest off** until that approval.
+Approve **budget caps**, **RTMP destination**, **viewer**, and credential injection — then schedule Exp-05 (R2-10 only).
