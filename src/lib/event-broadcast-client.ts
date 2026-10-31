@@ -38,6 +38,12 @@ export type EventBroadcastRow = {
   /** Stamped at Start acceptance — mock vs real worker path (not Render env alone). */
   providerExecutionMode: string | null;
   liveStartedAt: string | null;
+  consumptionRate?: string;
+  advancedPrepStatus?: string;
+  advancedActivatedAt?: string | null;
+  programmeVersion?: number;
+  programmeLayout?: string | null;
+  programmeMainAudioSource?: string | null;
   updatedAt: string;
 };
 
