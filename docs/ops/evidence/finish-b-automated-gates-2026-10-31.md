@@ -1,73 +1,54 @@
-# Finish B — automated gates (2026-10-31)
+# Finish B — automated gates (2026-10-31, final)
 
-**Phase 0 / physical-phone:** preserved — not repeated.  
-**Shared PG:** `127.0.0.1:5439` and Finish A `5440` **not truncated**.
+**Phase 0 / phone:** preserved — not repeated. **5439 / 5440 / Finish A:** not truncated or reconfigured.
 
-## Isolated disposable database (gates only)
+## Isolated stack (Playwright gate)
 
-| Target | Value |
+| Component | Target |
 | --- | --- |
-| Container | `tipmanna-finish-b-gates-pg` |
-| Host port | **`127.0.0.1:5441`** → `streaming_test` |
-| Env | `STREAMING_TEST_DB_PORT=5441` |
-| URL | `postgresql://streaming_test:streaming_test@127.0.0.1:5441/streaming_test` |
+| Postgres | `tipmanna-finish-b-gates-pg` → **`127.0.0.1:5441`** / `streaming_test` |
+| API | **`127.0.0.1:8015`** (`DATABASE_URL` → port **5441**; log: `[prisma] pool config: { port: '5441' }`) |
+| Frontend | **`127.0.0.1:3016`** — **`npm run start`** (production build), **`CI=1`** (no reuse of **3014**) |
+| Provider | **mock** (`STREAMING_PROVIDER_MODE=mock` via `.env.streaming.b1-e2e`) |
 
-Connection guard in `streaming-integration-db-url.ts` rejects URLs whose port ≠ effective `STREAMING_TEST_DB_PORT`.
+**Alignment proof:** Playwright run emitted server-action fetches to `http://127.0.0.1:8015/api/v1/events/...` (not 8014). FE build used `NEXT_PUBLIC_BACKEND_API_URL=http://127.0.0.1:8015/api/v1`.
 
-## HTTP integration (PostgreSQL @ 5441)
+## Playwright LIVE-014/018 (production `next start`)
 
-| Spec | Result | Notes |
-| --- | --- | --- |
-| `t-b1-advanced-http.spec.ts` | **1/1 PASS** | prepare → lease → invite → redeem → activate → downgrade |
-| `t-b1-branding-superadmin-http.spec.ts` | **1/1 PASS** | superadmin PUT/GET → host `/advanced/branding` read-back |
-
-Run (when Docker available):
-
-```powershell
-$env:STREAMING_TEST_DB_PORT="5441"
-$env:STREAMING_INTEGRATION_DATABASE_URL="postgresql://streaming_test:streaming_test@127.0.0.1:5441/streaming_test"
-# start container on 5441, prisma migrate deploy, then:
-npm run test:streaming:integration -- src/services/streaming/__tests__/integration/t-b1-advanced-http.spec.ts src/services/streaming/__tests__/integration/t-b1-branding-superadmin-http.spec.ts
-```
-
-## Superadmin build + LIVE-016 contract
-
-| Check | Result |
+| Item | Value |
 | --- | --- |
-| `tipmanna_superadmin` @ `05f6a90` — `bun install` + `bun run build` | **PASS** (Vite production bundle) |
-| HTTP branding contract (API) | **PASS** (integration spec above) |
-| Real outbound text overlay on programme feed | **Open** — Exp-05 only |
+| FE revision | `f1ddb3305aa76f7c31d1f2279c5810e868b2d1be` |
+| BE revision (API) | `9974d1ba22302c1a46df21c0d61c437f0ff73566` |
+| Command | `CI=1 STREAMING_B1_E2E=1 PLAYWRIGHT_PORT=3016 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3016 PLAYWRIGHT_BACKEND_URL=http://127.0.0.1:8015 NEXT_PUBLIC_BACKEND_API_URL=http://127.0.0.1:8015/api/v1 PLAYWRIGHT_WEB_SERVER_COMMAND="npm run start -- -p 3016" npx playwright test --project=setup-streaming-b1 --project=streaming-b1-chromium` |
+| Pre-step | `npm run build` with same `NEXT_PUBLIC_BACKEND_API_URL`; re-seed **5441** immediately before test (do not run integration truncate between seed and Playwright) |
+| **Exit code** | **0** |
+| **Tests** | **3 passed** — setup auth, main journey, unauthenticated redirect |
 
-## Production lifecycle worker (`dist`)
+## HTTP integration @ 5441
 
-| Step | Command |
+| Spec | Result |
 | --- | --- |
-| Compile | `npx tsc` (or full `npm run build` before deploy) |
-| Verify artifact | `npm run verify:streaming-lifecycle-worker-dist` |
-| One-shot build+verify | `npm run build:streaming-lifecycle-worker-dist` |
-| Production launch | **`npm run streaming:lifecycle-worker:dist`** only after verify **ok** |
+| `t-b1-advanced-http.spec.ts` | **PASS** |
+| `t-b1-branding-superadmin-http.spec.ts` | **PASS** |
 
-Verified snippets in `dist/services/streaming/lifecycle/streaming-lifecycle-worker.js`: `enforceMaxStartingDurationStops`, `youtubeLiveStreamId`.
+## Backend executable delta (`2f2e64c` → `9974d1b`)
 
-**Example (2026-10-31 gate run after `npx tsc`):**
+See **`finish-b-backend-executable-delta-9974d1b.md`**. Not docs-only.
 
-- `workerTickSha256`: `ce1fb598d597e878993606d9b8b8e02f04d363f27f876e70d76407b8a0617293`
-- `entrySha256`: `d9f0e3b3366d05b03c2d375bddd9598fdc2b9769768550fe5d7b48f75891761e`
+## Worker dist (production path)
 
-**Acceptance / disposable:** `npm run streaming:lifecycle-worker` (ts-node) remains valid; **does not** substitute for dist verify.
+After `npx tsc`: `npm run verify:streaming-lifecycle-worker-dist` **PASS** (`workerTickSha256` `ce1fb598…`).
 
-## Playwright LIVE-014/018 (mock provider)
+## LIVE-016 evidence split
 
-| Attempt | Result | Cause |
-| --- | --- | --- |
-| 2026-10-31 run A | **FAIL** (main journey) | Playwright **reused** existing `next dev` on `3014` aligned to **`8014`/5439** while seed + API were on **`8015`/5441** → sign-in page |
-| 2026-10-31 run B | **Interrupted** | Port `3014` busy when `CI=1` forced fresh server |
-| **Required retry** | Pending Docker + ports | `CI=1`, `PLAYWRIGHT_PORT=3016`, `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3016`, `PLAYWRIGHT_BACKEND_URL=http://127.0.0.1:8015`, `NEXT_PUBLIC_BACKEND_API_URL=http://127.0.0.1:8015/api/v1`, seed on **5441**, API on **8015** |
+| Layer | Result |
+| --- | --- |
+| **HTTP contract** (superadmin PUT/GET → host `/advanced/branding`) | **PASS** — integration spec |
+| **Superadmin SPA build** @ `05f6a90` | **PASS** (`bun run build`) |
+| **Superadmin browser editor** (save in SPA UI) | **Not automated** — no Playwright in superadmin repo; real outbound overlay still **open** |
+| **Host preview in browser** | **PASS** — Playwright journey (`stream-branding-preview` visible) |
 
-Setup project + unauthenticated redirect test **passed** on run A; main journey blocked by frontend/backend port skew.
+## Operator notes
 
-**2026-10-31 later:** Docker Desktop daemon **offline** — could not re-run Playwright in this session.
-
-## Unit mock suites (unchanged, no PG)
-
-Prior closeout: **22/22 PASS** (composition, RTMP contract, lease, studio client) — see `finish-b-rc-validation-2026-10-31.md`.
+- Seed: `STREAMING_INTEGRATION_DATABASE_URL` to **5441**; port auto-derived in `streaming-b1-e2e-seed.ts` after fix on branch.
+- First Playwright failure modes resolved: missing `npx playwright install chromium`; stale seed after integration `truncate`; **3014/8014 reuse** — use **3016/8015/5441** only.
