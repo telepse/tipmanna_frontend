@@ -34,13 +34,14 @@
 | Laptop: Activate → Split → Return to Standard | **PASS** (after director re-claim; disposable lease TTL extended to 15m) |
 | Auth / profile / logout (Walk A) | **PASS** — retained |
 
-**Note:** First activate hit `DIRECTOR_LEASE_REQUIRED` when default 120s lease expired during phone redeem; not an ownership failure. See evidence §E3.
+**Note:** First activate hit `DIRECTOR_LEASE_REQUIRED` when default **120s** lease expired during phone redeem. Passing Walk B used disposable runtime lease **15 minutes** (`STREAMING_DIRECTOR_LEASE_TTL_MS=900000`). Committed default remains **two minutes**. See Phase 0 CLOSED evidence.
 
-## Outstanding phone security (not claimed)
+## Phone security (Phase 0 CLOSED)
 
 | Check | Status |
 | --- | --- |
-| Phone cookie `Secure` flag inspection | **OUTSTANDING** |
-| Phone direct `:8014` / `:5439` fail | **OUTSTANDING** (PC FW blocks still enabled) |
+| Secure cookie attrs (correlated phone-origin Set-Cookie) | **PASS** |
+| Phone `:8014` fail-to-connect | **PASS** |
+| Phone `:5439` TCP `nc` timeout | **PASS** |
 
 Six-archive preservation remains a **separate BLOCKED** programme item.
