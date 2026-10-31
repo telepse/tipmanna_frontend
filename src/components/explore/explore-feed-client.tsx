@@ -2397,7 +2397,8 @@ export const ExploreFeedClient = forwardRef<
       try {
         if (
           feedMode === "community" &&
-          (!(communityIds?.length ?? 0) || !hasExploreSession)
+          (!(communityIds?.length ?? 0) || !hasExploreSession) &&
+          !isExploreE2eFixturesActiveOnClient()
         ) {
           if (cancelled || gen !== feedLoadGenerationRef.current) return;
           setItems([]);
@@ -2908,7 +2909,11 @@ export const ExploreFeedClient = forwardRef<
         </>
       );
     }
-    if (feedMode === "community" && !hasExploreSession) {
+    if (
+      feedMode === "community" &&
+      !hasExploreSession &&
+      !isExploreE2eFixturesActiveOnClient()
+    ) {
       return (
         <>
           <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
@@ -2933,7 +2938,11 @@ export const ExploreFeedClient = forwardRef<
         </>
       );
     }
-    if (feedMode === "community" && !(communityIds?.length ?? 0)) {
+    if (
+      feedMode === "community" &&
+      !(communityIds?.length ?? 0) &&
+      !isExploreE2eFixturesActiveOnClient()
+    ) {
       return (
         <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white">
           <p className="max-w-sm text-sm">

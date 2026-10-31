@@ -58,6 +58,15 @@ describe("Explore E2E bootstrap Server Action gates", () => {
     );
   });
 
+  it("community feed allows E2E fixture boot without tipper session or community picker", () => {
+    expect(feed).toMatch(
+      /feedMode === "community"[\s\S]*!hasExploreSession[\s\S]*!isExploreE2eFixturesActiveOnClient\(\)/
+    );
+    expect(feed).toMatch(
+      /feedMode === "community"[\s\S]*!\(communityIds\?\.length[\s\S]*!isExploreE2eFixturesActiveOnClient\(\)/
+    );
+  });
+
   it("explore-page-client skips character-catalog SAs when e2eFixtures", () => {
     expect(pageClient).toMatch(/if \(e2eFixtures\) return;/);
     const charBlock = pageClient.slice(

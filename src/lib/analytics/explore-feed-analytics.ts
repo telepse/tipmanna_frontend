@@ -46,6 +46,7 @@ export function initExploreFeedAnalyticsRuntime(): void {
     isCommunityFeedSdkCollectionActive()
   ) {
     initAnalyticsSdkRuntime();
+    getAnalyticsSessionId();
   } else {
     initTvAnalyticsRuntime();
   }

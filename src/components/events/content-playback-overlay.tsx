@@ -22,6 +22,12 @@ import {
 import { takeOverlayPlaySeed } from "@/lib/playback-overlay-seed-handoff";
 import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
+import { trackCommunityFeaturedOverlayOpen } from "@/lib/analytics/community-featured-overlay-analytics";
+import {
+  communityFeaturedOverlayPlaybackOnPlayStateChange,
+  communityFeaturedOverlayPlaybackWatchSegment,
+} from "@/lib/analytics-sdk/community-featured-overlay-playback";
+import { initAnalyticsSdkRuntime } from "@/lib/analytics-sdk/runtime";
 import { cn } from "@/lib/utils";
 import type { PaymentSurface } from "@/lib/analytics-types";
 
@@ -80,6 +86,23 @@ export function ContentPlaybackOverlay({
     if (!payload || !isExploreE2eFixturesActiveOnClient()) return;
     void import("@/lib/analytics-sdk/community-featured-overlay-playback");
   }, [payload]);
+
+  /** E2E shell: emit v2 overlay playback (S7b) without ContentClient / network player. */
+  useEffect(() => {
+    if (!payload || !isExploreE2eFixturesActiveOnClient()) return;
+    if (paymentSurface !== "community_featured_overlay") return;
+    initAnalyticsSdkRuntime();
+    trackCommunityFeaturedOverlayOpen({
+      eventId,
+      channelId,
+      communityId: payload.communityId ?? null,
+    });
+    communityFeaturedOverlayPlaybackOnPlayStateChange(true, 0);
+    const timer = window.setTimeout(() => {
+      communityFeaturedOverlayPlaybackWatchSegment(15);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [payload, eventId, channelId, paymentSurface]);
 
   useEffect(() => {
     let cancelled = false;

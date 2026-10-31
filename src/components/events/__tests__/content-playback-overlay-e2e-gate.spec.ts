@@ -25,6 +25,15 @@ describe("ContentPlaybackOverlay Explore E2E gates", () => {
     );
   });
 
+  it("emits community_featured_overlay v2 playback hooks from E2E shell (S7b)", () => {
+    expect(src).toMatch(/trackCommunityFeaturedOverlayOpen/);
+    expect(src).toMatch(/communityFeaturedOverlayPlaybackOnPlayStateChange/);
+    expect(src).toMatch(/communityFeaturedOverlayPlaybackWatchSegment/);
+    expect(src).toMatch(
+      /paymentSurface !== "community_featured_overlay"/
+    );
+  });
+
   it("loads community_featured_overlay surface chunk on E2E open (S7 post-open marker)", () => {
     expect(src).toMatch(
       /import\("@\/lib\/analytics-sdk\/community-featured-overlay-playback"\)/
