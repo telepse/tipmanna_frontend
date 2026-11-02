@@ -4,6 +4,7 @@ import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { isCommunityTvEntitledFromAccessState } from "@/lib/community-tv-entitlement";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
+import { isWave3AcceptanceCommunityTvE2eBypass } from "@/lib/wave3-acceptance-community-tv-bypass";
 import type { RoomCharacter } from "@/types";
 
 export type TvInitialTipCatalog = {
@@ -149,6 +150,9 @@ export function emptyTvSsrBootstrap(
 export async function isEntitledToCommunityTvSsrBootstrap(
   communityId: string
 ): Promise<boolean> {
+  if (isWave3AcceptanceCommunityTvE2eBypass(communityId)) {
+    return true;
+  }
   const res = await getCommunityAccessStateAction(communityId.trim());
   if (!res.success || !res.data) return false;
   return isCommunityTvEntitledFromAccessState(

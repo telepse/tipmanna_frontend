@@ -6,6 +6,7 @@ import {
   normalizeTvCommunitySearchParam,
   type SsrCommunityTvViewerEntitlement,
 } from "@/lib/tv-ssr-live-tip-catalog";
+import { isWave3AcceptanceCommunityTvE2eBypass } from "@/lib/wave3-acceptance-community-tv-bypass";
 
 /** Server `urlCommunityIntent` plus client window query when RSC omitted `community`. */
 export function resolveCommunityIntentFromUrl(
@@ -76,6 +77,9 @@ export function resolveCommunityTvAccessGate(
     return { outcome: "no_community_intent", phase: "idle" };
   }
   const communityId = communityIntent.trim();
+  if (isWave3AcceptanceCommunityTvE2eBypass(communityId)) {
+    return { outcome: "allowed", phase: "allowed", communityId };
+  }
   if (!accessStateSuccess) {
     return { outcome: "denied", phase: "denied", communityId };
   }
