@@ -96,6 +96,14 @@ export function trackTiplinkVideoEncounter(
       encounterItemId: `tiplink-${tipLinkSlug}`,
       isPlaying: opts.isPlaying,
     });
+    void flushSdkAnalytics({
+      ctx: buildSdkContext({
+        eventId: opts.eventId,
+        channelId: opts.channelId,
+        communityId: opts.communityId,
+      }),
+      auth: {},
+    });
     return;
   }
   trackTvVideoEncounter(`tiplink-${tipLinkSlug}`, {

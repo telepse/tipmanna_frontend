@@ -1,8 +1,10 @@
 import {
   E2E_FEATURED_OVERLAY_CHANNEL_ID,
   E2E_FEATURED_OVERLAY_EVENT_ID,
-  E2E_FIXTURE_MEDIA_URL,
 } from "@/lib/e2e-explore-fixtures";
+/** Playable YouTube row for acceptance community TV (synthetic schedule after 401). */
+export const WAVE3_ACCEPTANCE_COMMUNITY_TV_MEDIA_URL =
+  "https://www.youtube.com/watch?v=Ffs0YHm2jks";
 import { isExploreE2eFixturesEnvEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { WAVE3_ACCEPTANCE_COMMUNITY_TV_ID } from "@/lib/wave3-acceptance-fixture-ids";
 
@@ -33,7 +35,7 @@ export function buildWave3AcceptanceCommunityTvSchedulePayload() {
         channel: {
           id: E2E_FEATURED_OVERLAY_CHANNEL_ID,
           eventId: E2E_FEATURED_OVERLAY_EVENT_ID,
-          url: E2E_FIXTURE_MEDIA_URL,
+          url: WAVE3_ACCEPTANCE_COMMUNITY_TV_MEDIA_URL,
           title: "Wave 3 acceptance community TV",
           liveStatus: "NOT_LIVE",
           community: { id: WAVE3_ACCEPTANCE_COMMUNITY_TV_ID },

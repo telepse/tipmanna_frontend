@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { resolveCommunityTvAccessGate } from "../tv-community-access-gate-logic";
-import { isWave3AcceptanceCommunityTvE2eBypass } from "../wave3-acceptance-community-tv-bypass";
+import {
+  buildWave3AcceptanceCommunityTvSchedulePayload,
+  isWave3AcceptanceCommunityTvE2eBypass,
+  WAVE3_ACCEPTANCE_COMMUNITY_TV_MEDIA_URL,
+} from "../wave3-acceptance-community-tv-bypass";
+import { extractYoutubeID } from "../extractYoutubeID";
 
 describe("Wave 3 acceptance community TV bypass", () => {
   afterEach(() => {
@@ -16,6 +21,12 @@ describe("Wave 3 acceptance community TV bypass", () => {
       )
     ).toBe(true);
     expect(isWave3AcceptanceCommunityTvE2eBypass("other-community")).toBe(false);
+  });
+
+  it("synthetic schedule uses a playable YouTube URL", () => {
+    expect(extractYoutubeID(WAVE3_ACCEPTANCE_COMMUNITY_TV_MEDIA_URL)).toBeTruthy();
+    const payload = buildWave3AcceptanceCommunityTvSchedulePayload();
+    expect(extractYoutubeID(payload.items[0]?.channel?.url ?? "")).toBeTruthy();
   });
 
   it("resolveCommunityTvAccessGate allows acceptance community under bypass", () => {
