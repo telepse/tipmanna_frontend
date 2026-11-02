@@ -34,6 +34,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  applyTayeActiveWithCeremony,
+  requiresTayeFirstEnableConfirmation,
+} from "@/lib/taye-first-enable-ceremony";
 
 type Props = {
   eventId: string;
@@ -252,26 +256,29 @@ export function EventTayeApiTab({ eventId, eventName }: Props) {
   };
 
   const toggleActive = async (next: boolean) => {
-    const isOutboundCeremony =
-      eventMeta?.direction === "tipmanna_outbound" &&
-      publishedPartnerEventId &&
-      !tayeActive &&
-      next;
-    if (
-      isOutboundCeremony &&
-      !window.confirm(
-        "Turn TAYE on? Existing guests will start seeing enrollment gating for this room."
-      )
-    ) {
-      return;
-    }
-    const res = await setTayeEventActiveAction(eventId, next);
-    if (!res.success) {
-      toast.error(res.error ?? "Could not update TAYE");
-      return;
-    }
-    setTayeActive(next);
-    if (next && isOutboundCeremony) {
+    const ceremonyEnable = requiresTayeFirstEnableConfirmation(
+      tayeActive,
+      next,
+      eventMeta,
+      publishedPartnerEventId
+    );
+    const { applied } = await applyTayeActiveWithCeremony({
+      next,
+      currentlyActive: tayeActive,
+      meta: eventMeta,
+      publishedPartnerEventId,
+      confirm: message => window.confirm(message),
+      activate: async value => {
+        const res = await setTayeEventActiveAction(eventId, value);
+        if (!res.success) {
+          toast.error(res.error ?? "Could not update TAYE");
+          return false;
+        }
+        setTayeActive(value);
+        return true;
+      },
+    });
+    if (applied && ceremonyEnable) {
       toast.success("TAYE enrollment gating is now active for this room");
     }
   };
