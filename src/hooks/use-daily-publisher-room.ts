@@ -19,6 +19,7 @@ export type DailyPublisherJoinPhase =
   | "error";
 
 type DailyCallObject = {
+  join: (opts: { url: string; token?: string }) => Promise<void>;
   leave: () => Promise<void>;
   destroy: () => void;
   on?: (ev: string, fn: (e?: { instanceId?: string; errorMsg?: string }) => void) => void;
@@ -136,7 +137,7 @@ export function useDailyPublisherRoom(options?: UseDailyPublisherRoomOptions) {
         const call = Daily.default.createCallObject({
           audioSource: localStream?.getAudioTracks()[0] ?? true,
           videoSource: localStream?.getVideoTracks()[0] ?? true,
-        }) as DailyCallObject;
+        }) as unknown as DailyCallObject;
         callRef.current = call;
 
         const streamingHandler = (action: string) => (e?: {

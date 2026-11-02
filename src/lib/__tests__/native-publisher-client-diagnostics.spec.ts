@@ -8,7 +8,7 @@ describe("native publisher client diagnostics", () => {
       getAudioTracks: () => [{ readyState: "live" as MediaStreamTrackState }],
       getVideoTracks: () => [{ readyState: "ended" as MediaStreamTrackState }],
     } as MediaStream;
-    const summary = summarizeLocalPreviewStream(stream, true);
+    const summary = summarizeLocalPreviewStream(stream, true)!;
     expect(summary.audioLiveCount).toBe(1);
     expect(summary.videoLiveCount).toBe(0);
   });
