@@ -109,6 +109,8 @@ export function isTvSurfaceSdkCollectionActive(
       return isCommunityTvLooperAnalyticsV2Enabled();
     case "homepage_preview":
       return isHomepagePreviewAnalyticsV2Enabled();
+    case "tv_fullscreen":
+      return isTvFullscreenAnalyticsV2Enabled();
     default:
       return false;
   }

@@ -36,6 +36,10 @@ export function resolveExploreFeedAnalyticsSurface(
   return feedMode === "community" ? "community_feed" : "explore_feed";
 }
 
+export function isExploreFeedWatchDurationEnabled(): boolean {
+  return isExploreWatchDurationCollectionActive();
+}
+
 export function initExploreFeedAnalyticsRuntime(): void {
   if (
     isExploreFeedSdkCollectionActive() ||
@@ -170,6 +174,24 @@ export function trackExploreFeedVideoEnd(
 }
 
 /** No-op when `NEXT_PUBLIC_ANALYTICS_EXPLORE_DURATION` is off (legacy prod default). */
+/** Elapsed watch on the active reel (requires EXPLORE_DURATION + v2 surface flag). */
+export function emitExploreFeedElapsedWatchDuration(
+  ctx: ExploreFeedAnalyticsContext,
+  opts: {
+    scheduleItemId: string;
+    segmentStartMs: number;
+    channelId?: string;
+  }
+): void {
+  if (opts.segmentStartMs <= 0) return;
+  const watchedSec = (Date.now() - opts.segmentStartMs) / 1000;
+  trackExploreFeedWatchDurationIfEnabled(ctx, {
+    scheduleItemId: opts.scheduleItemId,
+    watchedSec,
+    channelId: opts.channelId,
+  });
+}
+
 export function trackExploreFeedWatchDurationIfEnabled(
   ctx: ExploreFeedAnalyticsContext,
   opts: {
@@ -188,6 +210,7 @@ export function trackExploreFeedWatchDurationIfEnabled(
       mode: "EXPLORE",
       channelId: opts.channelId,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvWatchDuration(opts.scheduleItemId, capped, "EXPLORE", opts.channelId);

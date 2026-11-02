@@ -115,6 +115,15 @@ export function trackEventRoomWatchDuration(
 ): void {
   if (isEventRoomSdkCollectionActive()) {
     eventRoomPlaybackWatchSegment(watchedSec);
+    void flushSdkAnalytics({
+      ctx: {
+        sessionId: getAnalyticsSessionId(),
+        surface: "event_room",
+        deviceCategory: getDeviceCategory(),
+        videoChannelId: channelId,
+      },
+      auth: {},
+    });
     return;
   }
   trackTvWatchDuration(`room-${channelId}`, watchedSec, "LOCAL", channelId);

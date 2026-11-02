@@ -819,12 +819,18 @@ export function CommunityJoinPanel({
                       className="relative aspect-[9/16] overflow-hidden rounded bg-neutral-100"
                       disabled={!eventId || !channelId}
                       onClick={() => {
-                        if (eventId && channelId) {
+                        if (!eventId || !channelId) return;
+                        if (isDrawer) {
                           playFeaturedFromDrawer(eventId, channelId, {
                             url: video.url,
                             title: video.title,
                           });
+                          return;
                         }
+                        openOverlayPlay(eventId, channelId, {
+                          url: video.url,
+                          title: video.title,
+                        });
                       }}
                       aria-label={`Play ${video.title}`}
                     >
