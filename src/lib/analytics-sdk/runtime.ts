@@ -1,3 +1,4 @@
+import { getAnalyticsSessionId } from "../analytics-session";
 import { isAnalyticsSdkEnabled } from "./flags";
 import { pruneStaleBeaconItems } from "./queue";
 import { flushSdkAnalytics, sendSdkBeacon } from "./transport";
@@ -36,6 +37,7 @@ function onPageHideBeacon(): void {
 export function initAnalyticsSdkRuntime(): void {
   if (!isAnalyticsSdkEnabled() || typeof window === "undefined") return;
 
+  getAnalyticsSessionId();
   runtimeRefCount += 1;
   if (listenersBound) return;
 

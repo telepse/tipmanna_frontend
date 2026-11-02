@@ -2,6 +2,11 @@ import type { DeviceCategory } from "./analytics-types";
 
 const SESSION_KEY = "tipmanna-analytics-session";
 
+/** Idempotent — ensures sessionStorage has a session id for S7b readiness probes. */
+export function ensureAnalyticsSessionStorage(): string {
+  return getAnalyticsSessionId();
+}
+
 export function getAnalyticsSessionId(): string {
   if (typeof window === "undefined") return "ssr";
   try {

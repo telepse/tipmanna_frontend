@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   isChannelClientSdkCollectionActive,
@@ -7,6 +7,7 @@ import {
   isContentClientSdkCollectionActive,
   isEventRoomSdkCollectionActive,
   isExploreFeedSdkCollectionActive,
+  isExplorePlaybackSdkCollectionActive,
   isHomepagePreviewAnalyticsV2Enabled,
   isTiplinkSdkCollectionActive,
   isTvFullscreenSdkCollectionActive,
@@ -78,5 +79,18 @@ describe("Wave 3 surface flags default off", () => {
 
     process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_CONTENT_CLIENT_V2 = "false";
     expect(isContentClientSdkCollectionActive()).toBe(false);
+  });
+
+  it("allows community_feed v2 playback under E2E when explore_feed v2 is on", () => {
+    for (const k of keys) prev[k] = process.env[k];
+    process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES = "1";
+    process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_EXPLORE_FEED_V2 = "true";
+    delete process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEED_V2;
+    vi.stubGlobal("window", {
+      location: { search: "?e2e=1" },
+    } as Window);
+    expect(isExplorePlaybackSdkCollectionActive("community_feed")).toBe(true);
+    vi.unstubAllGlobals();
   });
 });

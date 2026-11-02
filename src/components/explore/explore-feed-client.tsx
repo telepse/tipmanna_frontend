@@ -1814,6 +1814,19 @@ export const ExploreFeedClient = forwardRef<
     }
   }, [buildExploreAnalyticsCtx]);
 
+  /** Poster-only E2E fixtures never fire HTML5 playing; bootstrap v2 for active reel. */
+  useEffect(() => {
+    if (!isExploreE2eFixturesActiveOnClient() || !feedSurfaceActive) return;
+    if (!items.length) return;
+    handleExploreClipPlaying();
+  }, [
+    items.length,
+    activeIndex,
+    feedSurfaceActive,
+    feedMode,
+    handleExploreClipPlaying,
+  ]);
+
   const handleExplorePlaybackCompleteAnalytics = useCallback(
     (item: {
       id: string;
@@ -2032,7 +2045,8 @@ export const ExploreFeedClient = forwardRef<
       const scope = feedIdentity.fetchScope;
       if (
         scope.feedMode === "community" &&
-        !(scope.communityIds?.length ?? 0)
+        !(scope.communityIds?.length ?? 0) &&
+        !isExploreE2eFixturesActiveOnClient()
       ) {
         return [];
       }

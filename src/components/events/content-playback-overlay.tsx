@@ -24,10 +24,12 @@ import { OVERLAY_Z_INDEX } from "@/lib/drawer-z-index";
 import { isExploreE2eFixturesActiveOnClient } from "@/lib/explore-e2e-fixtures-gate";
 import { trackCommunityFeaturedOverlayOpen } from "@/lib/analytics/community-featured-overlay-analytics";
 import {
-  communityFeaturedOverlayPlaybackOnPlayStateChange,
+  communityFeaturedOverlayPlaybackOnOpen,
   communityFeaturedOverlayPlaybackWatchSegment,
 } from "@/lib/analytics-sdk/community-featured-overlay-playback";
 import { initAnalyticsSdkRuntime } from "@/lib/analytics-sdk/runtime";
+import { flushSdkAnalytics } from "@/lib/analytics-sdk/transport";
+import { getAnalyticsSessionId, getDeviceCategory } from "@/lib/analytics-session";
 import { cn } from "@/lib/utils";
 import type { PaymentSurface } from "@/lib/analytics-types";
 
@@ -92,14 +94,30 @@ export function ContentPlaybackOverlay({
     if (!payload || !isExploreE2eFixturesActiveOnClient()) return;
     if (paymentSurface !== "community_featured_overlay") return;
     initAnalyticsSdkRuntime();
+    const communityId = payload.communityId?.trim() || null;
     trackCommunityFeaturedOverlayOpen({
       eventId,
       channelId,
-      communityId: payload.communityId ?? null,
+      communityId,
     });
-    communityFeaturedOverlayPlaybackOnPlayStateChange(true, 0);
+    communityFeaturedOverlayPlaybackOnOpen({
+      eventId,
+      videoChannelId: channelId,
+      communityId,
+      scheduleIndex: 0,
+      isPlaying: true,
+    });
+    const sdkCtx = {
+      sessionId: getAnalyticsSessionId(),
+      surface: "community_featured_overlay" as const,
+      eventId,
+      videoChannelId: channelId,
+      deviceCategory: getDeviceCategory(),
+      ...(communityId ? { communityId } : {}),
+    };
     const timer = window.setTimeout(() => {
       communityFeaturedOverlayPlaybackWatchSegment(15);
+      void flushSdkAnalytics({ ctx: sdkCtx, auth: {} });
     }, 1500);
     return () => window.clearTimeout(timer);
   }, [payload, eventId, channelId, paymentSurface]);

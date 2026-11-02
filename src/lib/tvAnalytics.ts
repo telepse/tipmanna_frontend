@@ -119,6 +119,9 @@ export async function flushTvAnalytics(useBeacon = false): Promise<void> {
 
 /** Call from TV/analytics surfaces on mount (client only). Ref-counted. */
 export function initTvAnalyticsRuntime(): void {
+  if (typeof window !== "undefined") {
+    getAnalyticsSessionId();
+  }
   if (!ENABLED || typeof window === "undefined") return;
 
   runtimeRefCount += 1;

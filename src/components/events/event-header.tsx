@@ -213,6 +213,7 @@ export const EventHeader = ({
           <EventLive
             liveVideoLink={liveVideoLink}
             defaultAdminVideo={defaultAdminVideo}
+            autoOpen
             isFullscreen={liveFullscreen}
             onToggleFullscreen={onToggleFullscreen}
             numOfTips={numOfTips}

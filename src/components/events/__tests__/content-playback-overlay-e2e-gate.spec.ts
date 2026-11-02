@@ -27,8 +27,9 @@ describe("ContentPlaybackOverlay Explore E2E gates", () => {
 
   it("emits community_featured_overlay v2 playback hooks from E2E shell (S7b)", () => {
     expect(src).toMatch(/trackCommunityFeaturedOverlayOpen/);
-    expect(src).toMatch(/communityFeaturedOverlayPlaybackOnPlayStateChange/);
+    expect(src).toMatch(/communityFeaturedOverlayPlaybackOnOpen/);
     expect(src).toMatch(/communityFeaturedOverlayPlaybackWatchSegment/);
+    expect(src).toMatch(/flushSdkAnalytics/);
     expect(src).toMatch(
       /paymentSurface !== "community_featured_overlay"/
     );

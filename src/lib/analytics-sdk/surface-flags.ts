@@ -1,4 +1,5 @@
 import type { PaymentSurface } from "../analytics-types";
+import { isExploreE2eFixturesActiveOnClient } from "../explore-e2e-fixtures-gate";
 import { isAnalyticsSdkEnabled } from "./flags";
 
 /** Staging pilot: channel_client canonical producer (default off). */
@@ -89,7 +90,11 @@ export function isExplorePlaybackSdkCollectionActive(
 ): boolean {
   if (!isAnalyticsSdkEnabled()) return false;
   if (surface === "community_feed") {
-    return isCommunityFeedAnalyticsV2Enabled();
+    if (isCommunityFeedAnalyticsV2Enabled()) return true;
+    return (
+      isExploreE2eFixturesActiveOnClient() &&
+      isExploreFeedAnalyticsV2Enabled()
+    );
   }
   if (surface === "explore_feed") {
     return isExploreFeedAnalyticsV2Enabled();
