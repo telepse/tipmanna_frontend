@@ -1,5 +1,6 @@
 "use client";
 
+import type { DailyCall, DailyEvent, DailyEventObject } from "@daily-co/daily-js";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isMockDailyPublisherToken } from "@/lib/daily-publisher-mode";
@@ -18,33 +19,31 @@ export type DailyPublisherJoinPhase =
   | "joined"
   | "error";
 
-type DailyCallObject = {
-  join: (opts: { url: string; token?: string }) => Promise<void>;
-  leave: () => Promise<void>;
-  destroy: () => void;
-  on?: (ev: string, fn: (e?: { instanceId?: string; errorMsg?: string }) => void) => void;
-  off?: (ev: string, fn: (e?: { instanceId?: string; errorMsg?: string }) => void) => void;
-  localAudio?: () => boolean;
-  localVideo?: () => boolean;
-  participants?: () => Record<string, { session_id?: string }>;
-  getNetworkStats?: () => Promise<
-    Record<
-      string,
-      {
-        audio?: { bytesSent?: number; packetsSent?: number };
-        video?: { bytesSent?: number; packetsSent?: number };
-      }
-    >
-  >;
-};
-
 type UseDailyPublisherRoomOptions = {
   broadcastId?: string;
   emitDiagnostic?: (entry: PublisherClientDiagnosticEntry) => void;
 };
 
+const LIVE_STREAMING_EVENTS = [
+  "live-streaming-started",
+  "live-streaming-updated",
+  "live-streaming-stopped",
+  "live-streaming-error",
+] as const satisfies readonly DailyEvent[];
+
+type LiveStreamingEvent = (typeof LIVE_STREAMING_EVENTS)[number];
+
+function liveStreamingInstancePresent(
+  event: DailyEventObject<LiveStreamingEvent>
+): boolean {
+  if ("instanceId" in event && event.instanceId) {
+    return true;
+  }
+  return false;
+}
+
 export function useDailyPublisherRoom(options?: UseDailyPublisherRoomOptions) {
-  const callRef = useRef<DailyCallObject | null>(null);
+  const callRef = useRef<DailyCall | null>(null);
   const [phase, setPhase] = useState<DailyPublisherJoinPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const emitRef = useRef(options?.emitDiagnostic);
@@ -62,9 +61,7 @@ export function useDailyPublisherRoom(options?: UseDailyPublisherRoomOptions) {
     ) => {
       const id = broadcastIdRef.current;
       if (!id || !emitRef.current) return;
-      emitRef.current(
-        buildDiagnosticEntry(id, stage, partial)
-      );
+      emitRef.current(buildDiagnosticEntry(id, stage, partial));
     },
     []
   );
@@ -81,7 +78,7 @@ export function useDailyPublisherRoom(options?: UseDailyPublisherRoomOptions) {
       } catch {
         /* ignore teardown */
       }
-      call.destroy();
+      await call.destroy();
     }
     setPhase("idle");
     setError(null);
@@ -137,29 +134,21 @@ export function useDailyPublisherRoom(options?: UseDailyPublisherRoomOptions) {
         const call = Daily.default.createCallObject({
           audioSource: localStream?.getAudioTracks()[0] ?? true,
           videoSource: localStream?.getVideoTracks()[0] ?? true,
-        }) as unknown as DailyCallObject;
+        });
         callRef.current = call;
 
-        const streamingHandler = (action: string) => (e?: {
-          instanceId?: string;
-          errorMsg?: string;
-        }) => {
-          emit("live_streaming_event", {
-            liveStreaming: {
-              action,
-              instanceIdPresent: e?.instanceId ? true : false,
-              errorType: e?.errorMsg ? "present" : null,
-            },
-            note: "client_live_streaming_event_may_not_fire_for_rest_rtmp",
+        for (const ev of LIVE_STREAMING_EVENTS) {
+          call.on(ev, (event: DailyEventObject<LiveStreamingEvent>) => {
+            emit("live_streaming_event", {
+              liveStreaming: {
+                action: ev,
+                instanceIdPresent: liveStreamingInstancePresent(event),
+                errorType:
+                  ev === "live-streaming-error" ? "present" : null,
+              },
+              note: "client_live_streaming_event_may_not_fire_for_rest_rtmp",
+            });
           });
-        };
-        for (const ev of [
-          "live-streaming-started",
-          "live-streaming-updated",
-          "live-streaming-stopped",
-          "live-streaming-error",
-        ] as const) {
-          call.on?.(ev, streamingHandler(ev));
         }
 
         await call.join({ url: daily.roomUrl, token });

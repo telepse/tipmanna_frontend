@@ -68,23 +68,10 @@ export function summarizeLocalPreviewStream(
   };
 }
 
-type DailyCallLike = {
-  localAudio?: () => boolean;
-  localVideo?: () => boolean;
-  participants?: () => Record<string, { session_id?: string }>;
-  getNetworkStats?: () => Promise<
-    Record<
-      string,
-      {
-        audio?: { bytesSent?: number; packetsSent?: number };
-        video?: { bytesSent?: number; packetsSent?: number };
-      }
-    >
-  >;
-};
+import type { DailyCall } from "@daily-co/daily-js";
 
 export async function snapshotDailyCallState(
-  call: DailyCallLike | null,
+  call: DailyCall | null,
   joinPhase: string
 ): Promise<PublisherClientDiagnosticEntry["dailyCall"]> {
   if (!call) {
@@ -105,8 +92,8 @@ export async function snapshotDailyCallState(
   }
   let meetingSessionIdPresent: boolean | "UNKNOWN" = "UNKNOWN";
   try {
-    const parts = call.participants?.() ?? {};
-    const local = Object.values(parts).find(p => p.session_id);
+    const parts = call.participants();
+    const local = parts.local;
     meetingSessionIdPresent = Boolean(local?.session_id);
   } catch {
     meetingSessionIdPresent = "UNKNOWN";
@@ -120,9 +107,9 @@ export async function snapshotDailyCallState(
 }
 
 export async function snapshotWebrtcOutbound(
-  call: DailyCallLike | null
+  call: DailyCall | null
 ): Promise<PublisherClientDiagnosticEntry["webrtcOutbound"]> {
-  if (!call?.getNetworkStats) {
+  if (!call) {
     return {
       supported: false,
       audioBytesSent: "UNKNOWN",
@@ -133,13 +120,29 @@ export async function snapshotWebrtcOutbound(
   }
   try {
     const stats = await call.getNetworkStats();
-    const local = Object.values(stats)[0];
+    const data = stats.stats;
+    if (data && typeof data === "object" && "latest" in data) {
+      const latest = data.latest;
+      return {
+        supported: true,
+        audioBytesSent:
+          latest.audioSendBitsPerSecond != null
+            ? Math.round(latest.audioSendBitsPerSecond / 8)
+            : "UNKNOWN",
+        videoBytesSent:
+          latest.videoSendBitsPerSecond != null
+            ? Math.round(latest.videoSendBitsPerSecond / 8)
+            : "UNKNOWN",
+        audioPacketsSent: "UNKNOWN",
+        videoPacketsSent: "UNKNOWN",
+      };
+    }
     return {
       supported: true,
-      audioBytesSent: local?.audio?.bytesSent ?? "UNKNOWN",
-      videoBytesSent: local?.video?.bytesSent ?? "UNKNOWN",
-      audioPacketsSent: local?.audio?.packetsSent ?? "UNKNOWN",
-      videoPacketsSent: local?.video?.packetsSent ?? "UNKNOWN",
+      audioBytesSent: "UNKNOWN",
+      videoBytesSent: "UNKNOWN",
+      audioPacketsSent: "UNKNOWN",
+      videoPacketsSent: "UNKNOWN",
     };
   } catch {
     return {
