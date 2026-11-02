@@ -1,6 +1,10 @@
 "use server";
 
-import { runServerFetch } from "@/lib/action-fetch";
+import { actionFail, runServerFetch } from "@/lib/action-fetch";
+import {
+  BACKEND_API_URL_NOT_CONFIGURED,
+  resolveServerBackendApiBase,
+} from "@/lib/server-backend-api-url";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 import type { SignupSurface } from "@/lib/signup-attribution";
 
@@ -145,8 +149,12 @@ export async function loginHostAction(values: {
   password: string;
   visitorId?: string;
 }) {
+  const apiBase = resolveServerBackendApiBase();
+  if (!apiBase) {
+    return actionFail(BACKEND_API_URL_NOT_CONFIGURED, "loginHostAction");
+  }
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-host`,
+    `${apiBase}/auth/login-host`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
