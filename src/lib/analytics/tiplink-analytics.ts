@@ -1,4 +1,8 @@
-import { getAnalyticsSessionId, getDeviceCategory } from "../analytics-session";
+import {
+  ensureAnalyticsSessionStorage,
+  getAnalyticsSessionId,
+  getDeviceCategory,
+} from "../analytics-session";
 import {
   tiplinkPlaybackComplete,
   tiplinkPlaybackOnEncounter,
@@ -28,6 +32,7 @@ export type TiplinkAnalyticsContext = {
 };
 
 export function initTiplinkAnalyticsRuntime(): void {
+  ensureAnalyticsSessionStorage();
   if (isTiplinkSdkCollectionActive()) {
     initAnalyticsSdkRuntime();
   } else {

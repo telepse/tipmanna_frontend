@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
+import { initHomepagePreviewAnalyticsRuntime } from "@/lib/analytics/homepage-preview-analytics";
+
 function TvHomePreviewSkeleton() {
   return (
     <section
@@ -36,6 +38,10 @@ const TvHomePreviewSection = dynamic(
 export default function TvHomePreviewSectionLazy() {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    initHomepagePreviewAnalyticsRuntime();
+  }, []);
 
   useEffect(() => {
     const el = sentinelRef.current;

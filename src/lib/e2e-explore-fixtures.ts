@@ -9,6 +9,10 @@
 
 import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 import { exploreE2eFixturesClientBuildAnchor } from "@/lib/explore-e2e-fixtures-gate";
+import {
+  e2eExploreFeedChannelId,
+  e2eExploreFeedEventId,
+} from "@/lib/wave3-acceptance-fixture-ids";
 
 /** Webpack retention hook — proves E2E fixture module linked when build flag is on. */
 export const E2E_FIXTURES_BUILD_SENTINEL = exploreE2eFixturesClientBuildAnchor();
@@ -27,12 +31,12 @@ const E2E_FEED_POOL_SIZE = 24;
 
 function buildE2eFeedItem(index: number) {
   return {
-    id: `e2e-channel-${index}`,
+    id: e2eExploreFeedChannelId(index),
     title: `E2E Explore clip ${index}`,
     url: E2E_FIXTURE_MEDIA_URL,
     liveStatus: "NOT_LIVE" as const,
     event: {
-      id: `e2e-event-${index}`,
+      id: e2eExploreFeedEventId(index),
       eventName: `E2E Event ${index}`,
       numOfTips: 0,
       amountRaised: 0,

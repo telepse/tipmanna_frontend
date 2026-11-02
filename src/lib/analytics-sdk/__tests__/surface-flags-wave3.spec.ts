@@ -81,6 +81,21 @@ describe("Wave 3 surface flags default off", () => {
     expect(isContentClientSdkCollectionActive()).toBe(false);
   });
 
+  it("allows community_tv_looper v2 on acceptance community TV URL when tv_looper v2 is on", () => {
+    for (const k of keys) prev[k] = process.env[k];
+    process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TV_LOOPER_V2 = "true";
+    delete process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_TV_LOOPER_V2;
+    vi.stubGlobal("window", {
+      location: {
+        pathname: "/tv",
+        search: "?community=00000000-0000-4000-8000-000000000001",
+      },
+    } as Window);
+    expect(isTvSurfaceSdkCollectionActive("community_tv_looper")).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
   it("allows community_feed v2 playback under E2E when explore_feed v2 is on", () => {
     for (const k of keys) prev[k] = process.env[k];
     process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES = "1";

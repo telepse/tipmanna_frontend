@@ -19,4 +19,17 @@ describe("PageLinkedV2ChunkAnchor route shells", () => {
       expect(src).toContain("@/lib/analytics-sdk/page-linked-v2-chunk-anchor");
     }
   });
+
+  it("bootstraps analytics session on mount for S7b readiness probes", () => {
+    const anchor = readFileSync(
+      join(frontendRoot, "src/lib/analytics-sdk/page-linked-v2-chunk-anchor.tsx"),
+      "utf8"
+    );
+    expect(anchor).toContain("ensureAnalyticsSessionStorage");
+    const previewPage = readFileSync(
+      join(frontendRoot, "src/app/l/preview/[id]/page.tsx"),
+      "utf8"
+    );
+    expect(previewPage).toContain("TipLinkPreviewPageShell");
+  });
 });

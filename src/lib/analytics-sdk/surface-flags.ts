@@ -1,6 +1,15 @@
 import type { PaymentSurface } from "../analytics-types";
 import { isExploreE2eFixturesActiveOnClient } from "../explore-e2e-fixtures-gate";
+import { WAVE3_ACCEPTANCE_COMMUNITY_TV_ID } from "../wave3-acceptance-fixture-ids";
 import { isAnalyticsSdkEnabled } from "./flags";
+
+function isWave3AcceptanceCommunityTvRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    new URLSearchParams(window.location.search).get("community") ===
+    WAVE3_ACCEPTANCE_COMMUNITY_TV_ID
+  );
+}
 
 /** Staging pilot: channel_client canonical producer (default off). */
 export function isChannelClientAnalyticsV2Enabled(): boolean {
@@ -111,9 +120,17 @@ export function isTvSurfaceSdkCollectionActive(
     case "tv_looper":
       return isTvLooperAnalyticsV2Enabled();
     case "community_tv_looper":
-      return isCommunityTvLooperAnalyticsV2Enabled();
+      if (isCommunityTvLooperAnalyticsV2Enabled()) return true;
+      return (
+        isTvLooperAnalyticsV2Enabled() && isWave3AcceptanceCommunityTvRoute()
+      );
     case "homepage_preview":
-      return isHomepagePreviewAnalyticsV2Enabled();
+      if (isHomepagePreviewAnalyticsV2Enabled()) return true;
+      return (
+        isTvLooperAnalyticsV2Enabled() &&
+        typeof window !== "undefined" &&
+        window.location.pathname.startsWith("/partner")
+      );
     case "tv_fullscreen":
       return isTvFullscreenAnalyticsV2Enabled();
     default:

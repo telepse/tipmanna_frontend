@@ -2,11 +2,9 @@ import type { TvAnalyticsClipMode } from "../analytics-types";
 import {
   initAnalyticsSdkRuntime,
 } from "../analytics-sdk/runtime";
-import {
-  isHomepagePreviewAnalyticsV2Enabled,
-  isTvSurfaceSdkCollectionActive,
-} from "../analytics-sdk/surface-flags";
+import { isTvSurfaceSdkCollectionActive } from "../analytics-sdk/surface-flags";
 import { isAnalyticsSdkEnabled } from "../analytics-sdk/flags";
+import { ensureAnalyticsSessionStorage } from "../analytics-session";
 import { initTvAnalyticsRuntime } from "../tvAnalytics";
 import {
   syncTvLooperAnalyticsContext,
@@ -19,7 +17,11 @@ import {
 const SURFACE = "homepage_preview" as const;
 
 export function initHomepagePreviewAnalyticsRuntime(): void {
-  if (isAnalyticsSdkEnabled() && isHomepagePreviewAnalyticsV2Enabled()) {
+  ensureAnalyticsSessionStorage();
+  if (
+    isAnalyticsSdkEnabled() &&
+    isTvSurfaceSdkCollectionActive("homepage_preview")
+  ) {
     initAnalyticsSdkRuntime();
   } else {
     initTvAnalyticsRuntime();
