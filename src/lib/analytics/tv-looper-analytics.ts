@@ -90,6 +90,7 @@ export function trackTvLooperVideoEncounter(
       scheduleIndex: opts.scheduleIndex,
       mode: opts.mode,
     });
+    void flushSdkAnalytics({ ctx: buildSdkContext(ctx), auth: {} });
     return;
   }
   trackTvVideoEncounter(`tv-surface-${ctx.analyticsSurface}`, {

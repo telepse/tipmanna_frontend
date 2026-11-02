@@ -644,6 +644,7 @@ export function TipLinkLandingClient({
 
   const watchSegStartRef = useRef(0);
   const prevPlayingRef = useRef(false);
+  const sdkEncounterBootstrappedRef = useRef(false);
 
   useEffect(() => {
     initTiplinkAnalyticsRuntime();
@@ -664,8 +665,17 @@ export function TipLinkLandingClient({
     };
     void flushTiplinkAnalyticsBeforeContext(ctx).then(() => {
       setTiplinkAnalyticsContext(ctx);
+      if (!sdkEncounterBootstrappedRef.current) {
+        sdkEncounterBootstrappedRef.current = true;
+        trackTiplinkVideoEncounter(tipLink.slug, {
+          eventId,
+          channelId,
+          communityId: event.communityId,
+          isPlaying: false,
+        });
+      }
     });
-  }, [channelId, event.communityId, eventId]);
+  }, [channelId, event.communityId, eventId, tipLink.slug]);
 
   useEffect(() => {
     const onOrientation = () => {
