@@ -81,6 +81,17 @@ describe("Wave 3 surface flags default off", () => {
     expect(isContentClientSdkCollectionActive()).toBe(false);
   });
 
+  it("allows tiplink v2 on host preview URL when master SDK is on", () => {
+    for (const k of keys) prev[k] = process.env[k];
+    process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
+    delete process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2;
+    vi.stubGlobal("window", {
+      location: { pathname: "/l/preview/10c4d6a9-ca78-4511-aaf0-9e03b3e5fb9c" },
+    } as Window);
+    expect(isTiplinkSdkCollectionActive()).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
   it("allows community_tv_looper v2 on acceptance community TV URL when tv_looper v2 is on", () => {
     for (const k of keys) prev[k] = process.env[k];
     process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";

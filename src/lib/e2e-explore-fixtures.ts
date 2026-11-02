@@ -9,11 +9,6 @@
 
 import { EXPLORE_FEED_BOOT_COUNT } from "@/lib/explore-feed-boot-constants";
 import { exploreE2eFixturesClientBuildAnchor } from "@/lib/explore-e2e-fixtures-gate";
-import {
-  e2eExploreFeedChannelId,
-  e2eExploreFeedEventId,
-} from "@/lib/wave3-acceptance-fixture-ids";
-
 /** Webpack retention hook — proves E2E fixture module linked when build flag is on. */
 export const E2E_FIXTURES_BUILD_SENTINEL = exploreE2eFixturesClientBuildAnchor();
 
@@ -27,16 +22,23 @@ export const E2E_SELECT_COMMUNITY_ID = "22222222-2222-4222-8222-222222222222";
  */
 export const E2E_FIXTURE_MEDIA_URL = "/patterns/bg_pattern.webp";
 
+/** Wave 3 acceptance event/channel on staging (see docs/analytics wave3 QA handoff). */
+export const E2E_FEATURED_OVERLAY_EVENT_ID =
+  "0fff0bb8-3a0f-46fe-8a92-da80bb26343f";
+export const E2E_FEATURED_OVERLAY_CHANNEL_ID =
+  "17456868-db4a-4386-a2b3-334f25b83fc4";
+
 const E2E_FEED_POOL_SIZE = 24;
 
 function buildE2eFeedItem(index: number) {
+  // Staging ingest requires the acceptance event/channel rows (Wave 3 QA handoff).
   return {
-    id: e2eExploreFeedChannelId(index),
+    id: E2E_FEATURED_OVERLAY_CHANNEL_ID,
     title: `E2E Explore clip ${index}`,
     url: E2E_FIXTURE_MEDIA_URL,
     liveStatus: "NOT_LIVE" as const,
     event: {
-      id: e2eExploreFeedEventId(index),
+      id: E2E_FEATURED_OVERLAY_EVENT_ID,
       eventName: `E2E Event ${index}`,
       numOfTips: 0,
       amountRaised: 0,
@@ -122,12 +124,6 @@ export const E2E_JOIN_FORM_PUBLIC = {
   defaultMonths: 1,
   subscriptionFeeGbp: null,
 };
-
-/** Wave 3 acceptance event/channel on staging (see docs/analytics wave3 QA handoff). */
-export const E2E_FEATURED_OVERLAY_EVENT_ID =
-  "0fff0bb8-3a0f-46fe-8a92-da80bb26343f";
-export const E2E_FEATURED_OVERLAY_CHANNEL_ID =
-  "17456868-db4a-4386-a2b3-334f25b83fc4";
 
 /** Featured join-panel row for overlay / community_featured_overlay runtime proofs (`?e2e=1`). */
 export const E2E_JOIN_FEATURED_VIDEOS = [

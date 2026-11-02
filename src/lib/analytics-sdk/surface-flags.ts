@@ -152,5 +152,8 @@ export function isEventRoomSdkCollectionActive(): boolean {
 }
 
 export function isTiplinkSdkCollectionActive(): boolean {
-  return isAnalyticsSdkEnabled() && isTiplinkAnalyticsV2Enabled();
+  if (!isAnalyticsSdkEnabled()) return false;
+  if (isTiplinkAnalyticsV2Enabled()) return true;
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.startsWith("/l/preview/");
 }
