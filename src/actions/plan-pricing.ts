@@ -19,8 +19,15 @@ export type PublicPlanPricing = {
 };
 
 export async function getPlanPricingAction() {
+  const apiBase = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
+  if (!apiBase) {
+    return {
+      success: false as const,
+      error: "NEXT_PUBLIC_BACKEND_API_URL is not configured",
+    };
+  }
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/plan-pricing`,
+    `${apiBase.replace(/\/$/, "")}/plan-pricing`,
     {
       method: "GET",
       next: { revalidate: 300 },
