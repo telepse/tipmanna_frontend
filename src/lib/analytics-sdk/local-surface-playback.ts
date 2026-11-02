@@ -136,8 +136,8 @@ export function createLocalSurfacePlayback(config: LocalSurfacePlaybackConfig) {
       encounterItemId: params.encounterItemId,
     });
     ready = true;
+    tryEmitEncounter();
     if (params.isPlaying) {
-      tryEmitEncounter();
       tryEmitStart();
     }
   }
