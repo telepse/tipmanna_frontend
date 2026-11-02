@@ -72,6 +72,10 @@ import {
 } from "@/lib/tv-pending-global-playback";
 import { resolveTvPageOpenLastSyncedReseed } from "@/lib/tv-page-open-resync";
 import {
+  buildWave3AcceptanceCommunityTvSchedulePayload,
+  isWave3AcceptanceCommunityTvE2eBypass,
+} from "@/lib/wave3-acceptance-community-tv-bypass";
+import {
   shouldSeedLivePositionFromSchedulePayload,
   type ScheduleLivePositionApplySource,
 } from "@/lib/tv-schedule-live-position-seed";
@@ -3082,6 +3086,26 @@ export default function GlobalTVProvider({
             return;
           }
           const cid = scheduleSourceCommunityIdRef.current;
+          if (cid && isWave3AcceptanceCommunityTvE2eBypass(cid)) {
+            const synthetic = buildWave3AcceptanceCommunityTvSchedulePayload();
+            persistTvScheduleCache(
+              synthetic,
+              "wave3-acceptance-community-tv",
+              cid,
+              writtenKey => {
+                scheduleCacheWrittenThisNavRef.current.add(writtenKey);
+              }
+            );
+            applySchedulePayload(synthetic, {
+              livePositionSource: "network_success",
+            });
+            setScheduleError(false);
+            setScheduleStale(false);
+            setIsReady(true);
+            tvLoadMark("T4", { source: "wave3_acceptance_community_tv_fixture" });
+            scheduleRetryCountRef.current = 0;
+            return;
+          }
           const cached = readTvScheduleCache(cid);
           const attemptForDelay = scheduleRetryCountRef.current;
           const willRetry = attemptForDelay < MAX_SCHEDULE_RETRIES;

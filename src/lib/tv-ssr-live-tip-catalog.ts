@@ -4,7 +4,10 @@ import { fetchTvScheduleAction } from "@/actions/tv-schedule";
 import { isCommunityTvEntitledFromAccessState } from "@/lib/community-tv-entitlement";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { resolveTvScheduleEventId } from "@/lib/resolve-tv-schedule-event-id";
-import { isWave3AcceptanceCommunityTvE2eBypass } from "@/lib/wave3-acceptance-community-tv-bypass";
+import {
+  buildWave3AcceptanceCommunityTvSchedulePayload,
+  isWave3AcceptanceCommunityTvE2eBypass,
+} from "@/lib/wave3-acceptance-community-tv-bypass";
 import type { RoomCharacter } from "@/types";
 
 export type TvInitialTipCatalog = {
@@ -165,6 +168,15 @@ export async function loadSsrTvBootstrap(
   communityId?: string | null
 ): Promise<TvSsrBootstrap> {
   const cid = normalizeTvCommunitySearchParam(communityId);
+  if (cid && isWave3AcceptanceCommunityTvE2eBypass(cid)) {
+    const body = buildWave3AcceptanceCommunityTvSchedulePayload();
+    return {
+      communityId: cid,
+      initialTvTipCatalog: null,
+      ssrScheduleBootstrap: { body, etag: "wave3-acceptance-community-tv" },
+      ssrCommunityTvViewerEntitlement: "entitled",
+    };
+  }
   if (cid) {
     const entitled = await isEntitledToCommunityTvSsrBootstrap(cid);
     if (!entitled) {
