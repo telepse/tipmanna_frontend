@@ -24,6 +24,11 @@ import {
   type NativeOrientation,
 } from "@/hooks/use-native-broadcast-preview";
 import { useDailyPublisherRoom } from "@/hooks/use-daily-publisher-room";
+import { usePublisherClientDiagnostics } from "@/hooks/use-publisher-client-diagnostics";
+import {
+  buildDiagnosticEntry,
+  summarizeLocalPreviewStream,
+} from "@/lib/native-publisher-client-diagnostics";
 import { useNativeBroadcastStatusPoll } from "@/hooks/use-native-broadcast-status-poll";
 import { usePublisherSessionSync } from "@/hooks/use-publisher-session-sync";
 import {
@@ -81,8 +86,6 @@ export function NativeBroadcastPanel({
     useState<NativeOrientation>("landscape");
   const [captureMode, setCaptureMode] = useState<NativeCaptureMode>("camera");
   const preview = useNativeBroadcastPreview();
-  const dailyRoom = useDailyPublisherRoom();
-
   const canManage = isHost || isCohost;
   const canStart = canManage;
   const canStop = canManage;
@@ -91,6 +94,15 @@ export function NativeBroadcastPanel({
     () => ({ preferHostSession: isHost && !isCohost }),
     [isHost, isCohost]
   );
+  const clientDiag = usePublisherClientDiagnostics(
+    eventId,
+    row?.id,
+    broadcastAuthOptions
+  );
+  const dailyRoom = useDailyPublisherRoom({
+    broadcastId: row?.id,
+    emitDiagnostic: entry => clientDiag.push(entry),
+  });
 
   const refresh = useCallback(
     async (opts?: { silent?: boolean }): Promise<EventBroadcastRow | null> => {
@@ -157,6 +169,15 @@ export function NativeBroadcastPanel({
     pollActive && canManage,
     () => void refresh({ silent: true })
   );
+
+  useEffect(() => {
+    if (!pollActive || !row?.id) return;
+    const timer = window.setInterval(() => {
+      void dailyRoom.snapshotJoined();
+      void clientDiag.flush();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [pollActive, row?.id, dailyRoom, clientDiag]);
   /** Idle cohost/owner sync when Pusher is unavailable (15s). */
   useNativeBroadcastStatusPoll(
     canManage && !pollActive,
@@ -302,15 +323,40 @@ export function NativeBroadcastPanel({
       <div className="flex flex-wrap gap-2">
         <ActionButton
           disabled={loading || preview.active}
-          onClick={() => void preview.startPreview(captureMode, orientation)}
+          onClick={() => {
+            void (async () => {
+              await preview.startPreview(captureMode, orientation);
+              if (row?.id) {
+                clientDiag.push(
+                  buildDiagnosticEntry(row.id, "preview_start", {
+                    localPreview: summarizeLocalPreviewStream(
+                      preview.stream,
+                      preview.active
+                    ),
+                  })
+                );
+              }
+            })();
+          }}
         >
           Start preview
         </ActionButton>
         <ActionButton
           disabled={loading || !preview.active}
           onClick={() => {
+            if (row?.id) {
+              clientDiag.push(
+                buildDiagnosticEntry(row.id, "preview_stop", {
+                  localPreview: summarizeLocalPreviewStream(
+                    preview.stream,
+                    false
+                  ),
+                })
+              );
+            }
             void dailyRoom.leave();
             preview.stopPreview();
+            void clientDiag.flush();
           }}
         >
           Stop preview
@@ -446,6 +492,22 @@ export function NativeBroadcastPanel({
             onClick={() =>
               void run(async () => {
                 if (!row?.id) return;
+                clientDiag.push(
+                  buildDiagnosticEntry(row.id, "broadcast_start_clicked", {
+                    localPreview: summarizeLocalPreviewStream(
+                      preview.stream,
+                      preview.active
+                    ),
+                    dailyCall: {
+                      joinPhase: dailyRoom.phase,
+                      localAudio: "UNKNOWN",
+                      localVideo: "UNKNOWN",
+                      meetingSessionIdPresent: "UNKNOWN",
+                    },
+                    note: "start_before_join_is_expected_room_created_on_start",
+                  })
+                );
+                await clientDiag.flush();
                 setLastTerminal(null);
                 unwrapBroadcastAction(
                   await startEventBroadcastAction(
@@ -467,6 +529,16 @@ export function NativeBroadcastPanel({
             onClick={() =>
               void run(async () => {
                 if (!row?.id) return;
+                await dailyRoom.snapshotJoined();
+                clientDiag.push(
+                  buildDiagnosticEntry(row.id, "broadcast_stop_clicked", {
+                    localPreview: summarizeLocalPreviewStream(
+                      preview.stream,
+                      preview.active
+                    ),
+                  })
+                );
+                await clientDiag.flush();
                 await dailyRoom.leave();
                 unwrapBroadcastAction(
                   await stopEventBroadcastAction(
