@@ -145,6 +145,45 @@ export async function activateNativeStreamingWalletAction(
   );
 }
 
+export type ReceiveProbeSessionResult = {
+  receiveProbe: {
+    role: "receive_probe";
+    roomName: string;
+    roomUrl: string;
+    meetingToken: string;
+    tokenExpiresAt: string;
+  };
+  probePagePath: string;
+  evidenceRules: {
+    trackStartedAloneIsInsufficient: boolean;
+    requiresDecodedMotionOrAudio: boolean;
+  };
+};
+
+export async function issueEventBroadcastReceiveProbeSessionAction(
+  eventId: string,
+  broadcastId: string,
+  probeDeviceId: string,
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<ReceiveProbeSessionResult>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+
+  const headersOrFail = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(headersOrFail)) return headersOrFail;
+
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/receive-probe-session`,
+    {
+      method: "POST",
+      headers: headersOrFail,
+      body: JSON.stringify({ probeDeviceId }),
+      cache: "no-store",
+    },
+    "issueEventBroadcastReceiveProbeSessionAction"
+  );
+}
+
 export async function issueEventBroadcastPublisherSessionAction(
   eventId: string,
   broadcastId: string,
@@ -220,6 +259,30 @@ export async function startEventBroadcastAction(
       cache: "no-store",
     },
     "startEventBroadcastAction"
+  );
+}
+
+export async function appendPublisherClientDiagnosticsAction(
+  eventId: string,
+  broadcastId: string,
+  entries: import("@/lib/native-publisher-client-diagnostics").PublisherClientDiagnosticEntry[],
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<{ appended: number; jobId: string | null }>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+
+  const headersOrFail = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(headersOrFail)) return headersOrFail;
+
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/publisher-diagnostics`,
+    {
+      method: "POST",
+      headers: { ...headersOrFail, "Content-Type": "application/json" },
+      body: JSON.stringify({ entries }),
+      cache: "no-store",
+    },
+    "appendPublisherClientDiagnosticsAction"
   );
 }
 

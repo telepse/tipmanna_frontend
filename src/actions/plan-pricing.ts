@@ -18,16 +18,24 @@ export type PublicPlanPricing = {
   discountActive: boolean;
 };
 
+function publicApiBase(): string {
+  const base =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "";
+  return base.replace(/\/$/, "");
+}
+
 export async function getPlanPricingAction() {
-  const apiBase = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
-  if (!apiBase) {
+  const base = publicApiBase();
+  if (!base) {
     return {
       success: false as const,
-      error: "NEXT_PUBLIC_BACKEND_API_URL is not configured",
+      error: "Backend API URL is not configured",
     };
   }
   return runServerFetch(
-    `${apiBase.replace(/\/$/, "")}/plan-pricing`,
+    `${base}/plan-pricing`,
     {
       method: "GET",
       next: { revalidate: 300 },
