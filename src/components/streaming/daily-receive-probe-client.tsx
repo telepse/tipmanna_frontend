@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { isMockDailyReceiveProbeToken } from "@/lib/daily-receive-probe-mode";
 import {
   evaluateReceiveProbeEvidence,
-  receiveProbePass,
+  receiveProbeFullAvAcceptance,
+  receiveProbeMediumProven,
   serializeReceiveProbeEvidence,
   type ReceiveProbeEvidence,
   type ReceiveProbeSample,
@@ -39,7 +40,7 @@ export function DailyReceiveProbeClient({ config }: Props) {
     const video = document.querySelector<HTMLVideoElement>(
       "[data-receive-probe-video]"
     );
-    let audioLevelRms: number | null = null;
+    const audioLevelRms: number | null = null;
     const call = callRef.current;
     const remoteTrackIds: string[] = [];
     if (call) {
@@ -173,7 +174,13 @@ export function DailyReceiveProbeClient({ config }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const pass = evidence ? receiveProbePass(evidence) : null;
+  const videoProven = evidence
+    ? receiveProbeMediumProven(evidence, "video")
+    : null;
+  const audioProven = evidence
+    ? receiveProbeMediumProven(evidence, "audio")
+    : null;
+  const fullAv = evidence ? receiveProbeFullAvAcceptance(evidence) : null;
 
   return (
     <main className="mx-auto max-w-lg space-y-4 p-4 font-mono text-sm">
@@ -227,8 +234,21 @@ export function DailyReceiveProbeClient({ config }: Props) {
           {serializeReceiveProbeEvidence(evidence)}
         </pre>
       ) : null}
-      {pass != null ? (
-        <p>{pass ? "PASS (decode criteria met)" : "FAIL (no decode proof yet)"}</p>
+      {evidence ? (
+        <ul className="list-inside list-disc text-xs">
+          <li>
+            Video reception: {evidence.videoReception}
+            {videoProven ? " (decode proven)" : ""}
+          </li>
+          <li>
+            Audio reception: {evidence.audioReception}
+            {audioProven ? " (decode proven)" : ""}
+          </li>
+          <li>
+            Full camera + microphone acceptance:{" "}
+            {fullAv ? "YES (both proven)" : "NO (requires both PROVEN)"}
+          </li>
+        </ul>
       ) : null}
     </main>
   );

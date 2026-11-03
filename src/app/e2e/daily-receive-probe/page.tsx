@@ -7,7 +7,7 @@ import {
   type DailyReceiveProbeConfig,
 } from "@/components/streaming/daily-receive-probe-client";
 
-const STORAGE_KEY = "finish-a-receive-probe-config";
+import { RECEIVE_PROBE_STORAGE_KEY } from "@/lib/daily-receive-probe-config";
 
 /** Pre-configured receive-only probe (operator opens after API receive-probe-session). */
 export default function DailyReceiveProbePage() {
@@ -16,7 +16,7 @@ export default function DailyReceiveProbePage() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
+      const raw = sessionStorage.getItem(RECEIVE_PROBE_STORAGE_KEY);
       if (raw) {
         setConfig(JSON.parse(raw) as DailyReceiveProbeConfig);
         return;
@@ -32,7 +32,7 @@ export default function DailyReceiveProbePage() {
         return;
       }
       setLoadError(
-        "Missing probe config. Call POST …/receive-probe-session then set sessionStorage finish-a-receive-probe-config before opening this page."
+        "Missing probe config. Open /e2e/daily-receive-probe/open?eventId=…&broadcastId=… while signed in as broadcast manager."
       );
     } catch {
       setLoadError("Invalid probe config in sessionStorage");

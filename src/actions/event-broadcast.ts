@@ -145,6 +145,45 @@ export async function activateNativeStreamingWalletAction(
   );
 }
 
+export type ReceiveProbeSessionResult = {
+  receiveProbe: {
+    role: "receive_probe";
+    roomName: string;
+    roomUrl: string;
+    meetingToken: string;
+    tokenExpiresAt: string;
+  };
+  probePagePath: string;
+  evidenceRules: {
+    trackStartedAloneIsInsufficient: boolean;
+    requiresDecodedMotionOrAudio: boolean;
+  };
+};
+
+export async function issueEventBroadcastReceiveProbeSessionAction(
+  eventId: string,
+  broadcastId: string,
+  probeDeviceId: string,
+  options?: EventBroadcastActionOptions
+): Promise<ActionResult<ReceiveProbeSessionResult>> {
+  const base = apiBase();
+  if (!base) return actionFail("Backend API URL is not configured");
+
+  const headersOrFail = await broadcastHeaders(eventId, options);
+  if (isAuthActionFail(headersOrFail)) return headersOrFail;
+
+  return runServerFetch(
+    `${base}/events/${eventId}/broadcasts/${broadcastId}/receive-probe-session`,
+    {
+      method: "POST",
+      headers: headersOrFail,
+      body: JSON.stringify({ probeDeviceId }),
+      cache: "no-store",
+    },
+    "issueEventBroadcastReceiveProbeSessionAction"
+  );
+}
+
 export async function issueEventBroadcastPublisherSessionAction(
   eventId: string,
   broadcastId: string,
