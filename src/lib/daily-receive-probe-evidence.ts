@@ -3,13 +3,31 @@ export type ReceiveProbeSample = {
   videoCurrentTimeSec: number | null;
   videoWidth: number | null;
   videoHeight: number | null;
+  /** HTMLVideoElement.getVideoPlaybackQuality().totalVideoFrames when available. */
+  videoFramesDecoded?: number | null;
+  /** Null when the analyser is missing or the AudioContext is not running (not measured). */
   audioLevelRms: number | null;
+  audioContextState?: string | null;
+  remoteAudioTrackPresent?: boolean;
   remoteTrackIds: string[];
 };
 
 export type ReceiveProbeMediumVerdict = "PROVEN" | "NOT_PROVEN" | "UNKNOWN";
 
 export type ReceiveProbeMeasurementMode = "real_daily" | "mock_synthetic";
+
+export type ReceiveProbeAudioStatus =
+  | "signal_present"
+  | "silent_track"
+  | "no_remote_audio_track"
+  | "insufficient_samples"
+  | "audio_context_not_running"
+  | "analyser_not_connected";
+
+export type ReceiveProbeVideoStatus =
+  | "frames_advancing"
+  | "frames_not_advancing"
+  | "insufficient_samples";
 
 export type ReceiveProbeEvidence = {
   broadcastId: string;
@@ -22,30 +40,81 @@ export type ReceiveProbeEvidence = {
   decodedAudio: boolean;
   videoReception: ReceiveProbeMediumVerdict;
   audioReception: ReceiveProbeMediumVerdict;
+  videoStatus: ReceiveProbeVideoStatus;
+  audioStatus: ReceiveProbeAudioStatus;
   /** Camera + microphone acceptance requires both mediums PROVEN. */
   fullCameraMicrophoneAcceptance: boolean;
-  exportVersion: 2;
+  exportVersion: 3;
   measurementMode: ReceiveProbeMeasurementMode;
+  evidenceScope:
+    | "real_daily_subscriber"
+    | "synthetic_local_media_not_daily_proof";
   audioAnalyserConnected: boolean;
   audioContextState: string | null;
-  /** Distinguishes silence (NOT_PROVEN) from missing measurement (UNKNOWN). */
+  /** Distinguishes silence / missing measurement from failed reception. */
   audioMeasurementNote: string | null;
 };
 
 const MIN_VIDEO_TIME_DELTA_SEC = 0.05;
-const MIN_AUDIO_RMS = 0.01;
+const MIN_VIDEO_FRAME_DELTA = 2;
+export const MIN_AUDIO_RMS = 0.01;
+const MIN_SAMPLES = 2;
 
-function videoSampleCount(samples: ReceiveProbeSample[]): number {
-  return samples.filter(
-    s => s.videoCurrentTimeSec != null && Number.isFinite(s.videoCurrentTimeSec)
-  ).length;
+function finite(n: number | null | undefined): n is number {
+  return n != null && Number.isFinite(n);
 }
 
-function audioSampleCount(samples: ReceiveProbeSample[]): number {
-  return samples.filter(
-    s => s.audioLevelRms != null && Number.isFinite(s.audioLevelRms)
-  ).length;
+function evaluateVideo(samples: ReceiveProbeSample[]): ReceiveProbeVideoStatus {
+  const frames = samples.map(s => s.videoFramesDecoded).filter(finite);
+  if (frames.length >= MIN_SAMPLES) {
+    return Math.max(...frames) - Math.min(...frames) >= MIN_VIDEO_FRAME_DELTA
+      ? "frames_advancing"
+      : "frames_not_advancing";
+  }
+  const times = samples.map(s => s.videoCurrentTimeSec).filter(finite);
+  if (times.length < MIN_SAMPLES) return "insufficient_samples";
+  return Math.max(...times) - Math.min(...times) >= MIN_VIDEO_TIME_DELTA_SEC
+    ? "frames_advancing"
+    : "frames_not_advancing";
 }
+
+function evaluateAudio(
+  samples: ReceiveProbeSample[],
+  analyserConnected: boolean,
+  contextState: string | null
+): ReceiveProbeAudioStatus {
+  const measured = samples.map(s => s.audioLevelRms).filter(finite);
+  if (measured.filter(l => l >= MIN_AUDIO_RMS).length >= MIN_SAMPLES) {
+    return "signal_present";
+  }
+  if (measured.length >= MIN_SAMPLES) {
+    const trackSeen = samples.some(
+      s => s.remoteAudioTrackPresent ?? s.remoteTrackIds.some(id => id.startsWith("a:"))
+    );
+    return trackSeen ? "silent_track" : "no_remote_audio_track";
+  }
+  if (!analyserConnected) {
+    const trackSeen = samples.some(s => s.remoteAudioTrackPresent === true);
+    return samples.length >= MIN_SAMPLES && !trackSeen
+      ? "no_remote_audio_track"
+      : "analyser_not_connected";
+  }
+  const notRunning =
+    (contextState != null && contextState !== "running") ||
+    samples.some(s => s.audioContextState != null && s.audioContextState !== "running");
+  if (notRunning) return "audio_context_not_running";
+  return "insufficient_samples";
+}
+
+const AUDIO_NOTES: Record<ReceiveProbeAudioStatus, string | null> = {
+  signal_present: null,
+  silent_track:
+    "remote_audio_track_received_but_silent_not_transport_failure",
+  no_remote_audio_track: "no_remote_audio_track_observed_by_this_subscriber",
+  insufficient_samples: "insufficient_audio_rms_samples",
+  audio_context_not_running: "audio_context_not_running_rms_not_measured",
+  analyser_not_connected: "audio_analyser_not_connected",
+};
 
 export function evaluateReceiveProbeEvidence(
   evidence: Omit<
@@ -54,63 +123,50 @@ export function evaluateReceiveProbeEvidence(
     | "decodedAudio"
     | "videoReception"
     | "audioReception"
+    | "videoStatus"
+    | "audioStatus"
     | "fullCameraMicrophoneAcceptance"
     | "exportVersion"
+    | "evidenceScope"
     | "audioMeasurementNote"
   >
 ): ReceiveProbeEvidence {
-  const videoTimes = evidence.samples
-    .map(s => s.videoCurrentTimeSec)
-    .filter((t): t is number => t != null && Number.isFinite(t));
-  const audioLevels = evidence.samples
-    .map(s => s.audioLevelRms)
-    .filter((l): l is number => l != null && Number.isFinite(l));
-
-  const decodedVideo =
-    videoTimes.length >= 2 &&
-    Math.max(...videoTimes) - Math.min(...videoTimes) >=
-      MIN_VIDEO_TIME_DELTA_SEC;
-
-  const decodedAudio =
-    audioLevels.length >= 2 &&
-    Math.max(...audioLevels) - Math.min(...audioLevels) >= MIN_AUDIO_RMS;
+  const videoStatus = evaluateVideo(evidence.samples);
+  const audioStatus = evaluateAudio(
+    evidence.samples,
+    evidence.audioAnalyserConnected,
+    evidence.audioContextState
+  );
 
   const videoReception: ReceiveProbeMediumVerdict =
-    videoSampleCount(evidence.samples) < 2
-      ? "UNKNOWN"
-      : decodedVideo
-        ? "PROVEN"
-        : "NOT_PROVEN";
-
-  const audioSamplesWithRms = evidence.samples.filter(
-    s => s.audioLevelRms != null && Number.isFinite(s.audioLevelRms)
-  );
+    videoStatus === "frames_advancing"
+      ? "PROVEN"
+      : videoStatus === "frames_not_advancing"
+        ? "NOT_PROVEN"
+        : "UNKNOWN";
   const audioReception: ReceiveProbeMediumVerdict =
-    audioSamplesWithRms.length < 2
-      ? "UNKNOWN"
-      : decodedAudio
-        ? "PROVEN"
-        : "NOT_PROVEN";
-
-  const audioMeasurementNote =
-    audioSamplesWithRms.length < 2
-      ? evidence.audioAnalyserConnected
-        ? "insufficient_audio_rms_samples"
-        : "audio_analyser_not_connected"
-      : decodedAudio
-        ? null
-        : "silence_or_flat_audio_rms_not_transport_disproof";
+    audioStatus === "signal_present"
+      ? "PROVEN"
+      : audioStatus === "no_remote_audio_track"
+        ? "NOT_PROVEN"
+        : "UNKNOWN";
 
   return {
     ...evidence,
-    exportVersion: 2,
-    decodedVideo,
-    decodedAudio,
+    exportVersion: 3,
+    evidenceScope:
+      evidence.measurementMode === "mock_synthetic"
+        ? "synthetic_local_media_not_daily_proof"
+        : "real_daily_subscriber",
+    decodedVideo: videoReception === "PROVEN",
+    decodedAudio: audioReception === "PROVEN",
     videoReception,
     audioReception,
+    videoStatus,
+    audioStatus,
     fullCameraMicrophoneAcceptance:
       videoReception === "PROVEN" && audioReception === "PROVEN",
-    audioMeasurementNote,
+    audioMeasurementNote: AUDIO_NOTES[audioStatus],
   };
 }
 

@@ -16,19 +16,21 @@ export default function DailyReceiveProbePage() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(RECEIVE_PROBE_STORAGE_KEY);
-      if (raw) {
-        setConfig(JSON.parse(raw) as DailyReceiveProbeConfig);
-        return;
-      }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("mock") === "1") {
+      const mock = params.get("mock");
+      if (mock === "1" || mock === "tone" || mock === "silent") {
         setConfig({
           broadcastId: params.get("broadcastId") ?? "mock-broadcast-id",
           roomName: params.get("roomName") ?? "tm-mock-room",
           roomUrl: "https://tipmanna.mock.daily.co/tm-mock-room",
           meetingToken: `mock-receive-probe-${(params.get("broadcastId") ?? "mock").slice(0, 8)}-local`,
+          mockAudio: mock === "silent" ? "silent" : "tone",
         });
+        return;
+      }
+      const raw = sessionStorage.getItem(RECEIVE_PROBE_STORAGE_KEY);
+      if (raw) {
+        setConfig(JSON.parse(raw) as DailyReceiveProbeConfig);
         return;
       }
       setLoadError(
@@ -44,7 +46,8 @@ export default function DailyReceiveProbePage() {
       <main className="p-4 font-mono text-sm">
         <p>{loadError}</p>
         <p className="mt-2 text-muted-foreground">
-          Mock self-test: /e2e/daily-receive-probe?mock=1
+          Mock self-test (synthetic media, not Daily evidence):
+          /e2e/daily-receive-probe?mock=1 or ?mock=silent
         </p>
       </main>
     );
