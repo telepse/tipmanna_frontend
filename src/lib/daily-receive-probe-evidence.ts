@@ -9,6 +9,8 @@ export type ReceiveProbeSample = {
 
 export type ReceiveProbeMediumVerdict = "PROVEN" | "NOT_PROVEN" | "UNKNOWN";
 
+export type ReceiveProbeMeasurementMode = "real_daily" | "mock_synthetic";
+
 export type ReceiveProbeEvidence = {
   broadcastId: string;
   roomName: string;
@@ -23,6 +25,11 @@ export type ReceiveProbeEvidence = {
   /** Camera + microphone acceptance requires both mediums PROVEN. */
   fullCameraMicrophoneAcceptance: boolean;
   exportVersion: 2;
+  measurementMode: ReceiveProbeMeasurementMode;
+  audioAnalyserConnected: boolean;
+  audioContextState: string | null;
+  /** Distinguishes silence (NOT_PROVEN) from missing measurement (UNKNOWN). */
+  audioMeasurementNote: string | null;
 };
 
 const MIN_VIDEO_TIME_DELTA_SEC = 0.05;
@@ -49,6 +56,7 @@ export function evaluateReceiveProbeEvidence(
     | "audioReception"
     | "fullCameraMicrophoneAcceptance"
     | "exportVersion"
+    | "audioMeasurementNote"
   >
 ): ReceiveProbeEvidence {
   const videoTimes = evidence.samples
@@ -74,12 +82,24 @@ export function evaluateReceiveProbeEvidence(
         ? "PROVEN"
         : "NOT_PROVEN";
 
+  const audioSamplesWithRms = evidence.samples.filter(
+    s => s.audioLevelRms != null && Number.isFinite(s.audioLevelRms)
+  );
   const audioReception: ReceiveProbeMediumVerdict =
-    audioSampleCount(evidence.samples) < 2
+    audioSamplesWithRms.length < 2
       ? "UNKNOWN"
       : decodedAudio
         ? "PROVEN"
         : "NOT_PROVEN";
+
+  const audioMeasurementNote =
+    audioSamplesWithRms.length < 2
+      ? evidence.audioAnalyserConnected
+        ? "insufficient_audio_rms_samples"
+        : "audio_analyser_not_connected"
+      : decodedAudio
+        ? null
+        : "silence_or_flat_audio_rms_not_transport_disproof";
 
   return {
     ...evidence,
@@ -90,6 +110,7 @@ export function evaluateReceiveProbeEvidence(
     audioReception,
     fullCameraMicrophoneAcceptance:
       videoReception === "PROVEN" && audioReception === "PROVEN",
+    audioMeasurementNote,
   };
 }
 

@@ -15,6 +15,9 @@ describe("daily receive probe evidence", () => {
       startedAt: new Date().toISOString(),
       endedAt: null,
       trackStartedEvents: 2,
+      measurementMode: "real_daily",
+      audioAnalyserConnected: true,
+      audioContextState: "running",
       samples: [
         {
           at: new Date().toISOString(),
@@ -40,6 +43,9 @@ describe("daily receive probe evidence", () => {
       startedAt: new Date().toISOString(),
       endedAt: null,
       trackStartedEvents: 1,
+      measurementMode: "real_daily",
+      audioAnalyserConnected: false,
+      audioContextState: "suspended",
       samples: [
         {
           at: "t0",
@@ -75,6 +81,9 @@ describe("daily receive probe evidence", () => {
       startedAt: new Date().toISOString(),
       endedAt: null,
       trackStartedEvents: 2,
+      measurementMode: "real_daily",
+      audioAnalyserConnected: true,
+      audioContextState: "running",
       samples: [
         {
           at: "t0",

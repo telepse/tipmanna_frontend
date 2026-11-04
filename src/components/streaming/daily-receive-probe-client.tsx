@@ -27,6 +27,8 @@ type Props = {
 export function DailyReceiveProbeClient({ config }: Props) {
   const callRef = useRef<DailyCall | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const [phase, setPhase] = useState<"idle" | "joining" | "joined" | "error">(
     "idle"
   );
@@ -36,11 +38,24 @@ export function DailyReceiveProbeClient({ config }: Props) {
   const startedAtRef = useRef<string>(new Date().toISOString());
   const [evidence, setEvidence] = useState<ReceiveProbeEvidence | null>(null);
 
+  const readAudioLevelRms = useCallback((): number | null => {
+    const analyser = analyserRef.current;
+    if (!analyser) return null;
+    const data = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(data);
+    let sumSq = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const centered = (data[i] - 128) / 128;
+      sumSq += centered * centered;
+    }
+    return Math.sqrt(sumSq / data.length);
+  }, []);
+
   const captureSample = useCallback(async () => {
     const video = document.querySelector<HTMLVideoElement>(
       "[data-receive-probe-video]"
     );
-    const audioLevelRms: number | null = null;
+    const audioLevelRms = readAudioLevelRms();
     const call = callRef.current;
     const remoteTrackIds: string[] = [];
     if (call) {
@@ -59,24 +74,55 @@ export function DailyReceiveProbeClient({ config }: Props) {
       audioLevelRms,
       remoteTrackIds,
     });
+  }, [readAudioLevelRms]);
+
+  const attachRemoteAudioAnalyser = useCallback((track: MediaStreamTrack) => {
+    try {
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
+      const source = ctx.createMediaStreamSource(new MediaStream([track]));
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      void ctx.resume().catch(() => {});
+    } catch {
+      analyserRef.current = null;
+    }
   }, []);
 
-  const finalizeEvidence = useCallback(() => {
-    const evaluated = evaluateReceiveProbeEvidence({
-      broadcastId: config.broadcastId,
-      roomName: config.roomName,
-      startedAt: startedAtRef.current,
-      endedAt: new Date().toISOString(),
-      trackStartedEvents,
-      samples: samplesRef.current,
-    });
-    setEvidence(evaluated);
-    return evaluated;
-  }, [config.broadcastId, config.roomName, trackStartedEvents]);
+  const probeMeasurementMeta = useCallback(
+    (measurementMode: "real_daily" | "mock_synthetic") => ({
+      measurementMode,
+      audioAnalyserConnected: Boolean(analyserRef.current),
+      audioContextState: audioContextRef.current?.state ?? null,
+    }),
+    []
+  );
+
+  const finalizeEvidence = useCallback(
+    (measurementMode: "real_daily" | "mock_synthetic" = "real_daily") => {
+      const evaluated = evaluateReceiveProbeEvidence({
+        broadcastId: config.broadcastId,
+        roomName: config.roomName,
+        startedAt: startedAtRef.current,
+        endedAt: new Date().toISOString(),
+        trackStartedEvents,
+        samples: samplesRef.current,
+        ...probeMeasurementMeta(measurementMode),
+      });
+      setEvidence(evaluated);
+      return evaluated;
+    },
+    [config.broadcastId, config.roomName, probeMeasurementMeta, trackStartedEvents]
+  );
 
   const leave = useCallback(async () => {
     const call = callRef.current;
     callRef.current = null;
+    analyserRef.current = null;
     if (call) {
       try {
         await call.leave();
@@ -84,6 +130,11 @@ export function DailyReceiveProbeClient({ config }: Props) {
       } catch {
         /* ignore */
       }
+    }
+    const ctx = audioContextRef.current;
+    audioContextRef.current = null;
+    if (ctx) {
+      void ctx.close().catch(() => {});
     }
   }, []);
 
@@ -118,7 +169,7 @@ export function DailyReceiveProbeClient({ config }: Props) {
         }
       );
       setTrackStartedEvents(1);
-      finalizeEvidence();
+      finalizeEvidence("mock_synthetic");
       return;
     }
 
@@ -135,14 +186,24 @@ export function DailyReceiveProbeClient({ config }: Props) {
         if (track?.kind === "video" && videoRef.current) {
           videoRef.current.srcObject = new MediaStream([track]);
         }
+        if (track?.kind === "audio") {
+          attachRemoteAudioAnalyser(track);
+        }
       });
       await call.join({ url: config.roomUrl, token });
+      await audioContextRef.current?.resume().catch(() => {});
       setPhase("joined");
     } catch (e) {
       setPhase("error");
       setError(e instanceof Error ? e.message : "join_failed");
     }
-  }, [config.meetingToken, config.roomUrl, finalizeEvidence, leave]);
+  }, [
+    attachRemoteAudioAnalyser,
+    config.meetingToken,
+    config.roomUrl,
+    finalizeEvidence,
+    leave,
+  ]);
 
   useEffect(() => {
     if (phase !== "joined" || isMockDailyReceiveProbeToken(config.meetingToken)) {
