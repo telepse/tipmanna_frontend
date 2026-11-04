@@ -19,15 +19,7 @@ export type VerificationCodeFetchResult = {
 };
 
 function backendRootForAuth(): string {
-  const resolution = assertPlaywrightBackendAligned();
-
-  if (!resolution.ok) {
-    throw new Error(
-      `Playwright backend configuration is invalid: ${resolution.reason}`
-    );
-  }
-
-  return resolution.backendRoot;
+  return assertPlaywrightBackendAligned().backendRoot;
 }
 
 export async function fetchE2eVerificationCode(

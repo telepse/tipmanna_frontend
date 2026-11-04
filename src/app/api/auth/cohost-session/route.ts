@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { authCookieSecureFromRequest } from "@/lib/auth-cookie-options";
+
 const MAX_AGE_DAYS = 7;
 
 type CohostSessionBody = {
@@ -30,10 +32,11 @@ export async function POST(req: NextRequest) {
       Date.now() + days * 24 * 60 * 60 * 1000
     ).toISOString();
 
+    const secure = authCookieSecureFromRequest(req);
     const res = NextResponse.json({ ok: true, cohostSessionExpiresAt });
     res.cookies.set("cohostToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure,
       sameSite: "lax",
       path: "/",
       maxAge,
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
       }),
       {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure,
         sameSite: "lax",
         path: "/",
         maxAge,

@@ -72,7 +72,12 @@ export function resolvePlaywrightBackendRoot(): PlaywrightBackendResolution {
   };
 }
 
-export function assertPlaywrightBackendAligned(): PlaywrightBackendResolution {
+export type PlaywrightBackendAligned = Extract<
+  PlaywrightBackendResolution,
+  { ok: true }
+>;
+
+export function assertPlaywrightBackendAligned(): PlaywrightBackendAligned {
   const resolved = resolvePlaywrightBackendRoot();
   if (!resolved.ok) {
     throw new Error(resolved.reason);

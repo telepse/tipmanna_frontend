@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { authCookieSecureFromRequest } from "@/lib/auth-cookie-options";
+
 const MAX_AGE_DAYS = 60;
 
 type SessionBody = {
@@ -26,10 +28,11 @@ export async function POST(req: NextRequest) {
     );
     const maxAge = days * 24 * 60 * 60;
 
+    const secure = authCookieSecureFromRequest(req);
     const res = NextResponse.json({ ok: true });
     res.cookies.set("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure,
       sameSite: "lax",
       path: "/",
       maxAge,
@@ -49,7 +52,7 @@ export async function POST(req: NextRequest) {
       }),
       {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure,
         sameSite: "lax",
         path: "/",
         maxAge,

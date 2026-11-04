@@ -3,7 +3,9 @@ import { normalizeEmail } from "@/lib/normalize-email";
 
 export const hostSignInSchema = z.object({
   emailOrUsername: z.string().min(2, "Email or username is required"),
-  password: z.string().min(6, "Password is required"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters"),
 });
 
 export type HostSignInFormData = z.infer<typeof hostSignInSchema>;
