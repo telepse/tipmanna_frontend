@@ -36,6 +36,7 @@ import {
   formatRecordedStopReason,
   showPublisherSurface,
   startAcceptedMessage,
+  streamingOutputStatus,
 } from "@/lib/native-broadcast-panel-status";
 
 type Props = {
@@ -161,6 +162,7 @@ export function NativeBroadcastPanel({
     () => row?.phase ?? (lastTerminal ? "stopped" : "none"),
     [row?.phase, lastTerminal]
   );
+  const outputStatus = useMemo(() => streamingOutputStatus(row), [row]);
   const pollActive = row?.phase === "starting" || row?.phase === "live";
   const sessionSyncActive =
     pollActive && canManage && Boolean(publisherSession);
@@ -586,29 +588,18 @@ export function NativeBroadcastPanel({
               {formatProviderExecutionModeLabel(row.providerExecutionMode)}
             </>
           ) : null}
-          {row?.providerIngestActive ? " · ingest active" : null}
-          {row?.dailyRoomReady ? " · Daily room ready" : null}
-          {row?.youtubeBroadcastPrepared ? " · YouTube draft bound" : null}
           {row?.phase === "live" && row.liveStartedAt
-            ? ` · live since ${row.liveStartedAt.slice(0, 19)}Z`
+            ? ` · lifecycle live since ${row.liveStartedAt.slice(0, 19)}Z`
             : null}
         </p>
         <p className="text-muted-foreground">
-          Ingest readiness:{" "}
-          {row?.providerIngestActive
-            ? "provider ingest active (not the same as playable live)"
-            : row?.dailyRoomReady
-              ? "room provisioned (awaiting ingest confirm)"
-              : "not provisioned"}
+          {outputStatus.room}
           {" · "}
-          YouTube lifecycle:{" "}
-          {row?.phase === "live"
-            ? "live (Tipmanna confirmed — playable for viewers)"
-            : row?.youtubeBroadcastPrepared
-              ? row?.providerIngestActive
-                ? "prepared with ingest (YouTube may be testing until live confirm)"
-                : "prepared (not live)"
-              : "not prepared"}
+          {outputStatus.rtmp}
+          {" · "}
+          {outputStatus.youtubeIngest}
+          {" · "}
+          {outputStatus.playable}
         </p>
         {pollStale ? (
           <p className="text-amber-700">

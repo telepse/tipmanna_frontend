@@ -51,3 +51,31 @@ export function startAcceptedMessage(row: EventBroadcastRow | null): string {
 export function showPublisherSurface(row: EventBroadcastRow | null): boolean {
   return row?.phase === "preflight" || row?.phase === "starting" || row?.phase === "live";
 }
+
+export type StreamingOutputStatus = {
+  room: string;
+  rtmp: string;
+  youtubeIngest: string;
+  playable: string;
+};
+
+/** Room existence and lifecycle phase are not YouTube ingest or playable video. */
+export function streamingOutputStatus(
+  row: EventBroadcastRow | null
+): StreamingOutputStatus {
+  const room = row?.dailyRoomReady
+    ? "Daily room ready"
+    : "Daily room not ready";
+  const rtmp = row?.rtmpStartAcknowledged
+    ? "Daily RTMP start acknowledged"
+    : "Daily RTMP start not acknowledged";
+  const youtubeIngest = row?.youtubeIngestActive
+    ? "YouTube ingest active"
+    : row?.youtubeBroadcastPrepared
+      ? "YouTube broadcast id present; ingest not confirmed"
+      : "YouTube ingest not confirmed";
+  const playable = row?.youtubeIngestActive
+    ? "YouTube is receiving media; playable video still requires a viewer decode"
+    : "Playable video not confirmed";
+  return { room, rtmp, youtubeIngest, playable };
+}

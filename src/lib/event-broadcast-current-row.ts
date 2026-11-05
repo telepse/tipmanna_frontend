@@ -30,6 +30,8 @@ export function resolveEventBroadcastCurrentRow(
     providerIngestActive: false,
     dailyRoomReady: false,
     youtubeBroadcastPrepared: false,
+    rtmpStartAcknowledged: false,
+    youtubeIngestActive: false,
     providerExecutionMode: payload.terminal.providerExecutionMode,
     liveStartedAt: null,
     updatedAt: new Date().toISOString(),

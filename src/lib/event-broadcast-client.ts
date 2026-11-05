@@ -32,9 +32,15 @@ export type EventBroadcastRow = {
   eventChannelId: string | null;
   initiatedByUserId: string | null;
   initiatedByRole: string | null;
+  /** Room-start gate. Not Daily RTMP acknowledgement or YouTube ingest. */
   providerIngestActive: boolean;
   dailyRoomReady: boolean;
+  /** A YouTube broadcast id is stored. Not ingest and not playable video. */
   youtubeBroadcastPrepared: boolean;
+  /** Daily REST start returned sent true. Absent means not acknowledged. */
+  rtmpStartAcknowledged?: boolean;
+  /** YouTube reported media arriving. Absent or false is not ingest. */
+  youtubeIngestActive?: boolean;
   /** Stamped at Start acceptance — mock vs real worker path (not Render env alone). */
   providerExecutionMode: string | null;
   liveStartedAt: string | null;
