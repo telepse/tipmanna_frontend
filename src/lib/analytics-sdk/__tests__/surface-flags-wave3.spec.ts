@@ -53,6 +53,24 @@ describe("Wave 3 surface flags default off", () => {
     expect(isTiplinkSdkCollectionActive()).toBe(false);
   });
 
+  it("activates tiplink v2 only with master SDK and TIPLINK surface flag", () => {
+    for (const k of keys) prev[k] = process.env[k];
+    process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
+    delete process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2;
+    expect(isTiplinkSdkCollectionActive()).toBe(false);
+    process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2 = "true";
+    expect(isTiplinkSdkCollectionActive()).toBe(true);
+    expect(isContentClientSdkCollectionActive()).toBe(false);
+  });
+
+  it("tiplink v2 is not active on unrelated paths without its surface flag", () => {
+    for (const k of keys) prev[k] = process.env[k];
+    process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
+    delete process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2;
+    expect(isTiplinkSdkCollectionActive()).toBe(false);
+    expect(isExploreFeedSdkCollectionActive()).toBe(false);
+  });
+
   it("each surface requires its own flag when SDK master is on", () => {
     for (const k of keys) prev[k] = process.env[k];
     process.env.NEXT_PUBLIC_ANALYTICS_SDK_V2 = "true";
