@@ -14,6 +14,7 @@ import {
   type RefObject,
   type CSSProperties,
   type ReactNode,
+  type SyntheticEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -43,6 +44,18 @@ import {
   isExploreNeverPlayingRecoveryEligible,
   reduceExploreNeverPlayingRecovery,
 } from "@/lib/explore-never-playing-recovery";
+import {
+  resolveExploreReelPlayerAudioProps,
+  resolveExploreReelTapAction,
+  shouldDeferProgrammaticUnmute,
+  shouldShowExploreTapForSound,
+  type ExploreReelTapAction,
+} from "@/lib/explore-reel-audio-policy";
+import {
+  EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS,
+  EXPLORE_ACTIVATION_READY_RETRY_MS,
+  shouldUnmuteOnExploreReelActivation,
+} from "@/lib/explore-reel-activation";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   CREATOR_USERNAME_CHANGED_EVENT,
@@ -502,7 +515,21 @@ function ExploreFeedSlideVideo({
     return () => window.clearTimeout(tid);
   }, [inPreloadBand, slideIndex, activeIndex]);
 
+  const deferProgrammaticUnmute = useMemo(
+    () => shouldDeferProgrammaticUnmute(),
+    []
+  );
+  const exploreReelAudioProps = resolveExploreReelPlayerAudioProps({
+    defer: deferProgrammaticUnmute,
+    wantsSound: loadReelSoundPref(),
+  });
+
   const [isPaused, setIsPaused] = useState(false);
+  const [engagedThisReel, setEngagedThisReel] = useState(false);
+  const [isPlayerMuted, setIsPlayerMuted] = useState(
+    () => !loadReelSoundPref()
+  );
+  const [hasReachedPlaying, setHasReachedPlaying] = useState(false);
   const hasReachedPlayingRef = useRef(false);
   const isBufferingRef = useRef(false);
   const neverPlayingRecoveryRef = useRef(
@@ -516,6 +543,9 @@ function ExploreFeedSlideVideo({
 
   useEffect(() => {
     setIsPaused(false);
+    setEngagedThisReel(false);
+    setIsPlayerMuted(!loadReelSoundPref());
+    setHasReachedPlaying(false);
     hasReachedPlayingRef.current = false;
     isBufferingRef.current = false;
     neverPlayingRecoveryRef.current =
@@ -527,6 +557,54 @@ function ExploreFeedSlideVideo({
     }
     setPauseFlash(null);
   }, [activeIndex, item.id, playerRetryKey]);
+
+  // Scrubber unlock via onEngageUnlocked only — do NOT set engagedThisReel here
+  // (first tap on a muted playing reel must remain unmute_and_engage).
+  useEffect(() => {
+    if (!playbackActive || slideIndex !== activeIndex) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    let retryTimer: number | undefined;
+
+    const runActivation = () => {
+      if (cancelled) return;
+      const p = videoRef.current;
+      if (!p?.isReady()) {
+        attempt += 1;
+        if (attempt < EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS) {
+          retryTimer = window.setTimeout(
+            runActivation,
+            EXPLORE_ACTIVATION_READY_RETRY_MS
+          );
+        }
+        return;
+      }
+      onEngageUnlocked?.();
+      const wantsSound = loadReelSoundPref();
+      if (shouldUnmuteOnExploreReelActivation(wantsSound, deferProgrammaticUnmute)) {
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+      }
+    };
+
+    runActivation();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [
+    playbackActive,
+    slideIndex,
+    activeIndex,
+    videoRef,
+    onEngageUnlocked,
+    deferProgrammaticUnmute,
+    onActiveReelMuteChange,
+  ]);
 
   const observeNeverPlayingRecovery = useCallback(() => {
     if (slideIndex !== activeIndex) {
@@ -587,48 +665,8 @@ function ExploreFeedSlideVideo({
     slideIndex === activeIndex || (inPreloadBand && dwellOk);
   const poster = youtubePosterUrl(typeof item.url === "string" ? item.url : "");
 
-  const startPlaybackFromUserGesture = () => {
-    const soundPrefOn = loadReelSoundPref();
-    const p = slideIndex === activeIndex ? videoRef.current : null;
-    if (!p?.isReady()) return false;
-    onEngageUnlocked?.();
-    if (!soundPrefOn) {
-      p.unmute();
-      onActiveReelMuteChange?.(false);
-    }
-    p.play();
-    setIsPaused(false);
-    setShowTapToPlay(false);
-    return true;
-  };
-
-  const handleReelTap = () => {
-    if (!playbackActive) return;
-    const p = slideIndex === activeIndex ? videoRef.current : null;
-    if (!p?.isReady()) return;
-
-    if (!hasReachedPlayingRef.current) {
-      if (!startPlaybackFromUserGesture()) return;
-      setPauseFlash("play");
-      if (pauseFlashTimeoutRef.current) {
-        clearTimeout(pauseFlashTimeoutRef.current);
-      }
-      pauseFlashTimeoutRef.current = window.setTimeout(() => {
-        pauseFlashTimeoutRef.current = null;
-        setPauseFlash(null);
-      }, 450);
-      return;
-    }
-
-    if (isPaused) {
-      p.play();
-      setIsPaused(false);
-      setPauseFlash("play");
-    } else {
-      p.pause();
-      setIsPaused(true);
-      setPauseFlash("pause");
-    }
+  const flashTransportFeedback = useCallback((mode: "play" | "pause") => {
+    setPauseFlash(mode);
     if (pauseFlashTimeoutRef.current) {
       clearTimeout(pauseFlashTimeoutRef.current);
     }
@@ -636,6 +674,88 @@ function ExploreFeedSlideVideo({
       pauseFlashTimeoutRef.current = null;
       setPauseFlash(null);
     }, 450);
+  }, []);
+
+  const applyExploreReelTapAction = useCallback(
+    (action: ExploreReelTapAction): boolean => {
+      const p = slideIndex === activeIndex ? videoRef.current : null;
+      if (!p?.isReady()) return false;
+
+      if (action === "play_and_unmute") {
+        onEngageUnlocked?.();
+        setEngagedThisReel(true);
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+        p.play();
+        setIsPaused(false);
+        setShowTapToPlay(false);
+        flashTransportFeedback("play");
+        return true;
+      }
+
+      if (action === "unmute_and_engage") {
+        onEngageUnlocked?.();
+        setEngagedThisReel(true);
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+        return true;
+      }
+
+      if (isPaused) {
+        p.play();
+        setIsPaused(false);
+        flashTransportFeedback("play");
+      } else {
+        p.pause();
+        setIsPaused(true);
+        flashTransportFeedback("pause");
+      }
+      return true;
+    },
+    [
+      slideIndex,
+      activeIndex,
+      videoRef,
+      onEngageUnlocked,
+      onActiveReelMuteChange,
+      isPaused,
+      flashTransportFeedback,
+    ]
+  );
+
+  const handleReelTap = () => {
+    if (!playbackActive) return;
+    const p = slideIndex === activeIndex ? videoRef.current : null;
+    if (!p?.isReady()) return;
+
+    const playerMuted = p.isMuted?.() ?? isPlayerMuted;
+    const action = resolveExploreReelTapAction({
+      hasReachedPlaying: hasReachedPlayingRef.current,
+      engagedThisReel,
+      playerMuted,
+    });
+    applyExploreReelTapAction(action);
+  };
+
+  const showTapForSound = shouldShowExploreTapForSound({
+    defer: deferProgrammaticUnmute,
+    wantsSound: loadReelSoundPref(),
+    playerMuted: isPlayerMuted,
+    isPlaying: playbackActive && !isPaused && hasReachedPlaying,
+    showTapToPlay,
+  });
+
+  const requestTapForSound = (e: SyntheticEvent) => {
+    e.stopPropagation();
+    const p = slideIndex === activeIndex ? videoRef.current : null;
+    if (!p?.isReady()) return;
+    onEngageUnlocked?.();
+    setEngagedThisReel(true);
+    p.unmute();
+    onActiveReelMuteChange?.(false);
+    setIsPlayerMuted(false);
   };
 
   return (
@@ -700,20 +820,24 @@ function ExploreFeedSlideVideo({
                 onClick={e => {
                   e.stopPropagation();
                   if (!hasReachedPlayingRef.current) {
-                    if (startPlaybackFromUserGesture()) {
-                      setPauseFlash("play");
-                      if (pauseFlashTimeoutRef.current) {
-                        clearTimeout(pauseFlashTimeoutRef.current);
-                      }
-                      pauseFlashTimeoutRef.current = window.setTimeout(() => {
-                        pauseFlashTimeoutRef.current = null;
-                        setPauseFlash(null);
-                      }, 450);
-                    }
+                    applyExploreReelTapAction("play_and_unmute");
                   }
                 }}
               >
                 Tap to play
+              </button>
+            </div>
+          ) : null}
+          {showTapForSound ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-24 z-[36] flex justify-center px-4">
+              <button
+                type="button"
+                data-testid="explore-tap-for-sound"
+                className="pointer-events-auto rounded-full bg-black/65 px-5 py-2.5 text-sm font-medium text-white shadow-lg"
+                onPointerDown={e => e.stopPropagation()}
+                onClick={requestTapForSound}
+              >
+                Tap for sound
               </button>
             </div>
           ) : null}
@@ -723,8 +847,10 @@ function ExploreFeedSlideVideo({
             videoUrl={item.url}
             playbackActive={playbackActive}
             disableGlobalAudioUnlock
-            initialMuted
-            restoreSessionSoundOnProgrammaticPlay={false}
+            initialMuted={exploreReelAudioProps.initialMuted}
+            restoreSessionSoundOnProgrammaticPlay={
+              exploreReelAudioProps.restoreSessionSoundOnProgrammaticPlay
+            }
             suppressLoadingChrome={!playbackActive}
             loadingBackdropClassName="bg-black"
             showLoadingLabel={false}
@@ -736,7 +862,12 @@ function ExploreFeedSlideVideo({
               if (slideIndex === activeIndex) onPlayerError?.();
             }}
             onMuteStateChange={
-              playbackActive ? onActiveReelMuteChange : undefined
+              playbackActive
+                ? muted => {
+                    setIsPlayerMuted(muted);
+                    onActiveReelMuteChange?.(muted);
+                  }
+                : undefined
             }
             onYoutubePlayerPhase={phase => {
               if (slideIndex !== activeIndex) return;
@@ -753,6 +884,7 @@ function ExploreFeedSlideVideo({
                 onActiveReelPlayStateChange?.(playing);
                 if (playing) {
                   hasReachedPlayingRef.current = true;
+                  setHasReachedPlaying(true);
                   setShowTapToPlay(false);
                   neverPlayingRecoveryRef.current =
                     INITIAL_EXPLORE_NEVER_PLAYING_RECOVERY_STATE;
