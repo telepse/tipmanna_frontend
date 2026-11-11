@@ -18,6 +18,7 @@ export function isEventRoomAnalyticsV2Enabled(): boolean {
   return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_EVENT_ROOM_V2 === "true";
 }
 
+/** TipLink v2 requires explicit compile-time flag (no pathname bypass). */
 export function isTiplinkAnalyticsV2Enabled(): boolean {
   return process.env.NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2 === "true";
 }

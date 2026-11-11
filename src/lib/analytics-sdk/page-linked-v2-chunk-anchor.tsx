@@ -1,5 +1,9 @@
 "use client";
 
+import { useLayoutEffect } from "react";
+
+import { ensureAnalyticsSessionStorage } from "../analytics-session";
+
 /**
  * Wave 3 S2/R1: retain v2 SDK queue + transport literals in the page-linked
  * chunk graph for routes whose producers mount via next/dynamic (partner TV,
@@ -18,5 +22,8 @@ const PAGE_LINKED_V2_RETAIN_BLOB = `${PAGE_LINKED_V2_QUEUE_MARKER}\0${PAGE_LINKE
 
 export function PageLinkedV2ChunkAnchor(): null {
   void PAGE_LINKED_V2_RETAIN_BLOB;
+  useLayoutEffect(() => {
+    ensureAnalyticsSessionStorage();
+  }, []);
   return null;
 }
