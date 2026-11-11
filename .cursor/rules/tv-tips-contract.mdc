@@ -1,0 +1,7 @@
+---
+description: TV tips/catalog SSR isolation
+globs: src/components/tv/**/*tips*, src/app/**/tv/**
+alwaysApply: false
+---
+
+Tips/catalog/SSR changes must not edit the playback six. See `product-behaviors/tv-tips-product-behavior.md` when restored.
