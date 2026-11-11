@@ -152,7 +152,7 @@ describe("Explore feed integration", () => {
   it("never PLAYING first interaction calls play, not pause branch", () => {
     expect(exploreFeedSrc).toContain("hasReachedPlayingRef.current");
     expect(exploreFeedSrc).toMatch(
-      /if \(!hasReachedPlayingRef\.current\) \{[\s\S]*?startPlaybackFromUserGesture/
+      /applyExploreReelTapAction\("play_and_unmute"\)/
     );
     expect(exploreFeedSrc).toContain('data-testid="explore-tap-to-play"');
   });
@@ -169,14 +169,9 @@ describe("Explore feed integration", () => {
     );
   });
 
-  it("Stage 2 programmatic mute contract intact", () => {
-    expect(exploreFeedSrc).toContain(
-      "restoreSessionSoundOnProgrammaticPlay={false}"
-    );
-    expect(exploreFeedSrc).toMatch(/initialMuted[\s\S]*restoreSessionSound/);
-    expect(exploreFeedSrc).not.toMatch(
-      /if \(!loadReelSoundPref\(\)\) return;\s*const p = slideIndex === activeIndex[\s\S]*?p\.unmute\(\)/
-    );
+  it("Stage 2 programmatic mute uses platform policy resolver", () => {
+    expect(exploreFeedSrc).toContain("exploreReelAudioProps");
+    expect(exploreFeedSrc).toContain("resolveExploreReelPlayerAudioProps");
   });
 
   it("ENDED still uses existing advance handler", () => {

@@ -19,41 +19,32 @@ const exploreReelAdvanceSrc = readFileSync(
   "utf8"
 );
 
-describe("Explore reel programmatic audio contract", () => {
-  it("Explore VideoPlayer opts out of programmatic session sound restore", () => {
-    expect(exploreFeedSrc).toContain(
-      "restoreSessionSoundOnProgrammaticPlay={false}"
-    );
+describe("Explore reel audio wiring", () => {
+  it("uses platform audio policy resolver in feed", () => {
+    expect(exploreFeedSrc).toContain("resolveExploreReelPlayerAudioProps");
+    expect(exploreFeedSrc).toContain("resolveExploreReelTapAction");
+    expect(exploreFeedSrc).toContain("shouldDeferProgrammaticUnmute");
   });
 
-  it("Explore active reel uses initialMuted (always muted on activation)", () => {
+  it("activation unlocks scrubber without marking engagedThisReel", () => {
     expect(exploreFeedSrc).toMatch(
-      /<VideoPlayer[\s\S]*?initialMuted[\s\S]*?restoreSessionSoundOnProgrammaticPlay=\{false\}/
+      /do NOT set engagedThisReel[\s\S]*?onEngageUnlocked\?\.\(\)/
     );
-    expect(exploreFeedSrc).not.toMatch(
-      /initialMuted=\{!loadReelSoundPref\(\)\}/
-    );
+    expect(exploreFeedSrc).toContain('data-testid="explore-tap-for-sound"');
   });
 
-  it("Explore feed does not programmatically unmute on activation", () => {
-    expect(exploreFeedSrc).not.toMatch(
-      /if \(!loadReelSoundPref\(\)\) return;\s*const p = slideIndex === activeIndex[\s\S]*?p\.unmute\(\)/
+  it("VideoPlayer props come from exploreReelAudioProps", () => {
+    expect(exploreFeedSrc).toMatch(
+      /initialMuted=\{exploreReelAudioProps\.initialMuted\}/
+    );
+    expect(exploreFeedSrc).toMatch(
+      /restoreSessionSoundOnProgrammaticPlay=\{\s*exploreReelAudioProps\.restoreSessionSoundOnProgrammaticPlay/
     );
   });
 
   it("explicit mute button still calls unmute on user gesture", () => {
     expect(exploreFeedSrc).toContain('title={reelMuted ? "Unmute" : "Mute"}');
     expect(exploreFeedSrc).toMatch(/else \{\s*p\.unmute\(\)/);
-  });
-
-  it("first tap before PLAYING calls play instead of pause", () => {
-    expect(exploreFeedSrc).toContain("hasReachedPlayingRef");
-    expect(exploreFeedSrc).toMatch(
-      /if \(!hasReachedPlayingRef\.current\) \{[\s\S]*?startPlaybackFromUserGesture/
-    );
-    expect(exploreFeedSrc).toMatch(
-      /if \(playing\) \{[\s\S]*?hasReachedPlayingRef\.current = true/
-    );
   });
 
   it("ENDED → next handling unchanged in explore-reel-advance", () => {
@@ -71,12 +62,9 @@ describe("VideoPlayer restoreSessionSoundOnProgrammaticPlay default", () => {
     );
   });
 
-  it("gates restoreReelSoundIfPreferred and preferSound", () => {
-    expect(videoPlayerSrc).toContain(
-      "restoreSessionSoundOnProgrammaticPlayRef.current"
-    );
+  it("gates mute-sync suppression on restore ref", () => {
     expect(videoPlayerSrc).toMatch(
-      /const preferSound =[\s\S]*restoreSessionSoundOnProgrammaticPlayRef\.current/
+      /restoreSessionSoundOnProgrammaticPlayRef\.current[\s\S]*shouldSuppressPlayerMuteSync/
     );
   });
 });
