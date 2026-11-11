@@ -19,8 +19,10 @@ Do not change without updating this section, `.cursor/rules/explore-golden-lock.
 | First tap on playing muted reel | `unmute_and_engage` (no pause) | Same |
 | Tap before PLAYING | `play_and_unmute` | Same |
 | Speaker icon | Matches player `isMuted()` | Same |
+| Scrubber on activation | `onEngageUnlocked` when player becomes ready (bounded ready-retry; never sets `engagedThisReel`) | Same |
+| Tap for sound pill | Shown from React `hasReachedPlaying` + policy (`shouldShowExploreTapForSound`); never-PLAYING still uses ref | Same |
 
-Policy: `src/lib/explore-reel-audio-policy.ts`. Wiring: `explore-feed-client.tsx` (`exploreReelAudioProps`, `resolveExploreReelTapAction`).
+Policy: `src/lib/explore-reel-audio-policy.ts`, `src/lib/explore-reel-activation.ts`. Wiring: `explore-feed-client.tsx` (`exploreReelAudioProps`, `resolveExploreReelTapAction`).
 
 ### Feed integrity
 

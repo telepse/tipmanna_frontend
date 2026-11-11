@@ -51,6 +51,11 @@ import {
   shouldShowExploreTapForSound,
   type ExploreReelTapAction,
 } from "@/lib/explore-reel-audio-policy";
+import {
+  EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS,
+  EXPLORE_ACTIVATION_READY_RETRY_MS,
+  shouldUnmuteOnExploreReelActivation,
+} from "@/lib/explore-reel-activation";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   CREATOR_USERNAME_CHANGED_EVENT,
@@ -524,6 +529,7 @@ function ExploreFeedSlideVideo({
   const [isPlayerMuted, setIsPlayerMuted] = useState(
     () => !loadReelSoundPref()
   );
+  const [hasReachedPlaying, setHasReachedPlaying] = useState(false);
   const hasReachedPlayingRef = useRef(false);
   const isBufferingRef = useRef(false);
   const neverPlayingRecoveryRef = useRef(
@@ -539,6 +545,7 @@ function ExploreFeedSlideVideo({
     setIsPaused(false);
     setEngagedThisReel(false);
     setIsPlayerMuted(!loadReelSoundPref());
+    setHasReachedPlaying(false);
     hasReachedPlayingRef.current = false;
     isBufferingRef.current = false;
     neverPlayingRecoveryRef.current =
@@ -554,15 +561,41 @@ function ExploreFeedSlideVideo({
   // Scrubber unlock via onEngageUnlocked only — do NOT set engagedThisReel here
   // (first tap on a muted playing reel must remain unmute_and_engage).
   useEffect(() => {
-    if (!playbackActive) return;
-    const p = slideIndex === activeIndex ? videoRef.current : null;
-    if (!p?.isReady()) return;
-    onEngageUnlocked?.();
-    if (loadReelSoundPref() && !deferProgrammaticUnmute) {
-      p.unmute();
-      onActiveReelMuteChange?.(false);
-      setIsPlayerMuted(false);
-    }
+    if (!playbackActive || slideIndex !== activeIndex) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    let retryTimer: number | undefined;
+
+    const runActivation = () => {
+      if (cancelled) return;
+      const p = videoRef.current;
+      if (!p?.isReady()) {
+        attempt += 1;
+        if (attempt < EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS) {
+          retryTimer = window.setTimeout(
+            runActivation,
+            EXPLORE_ACTIVATION_READY_RETRY_MS
+          );
+        }
+        return;
+      }
+      onEngageUnlocked?.();
+      const wantsSound = loadReelSoundPref();
+      if (shouldUnmuteOnExploreReelActivation(wantsSound, deferProgrammaticUnmute)) {
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+      }
+    };
+
+    runActivation();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
   }, [
     playbackActive,
     slideIndex,
@@ -710,7 +743,7 @@ function ExploreFeedSlideVideo({
     defer: deferProgrammaticUnmute,
     wantsSound: loadReelSoundPref(),
     playerMuted: isPlayerMuted,
-    isPlaying: playbackActive && !isPaused && hasReachedPlayingRef.current,
+    isPlaying: playbackActive && !isPaused && hasReachedPlaying,
     showTapToPlay,
   });
 
@@ -851,6 +884,7 @@ function ExploreFeedSlideVideo({
                 onActiveReelPlayStateChange?.(playing);
                 if (playing) {
                   hasReachedPlayingRef.current = true;
+                  setHasReachedPlaying(true);
                   setShowTapToPlay(false);
                   neverPlayingRecoveryRef.current =
                     INITIAL_EXPLORE_NEVER_PLAYING_RECOVERY_STATE;

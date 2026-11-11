@@ -30,7 +30,15 @@ describe("Explore reel audio wiring", () => {
     expect(exploreFeedSrc).toMatch(
       /do NOT set engagedThisReel[\s\S]*?onEngageUnlocked\?\.\(\)/
     );
+    expect(exploreFeedSrc).toContain("EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS");
     expect(exploreFeedSrc).toContain('data-testid="explore-tap-for-sound"');
+  });
+
+  it("Tap for sound uses React hasReachedPlaying for badge visibility", () => {
+    expect(exploreFeedSrc).toContain("setHasReachedPlaying(true)");
+    expect(exploreFeedSrc).toMatch(
+      /shouldShowExploreTapForSound\([\s\S]*?hasReachedPlaying,/
+    );
   });
 
   it("VideoPlayer props come from exploreReelAudioProps", () => {
