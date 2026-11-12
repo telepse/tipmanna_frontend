@@ -1,0 +1,65 @@
+{
+  "initiative": "tiplink-product-completion",
+  "scope": "Test01 deployment-bound identity only; Wave 3 records unchanged",
+  "capturedAtUtc": "2026-11-12T07:30:00Z",
+  "programmePin": {
+    "gitSha": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2",
+    "gitShaShort": "2267ee6",
+    "gitRef": "dev",
+    "publicAlias": "https://tipmanna-fj3ffgvfq-test01.vercel.app",
+    "vercelProject": "tipmanna-testing"
+  },
+  "vercelDeployment": {
+    "id": "dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9",
+    "url": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app",
+    "target": "production",
+    "buildId": "bld_r28mcl8n0",
+    "buildStartedUtc": "2026-11-11T15:22:07.336Z",
+    "buildLogGitLine": "Cloning github.com/telepse/tipmanna_frontend (Branch: dev, Commit: 2267ee6)",
+    "aliasesAtCapture": [
+      "https://tipmanna-fj3ffgvfq-test01.vercel.app",
+      "https://tipmanna-testing-telepse-companys-projects.vercel.app",
+      "https://tipmanna-testing-git-dev-telepse-companys-projects.vercel.app"
+    ]
+  },
+  "aliasDriftNote": {
+    "capturedAtUtc": "2026-11-12T07:17:12Z",
+    "aliasNowServes": {
+      "deploymentId": "dpl_AunauxedZ6mjK2azXDK7zDevVpn1",
+      "deploymentUrl": "https://tipmanna-testing-6web8tbix-telepse-companys-projects.vercel.app",
+      "deployInfoCommitShort": "f15ebfd"
+    },
+    "interpretation": "Acceptance pin remains 2267ee6; use deployment URL or dpl_8qjMR… for historical deploy-info and build evidence."
+  },
+  "deployInfoOn2267ee6Deployment": {
+    "method": "vercel curl (bypasses deployment protection)",
+    "endpoint": "/api/deploy-info",
+    "analytics": {
+      "sdkV2": true,
+      "communityFeaturedOverlayV2": true,
+      "communityFeaturedOverlaySdkCollectionActive": true,
+      "tiplinkSurfaceV2Reported": false
+    },
+    "note": "Route does not expose isTiplinkAnalyticsV2Enabled(); community overlay fields are not substitutable proof for TipLink surface."
+  },
+  "buildTimeFlag_NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2": {
+    "status": "NOT_CONFIRMED",
+    "reason": "No deployment-scoped env snapshot in Vercel inspect JSON or build logs; project env ls is current config only (insufficient per programme policy). Unconditional tiplink-analytics imports prevent client chunk union from proving surface flag."
+  },
+  "approvedClosureRoutes": [
+    "Release owner: Vercel dashboard → Deployments → dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9 → build-time environment snapshot or export",
+    "Release owner: written attestation in ticket referencing this deployment id and boolean value at build",
+    "Future: deploy-info field for TipLink surface on an approved build"
+  ],
+  "methodsUsed": [
+    "vercel inspect dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9",
+    "vercel inspect --logs (build log SHA line)",
+    "vercel curl …/api/deploy-info on g0hjhjlep deployment URL"
+  ],
+  "notPerformed": [
+    "env change",
+    "redeploy",
+    "promote/rollback",
+    "production configuration change"
+  ]
+}

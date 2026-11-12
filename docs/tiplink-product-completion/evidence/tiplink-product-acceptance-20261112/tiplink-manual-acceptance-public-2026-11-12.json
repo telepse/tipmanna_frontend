@@ -1,0 +1,45 @@
+{
+  "artifactType": "tiplink-manual-acceptance-capture",
+  "flow": "public",
+  "supersedesWrongFixtureCapture": true,
+  "priorWrongFixtureRef": "analytics-observed-vs-expected-2026-11-12.json",
+  "capturedAtUtc": "2026-11-12",
+  "deployment": {
+    "immutableUrl": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app",
+    "gitCommit": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2"
+  },
+  "route": "/l/ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+  "fixture": {
+    "tipLinkId": "07e18a5a-5c75-4665-b321-f0fe294b1809",
+    "slug": "ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "eventId": "01a4b10b-f80d-43e8-a78b-5f872e6c353e",
+    "videoChannelId": "7fc7b429-c7b1-42bf-a1bf-954b36b20150",
+    "encounterItemId": "tiplink-ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea"
+  },
+  "reportedAnalytics": {
+    "v": 2,
+    "surface": "tiplink",
+    "sessionId": "ee02fd56-99f1-4a34-be39-5d38ceb8c12e",
+    "eventId": "01a4b10b-f80d-43e8-a78b-5f872e6c353e",
+    "videoChannelId": "7fc7b429-c7b1-42bf-a1bf-954b36b20150",
+    "encounterItemId": "tiplink-ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "watchDurationSeconds": 58.416,
+    "eventTimestampsClient": [1794478023633, 1794478023634, 1794478082059]
+  },
+  "activationId": null,
+  "networkEvidence": {
+    "postTvAnalyticsObserved": true,
+    "evidenceRef": "tiplink-manual-network-evidence-2026-11-12.json",
+    "evidenceClass": "owner_supplied_manual_network_attestation",
+    "harOnFileInRepo": false,
+    "endpoint": "POST /tv/analytics",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "responseBody": {
+      "accepted": 2,
+      "duplicates": [],
+      "rejected": [],
+      "cardsPersisted": 0
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "capturedAtUtc": "2026-11-12T09:55:00Z",
+  "stagingApiBase": "https://tipmanna-staging.onrender.com/api/v1",
+  "approvedAcceptanceFixture": {
+    "tipLinkId": "07e18a5a-5c75-4665-b321-f0fe294b1809",
+    "slug": "ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "publicRoute": "/l/ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "previewRoute": "/l/preview/07e18a5a-5c75-4665-b321-f0fe294b1809",
+    "eventId": "01a4b10b-f80d-43e8-a78b-5f872e6c353e",
+    "eventChannelId": "7fc7b429-c7b1-42bf-a1bf-954b36b20150",
+    "expectedEncounterItemId": "tiplink-ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "titlePrefix": "RONALDO"
+  },
+  "observedInBrowserAnalytics": {
+    "tipLinkIdInferredFromItemId": "10c4d6a9-ca78-4511-aaf0-9e03b3e5fb9c",
+    "slugInferredFromItemId": "inside-the-white-grey-brahman-bull-horn-factory-or-how-luxury-ho",
+    "publicRouteInferred": "/l/inside-the-white-grey-brahman-bull-horn-factory-or-how-luxury-ho",
+    "eventId": "0fff0bb8-3a0f-46fe-8a92-da80bb26343f",
+    "eventChannelId": "17456868-db4a-4386-a2b3-334f25b83fc4",
+    "encounterItemId": "tiplink-inside-the-white-grey-brahman-bull-horn-factory-or-how-luxury-ho",
+    "titlePrefix": "Inside the White Grey Brahman",
+    "wave3E2eFeaturedOverlayChannelMatch": true,
+    "note": "Channel id matches E2E_FEATURED_OVERLAY_CHANNEL_ID in frontend e2e-explore-fixtures.ts"
+  },
+  "stagingGetTiplinksVerification": {
+    "approvedSlugHttp": 200,
+    "observedSlugHttp": 200,
+    "fixtureMatch": false
+  }
+}

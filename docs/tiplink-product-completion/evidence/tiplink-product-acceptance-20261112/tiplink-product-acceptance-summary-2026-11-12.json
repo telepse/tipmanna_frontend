@@ -1,0 +1,100 @@
+{
+  "initiative": "tiplink-product-completion",
+  "capturedAtUtc": "2026-11-12",
+  "finalizedAtUtc": "2026-11-12",
+  "deployment": {
+    "commit": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2",
+    "id": "dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9",
+    "buildId": "bld_r28mcl8n0",
+    "immutableUrl": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app"
+  },
+  "fixture": {
+    "tipLinkId": "07e18a5a-5c75-4665-b321-f0fe294b1809",
+    "slug": "ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+    "eventId": "01a4b10b-f80d-43e8-a78b-5f872e6c353e",
+    "eventChannelId": "7fc7b429-c7b1-42bf-a1bf-954b36b20150",
+    "encounterItemId": "tiplink-ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea"
+  },
+  "approvals": {
+    "releaseOwnerSurfaceTiplinkV2": {
+      "status": "RELEASE_OWNER_ATTESTED",
+      "ref": "release-owner-attestation-build-flag-2026-11-12.md"
+    },
+    "productQaOwner": "Tipmanna Engineering",
+    "qaEvidenceOwner": "Tipmanna Engineering",
+    "playbackAuthorized": true,
+    "hostPreviewAvailabilityConfirmed": true
+  },
+  "reconciliation20261112WrongFixtureCapture": {
+    "historical": true,
+    "browserAnalyticsReported": true,
+    "analyticsPipelineShapePass": true,
+    "approvedFixturePass": false,
+    "observedTipLinkSlug": "inside-the-white-grey-brahman-bull-horn-factory-or-how-luxury-ho",
+    "observedChannelId": "17456868-db4a-4386-a2b3-334f25b83fc4",
+    "harOnFile": false,
+    "playbackAtLeast10sVerified": false,
+    "ref": "FIXTURE-RECONCILIATION-REPORT-2026-11-12.md"
+  },
+  "manualCaptureCorrectFixture20261112": {
+    "supersedesWrongFixtureForTheseFlows": true,
+    "ref": "MANUAL-ACCEPTANCE-CORRECT-FIXTURE-2026-11-12.md",
+    "networkEvidenceRef": "tiplink-manual-network-evidence-2026-11-12.json",
+    "sessionId": "ee02fd56-99f1-4a34-be39-5d38ceb8c12e",
+    "sessionIdSharedAcrossFlows": true,
+    "sessionIdDisposition": "ACCEPTED_SINGLE_BROWSER_SESSION",
+    "activationIdInSuppliedPayloads": false,
+    "activationIdDisposition": "NOT_REQUIRED_NON_BLOCKING",
+    "harOnFileInRepo": false,
+    "postTvAnalyticsHttpVerified": true,
+    "httpEvidenceClass": "owner_supplied_manual_network_attestation",
+    "ingestResponse": {
+      "accepted": 2,
+      "duplicates": [],
+      "rejected": [],
+      "cardsPersisted": 0
+    },
+    "public": {
+      "fixtureIdentity": "PASS",
+      "analyticsV2TiplinkShape": "PASS",
+      "watchDurationSeconds": 58.416,
+      "watchDurationThresholdPass": true,
+      "httpDelivery": "PASS",
+      "overallFlowAcceptance": "PASS_TECHNICAL"
+    },
+    "hostPreview": {
+      "fixtureIdentity": "PASS",
+      "analyticsV2TiplinkShape": "PASS",
+      "watchDurationSeconds": 39.202,
+      "watchDurationThresholdPass": true,
+      "httpDelivery": "PASS",
+      "overallFlowAcceptance": "PASS_TECHNICAL"
+    }
+  },
+  "results": {
+    "publicLink": {
+      "ssrFixtureMatch": "PASS",
+      "approvedFixtureAnalytics": "PASS",
+      "playbackDuration": "PASS",
+      "analyticsV2TiplinkShape": "PASS",
+      "httpPostTvAnalytics": "PASS",
+      "overallAcceptance": "PASS_TECHNICAL"
+    },
+    "hostPreview": {
+      "approvedFixtureAnalytics": "PASS",
+      "playbackDuration": "PASS",
+      "analyticsV2TiplinkShape": "PASS",
+      "httpPostTvAnalytics": "PASS",
+      "overallAcceptance": "PASS_TECHNICAL"
+    }
+  },
+  "technicalAcceptanceComplete": true,
+  "programmeClosure": "CLOSED",
+  "programmeClosureSignedDateUtc": "2026-11-12",
+  "programmeClosureMemo": "TEST01-PROGRAMME-CLOSURE-MEMO-SIGNED-2026-11-12.md",
+  "deploymentPin": {
+    "immutableUrl": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app",
+    "commit": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2",
+    "deploymentId": "dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9"
+  }
+}

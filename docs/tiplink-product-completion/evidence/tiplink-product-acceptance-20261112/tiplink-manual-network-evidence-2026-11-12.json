@@ -1,0 +1,54 @@
+{
+  "artifactType": "tiplink-manual-network-evidence",
+  "evidenceClass": "owner_supplied_manual_network_attestation",
+  "attestedBy": "Tipmanna Engineering",
+  "attestedAtUtc": "2026-11-12",
+  "deployment": {
+    "immutableUrl": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app",
+    "gitCommit": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2",
+    "deploymentId": "dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9"
+  },
+  "harOnFileInRepo": false,
+  "harStrictlyRequiredByProcedure": {
+    "registryProcedurePrefersHar": true,
+    "procedureRef": "Tiplink-staging-acceptance-registry.md § Acceptance procedure",
+    "technicalCriterion": "POST …/tv/analytics with HTTP status and ingest response body",
+    "disposition": "Redacted HAR not committed; owner-supplied status and response bodies recorded here as manual network evidence"
+  },
+  "flows": {
+    "public": {
+      "route": "/l/ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea",
+      "endpoint": "POST /tv/analytics",
+      "httpStatus": 200,
+      "httpStatusText": "OK",
+      "responseBody": {
+        "accepted": 2,
+        "duplicates": [],
+        "rejected": [],
+        "cardsPersisted": 0
+      },
+      "captureArtifactRef": "tiplink-manual-acceptance-public-2026-11-12.json"
+    },
+    "hostPreview": {
+      "route": "/l/preview/07e18a5a-5c75-4665-b321-f0fe294b1809",
+      "endpoint": "POST /tv/analytics",
+      "httpStatus": 200,
+      "httpStatusText": "OK",
+      "responseBody": {
+        "accepted": 2,
+        "duplicates": [],
+        "rejected": [],
+        "cardsPersisted": 0
+      },
+      "captureArtifactRef": "tiplink-manual-acceptance-preview-2026-11-12.json"
+    }
+  },
+  "ingestInterpretation": {
+    "acceptedEventCount": 2,
+    "duplicatesCount": 0,
+    "rejectedCount": 0,
+    "cardsPersisted": 0,
+    "cardsPersistedFailure": false,
+    "note": "cardsPersisted zero recorded per owner report; not scored as failure — acceptance criteria do not require card persistence"
+  }
+}

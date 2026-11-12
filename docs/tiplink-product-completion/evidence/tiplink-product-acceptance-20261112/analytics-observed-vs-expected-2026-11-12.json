@@ -1,0 +1,32 @@
+{
+  "capturedAtUtc": "2026-11-12T09:55:00Z",
+  "deployment": {
+    "commit": "2267ee6c4e2e3347d7af90cea7a48b0cca699ee2",
+    "id": "dpl_8qjMR2N4Xcvpa257rSXVN1VU5ZY9",
+    "immutableUrl": "https://tipmanna-testing-g0hjhjlep-telepse-companys-projects.vercel.app"
+  },
+  "source": "Tipmanna Engineering browser capture (reported 2026-11-12); redacted HAR not yet filed in repo",
+  "flowsReported": ["public", "preview"],
+  "analyticsShapeVerifiedInCapture": {
+    "v": 2,
+    "surface": "tiplink",
+    "eventsPresent": ["video_encounter", "video_start"]
+  },
+  "fixtureCorrelation": {
+    "usedApprovedAcceptanceFixture": false,
+    "observedVideoChannelId": "17456868-db4a-4386-a2b3-334f25b83fc4",
+    "expectedVideoChannelId": "7fc7b429-c7b1-42bf-a1bf-954b36b20150",
+    "observedItemId": "tiplink-inside-the-white-grey-brahman-bull-horn-factory-or-how-luxury-ho",
+    "expectedItemId": "tiplink-ronaldo-when-im-retired-in-10-years-portugal-v-wales-nations-lea"
+  },
+  "tvAnalyticsRequest": {
+    "endpointPattern": "POST …/tv/analytics",
+    "responseStatusInRepo": "NOT_FILED",
+    "playbackAtLeast10sInRepo": "NOT_FILED",
+    "harArtifactsExpected": [
+      "public-tiplink-acceptance-redacted.har",
+      "preview-tiplink-acceptance-redacted.har"
+    ],
+    "harArtifactsPresentInRepo": false
+  }
+}
