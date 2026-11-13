@@ -15,3 +15,5 @@ Update only for a **named Explore bug**, with lock text + tests in the same chan
 ## Benchmark
 
 Mint `docs/explore-lock/benchmarks/YYYY-MM-DD-audio/` only after user confirms the real-device matrix. Do not edit minted folders.
+
+**Current status:** [RELEASE-GATE-STATUS.md](./RELEASE-GATE-STATUS.md) — run [MATRIX-EXECUTION-PACKET.md](./MATRIX-EXECUTION-PACKET.md), then fill [DEVICE-MATRIX-CHECKLIST.md](./DEVICE-MATRIX-CHECKLIST.md).

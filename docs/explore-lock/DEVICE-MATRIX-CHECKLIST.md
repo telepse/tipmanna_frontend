@@ -1,6 +1,12 @@
 # Explore audio — real-device matrix (release gate)
 
-Run against **dev** or a **Vercel preview** for PR #112 / post-merge `dev`. Record pass/fail and notes before minting an Explore benchmark.
+Run against **dev** or a **Vercel preview** for post-merge `dev` (PR #112). Record pass/fail and notes before minting an Explore benchmark. Procedure: [MATRIX-EXECUTION-PACKET.md](./MATRIX-EXECUTION-PACKET.md).
+
+## Environment under test
+
+| Build (commit) | URL | Matrix run date |
+|----------------|-----|-----------------|
+| | | |
 
 ## Devices
 
