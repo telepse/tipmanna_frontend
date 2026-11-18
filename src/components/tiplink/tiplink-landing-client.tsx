@@ -91,6 +91,7 @@ import {
   shouldShowTipLinkTapForSound,
   TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY,
 } from "@/lib/tiplink-audio-policy";
+import { shouldForceTipLinkOpenInBrowserForPlayerError } from "@/lib/tiplink-payment-return";
 import {
   DRAWER_OVERLAY_Z_INDEX,
   DRAWER_Z_INDEX,
@@ -293,6 +294,9 @@ export function TipLinkLandingClient({
   const [audioGateReady, setAudioGateReady] = useState(false);
   const [deferProgrammaticUnmute, setDeferProgrammaticUnmute] = useState(false);
   const [showOpenInBrowserBanner, setShowOpenInBrowserBanner] = useState(false);
+  const [embedIdentityError, setEmbedIdentityError] = useState(false);
+  const [playerRemountKey, setPlayerRemountKey] = useState(0);
+  const playerRemountAttemptedRef = useRef(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
@@ -621,6 +625,7 @@ export function TipLinkLandingClient({
     videoRef,
     currentChannelId: channelId,
     onMuteChange: setIsMuted,
+    restoreEpoch: playerRemountKey,
   });
   useAutoDropTip(eventId, true);
 
@@ -949,6 +954,21 @@ export function TipLinkLandingClient({
   const unmuteFromUserGesture = useCallback(() => {
     videoRef.current?.unmute();
     setIsMuted(false);
+  }, []);
+
+  const handleTipLinkPlayerError = useCallback((errorCode?: number) => {
+    if (!shouldForceTipLinkOpenInBrowserForPlayerError(errorCode)) return;
+    setEmbedIdentityError(true);
+    setShowOpenInBrowserBanner(true);
+    try {
+      sessionStorage.removeItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!playerRemountAttemptedRef.current) {
+      playerRemountAttemptedRef.current = true;
+      setPlayerRemountKey(key => key + 1);
+    }
   }, []);
 
   const togglePlayPause = useCallback(() => {
@@ -1577,6 +1597,7 @@ export function TipLinkLandingClient({
         </div>
       ) : null}
       <VideoPlayer
+        key={`tiplink-yt-${playerRemountKey}`}
         ref={videoRef}
         videoUrl={channel.url}
         initialMuted={tipLinkAudioProps.initialMuted}
@@ -1585,6 +1606,7 @@ export function TipLinkLandingClient({
         }
         onMuteStateChange={setIsMuted}
         onPlayStateChange={setIsPlaying}
+        onError={handleTipLinkPlayerError}
         playbackActive
         fullPresentationFit={playerPresentationFit}
         onVideoLoaded={emitEncounter}
@@ -1858,11 +1880,14 @@ export function TipLinkLandingClient({
               className="rounded-2xl border border-amber-400/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-50"
             >
               <p className="font-medium">
-                Sound and tipping work best in Safari or Chrome
+                {embedIdentityError
+                  ? "Video needs Safari or Chrome after payment"
+                  : "Sound and tipping work best in Safari or Chrome"}
               </p>
               <p className="mt-1 text-xs text-amber-100/90">
-                You are in an in-app browser. Use ··· → Open in Safari/Chrome, or
-                copy this link and paste it in your browser.
+                {embedIdentityError
+                  ? "This in-app browser blocked the video player (YouTube 153). Use ··· → Open in Safari/Chrome, or copy the link — playback will resume from where you tipped."
+                  : "You are in an in-app browser. Use ··· → Open in Safari/Chrome, or copy this link and paste it in your browser."}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Button

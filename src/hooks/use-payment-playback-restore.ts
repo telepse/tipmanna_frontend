@@ -22,6 +22,11 @@ type Options = {
   videoRef: RefObject<VideoPlayerRef | null>;
   currentChannelId: string | null | undefined;
   onMuteChange?: (muted: boolean) => void;
+  /**
+   * Bump when the surface remounts the player after a failed embed so pending
+   * Stripe restore can run again (TipLink YouTube 153 remount).
+   */
+  restoreEpoch?: number;
 };
 
 function surfaceMatches(
@@ -59,13 +64,22 @@ export function usePaymentPlaybackRestore({
   videoRef,
   currentChannelId,
   onMuteChange,
+  restoreEpoch = 0,
 }: Options): void {
   const restoredTxRef = useRef<string | null>(null);
   const retryTimerRef = useRef<number | null>(null);
+  const lastEpochRef = useRef(restoreEpoch);
   const allowedSurfaces = useMemo(
     () => (Array.isArray(paymentSurface) ? paymentSurface : [paymentSurface]),
     [paymentSurface]
   );
+
+  useEffect(() => {
+    if (lastEpochRef.current !== restoreEpoch) {
+      lastEpochRef.current = restoreEpoch;
+      restoredTxRef.current = null;
+    }
+  }, [restoreEpoch]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -104,5 +118,12 @@ export function usePaymentPlaybackRestore({
         retryTimerRef.current = null;
       }
     };
-  }, [enabled, allowedSurfaces, currentChannelId, videoRef, onMuteChange]);
+  }, [
+    enabled,
+    allowedSurfaces,
+    currentChannelId,
+    videoRef,
+    onMuteChange,
+    restoreEpoch,
+  ]);
 }
