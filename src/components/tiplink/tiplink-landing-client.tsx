@@ -82,6 +82,15 @@ import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { loadReelSoundPref } from "@/lib/session-audio";
+import {
+  resolveTipLinkPlayerAudioProps,
+  resolveTipLinkSurfaceTapAction,
+  shouldDeferTipLinkProgrammaticUnmute,
+  shouldShowTipLinkOpenInBrowserBanner,
+  shouldShowTipLinkTapForSound,
+  TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY,
+} from "@/lib/tiplink-audio-policy";
 import {
   DRAWER_OVERLAY_Z_INDEX,
   DRAWER_Z_INDEX,
@@ -280,6 +289,10 @@ export function TipLinkLandingClient({
   } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  /** Hydration-safe: SSR/default = no defer / no banner until client UA read. */
+  const [audioGateReady, setAudioGateReady] = useState(false);
+  const [deferProgrammaticUnmute, setDeferProgrammaticUnmute] = useState(false);
+  const [showOpenInBrowserBanner, setShowOpenInBrowserBanner] = useState(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
@@ -611,6 +624,27 @@ export function TipLinkLandingClient({
   });
   useAutoDropTip(eventId, true);
 
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    setDeferProgrammaticUnmute(shouldDeferTipLinkProgrammaticUnmute(ua));
+    let dismissed = false;
+    try {
+      dismissed =
+        sessionStorage.getItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY) === "1";
+    } catch {
+      dismissed = false;
+    }
+    setShowOpenInBrowserBanner(
+      shouldShowTipLinkOpenInBrowserBanner(ua) && !dismissed
+    );
+    setAudioGateReady(true);
+  }, []);
+
+  const tipLinkAudioProps = resolveTipLinkPlayerAudioProps({
+    defer: deferProgrammaticUnmute,
+    wantsSound: audioGateReady ? loadReelSoundPref() : false,
+  });
+
   const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
     {
       surface: "tiplink",
@@ -912,6 +946,11 @@ export function TipLinkLandingClient({
     setIsMuted(next);
   }, [isMuted]);
 
+  const unmuteFromUserGesture = useCallback(() => {
+    videoRef.current?.unmute();
+    setIsMuted(false);
+  }, []);
+
   const togglePlayPause = useCallback(() => {
     if (isPlaying) videoRef.current?.pause();
     else videoRef.current?.play();
@@ -929,13 +968,55 @@ export function TipLinkLandingClient({
     });
   }, [isMobileSurface]);
 
+  const dismissOpenInBrowserBanner = useCallback(() => {
+    try {
+      sessionStorage.setItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY, "1");
+    } catch {
+      /* ignore quota / private mode */
+    }
+    setShowOpenInBrowserBanner(false);
+  }, []);
+
+  const copyTipLinkForBrowser = useCallback(async () => {
+    const url =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `${getPrimaryOrigin()}/l/${tipLink.slug}`;
+    try {
+      await copyShareUrl(url);
+      toast.success("Link copied — paste in Safari or Chrome");
+    } catch {
+      toast.info("Copy the address bar URL and open it in Safari or Chrome");
+    }
+  }, [tipLink.slug]);
+
   const handlePlayerSurfaceClick = useCallback(() => {
-    if (isDocked) {
+    const action = resolveTipLinkSurfaceTapAction({
+      isDocked,
+      playerMuted: isMuted,
+    });
+    if (action === "scroll_to_video") {
       scrollToInlineVideo();
       return;
     }
+    if (action === "unmute") {
+      unmuteFromUserGesture();
+      return;
+    }
     togglePlayPause();
-  }, [isDocked, scrollToInlineVideo, togglePlayPause]);
+  }, [
+    isDocked,
+    isMuted,
+    scrollToInlineVideo,
+    unmuteFromUserGesture,
+    togglePlayPause,
+  ]);
+
+  const showTapForSound = shouldShowTipLinkTapForSound({
+    playerMuted: isMuted,
+    isPlaying,
+    isDocked,
+  });
 
   const preservePlaybackBeforeLayout = useCallback(() => {
     const t = videoRef.current?.getCurrentTime();
@@ -1498,7 +1579,10 @@ export function TipLinkLandingClient({
       <VideoPlayer
         ref={videoRef}
         videoUrl={channel.url}
-        initialMuted={isMuted}
+        initialMuted={tipLinkAudioProps.initialMuted}
+        restoreSessionSoundOnProgrammaticPlay={
+          tipLinkAudioProps.restoreSessionSoundOnProgrammaticPlay
+        }
         onMuteStateChange={setIsMuted}
         onPlayStateChange={setIsPlaying}
         playbackActive
@@ -1511,13 +1595,30 @@ export function TipLinkLandingClient({
         aria-label={
           isDocked
             ? "Scroll to video"
-            : isPlaying
-              ? "Pause video"
-              : "Play video"
+            : isMuted
+              ? "Unmute video"
+              : isPlaying
+                ? "Pause video"
+                : "Play video"
         }
         className="absolute inset-0 z-[50] cursor-pointer bg-transparent"
         onClick={handlePlayerSurfaceClick}
       />
+      {showTapForSound ? (
+        <div className="pointer-events-none absolute inset-0 z-[53] flex items-center justify-center px-4">
+          <button
+            type="button"
+            data-testid="tiplink-tap-for-sound"
+            className="pointer-events-auto rounded-full bg-black/65 px-5 py-2.5 text-sm font-medium text-white shadow-lg"
+            onClick={e => {
+              e.stopPropagation();
+              unmuteFromUserGesture();
+            }}
+          >
+            Tap for sound
+          </button>
+        </div>
+      ) : null}
       <div
         id="global-animation-layer"
         className={cn("pointer-events-none absolute inset-0", TV_RAIL_Z_INDEX)}
@@ -1750,6 +1851,46 @@ export function TipLinkLandingClient({
           <section className="rounded-2xl border border-white/10 bg-black/25 p-1">
             {renderPlayerAnchor()}
           </section>
+
+          {showOpenInBrowserBanner ? (
+            <section
+              data-testid="tiplink-open-in-browser-banner"
+              className="rounded-2xl border border-amber-400/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-50"
+            >
+              <p className="font-medium">
+                Sound and tipping work best in Safari or Chrome
+              </p>
+              <p className="mt-1 text-xs text-amber-100/90">
+                You are in an in-app browser. Use ··· → Open in Safari/Chrome, or
+                copy this link and paste it in your browser.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={() => {
+                    void copyTipLinkForBrowser();
+                  }}
+                >
+                  Copy link
+                </Button>
+                <button
+                  type="button"
+                  className="text-xs text-amber-100/80 underline-offset-2 hover:underline"
+                  onClick={dismissOpenInBrowserBanner}
+                >
+                  Dismiss
+                </button>
+              </div>
+              <p className="mt-2 break-all select-all text-[11px] text-amber-100/70">
+                {typeof window !== "undefined"
+                  ? window.location.href
+                  : `${getPrimaryOrigin()}/l/${tipLink.slug}`}
+              </p>
+            </section>
+          ) : null}
 
           {!hideScrollContent ? (
             <>
