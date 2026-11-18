@@ -22,9 +22,11 @@ Do not change without updating this section and `src/lib/__tests__/tiplink-audio
 | First surface tap while muted | **Unmute** (gesture); later taps toggle pause/play |
 | Docked mini-player tap | Scroll to video (unchanged) |
 | Scrubber mute / play | Unchanged |
-| Stripe / tip drawer restore | Unchanged (`usePaymentPlaybackRestore`) |
+| Stripe / tip drawer restore | Resume at floored second from PaymentIntent (`restoreOffsetSec`) + mute snapshot via `usePaymentPlaybackRestore` |
+| Stripe return navigation | TipLink `/l/...` uses **hard** navigation after `/success` so WebViews load fresh JS chunks |
+| YouTube error 153 after return | Force Open-in-browser banner; one player remount + restore epoch retry; keep pending offset |
 
-Policy: `src/lib/tiplink-audio-policy.ts`. Wiring: `src/components/tiplink/tiplink-landing-client.tsx`.
+Policy: `src/lib/tiplink-audio-policy.ts`, `src/lib/tiplink-payment-return.ts`. Wiring: `src/components/tiplink/tiplink-landing-client.tsx`.
 
 ---
 

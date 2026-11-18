@@ -66,4 +66,14 @@ describe("redirectAfterPaymentSuccess", () => {
       "/explore?feedTab=trends"
     );
   });
+
+  it("hard-navigates TipLink payment origins immediately (fresh chunks)", () => {
+    storage.set(
+      PAYMENT_ORIGIN_STORAGE_KEY,
+      "http://localhost:3000/l/my-slug?x=1"
+    );
+    redirectAfterPaymentSuccess(router, null, "pi_tiplink");
+    expect(replace).not.toHaveBeenCalled();
+    expect(window.location.assign).toHaveBeenCalledWith("/l/my-slug?x=1");
+  });
 });
