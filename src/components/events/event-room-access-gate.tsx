@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
@@ -32,6 +32,12 @@ import { JoinCommunityModal } from "@/components/community/join-community-modal"
 import { getCommunityAccessStateAction } from "@/actions/communities";
 import { persistEventRoomInviteToken } from "@/lib/event-room-invite-cookie";
 import type { RootState } from "@/redux/store";
+import {
+  EventTayePartialWaitRoom,
+  EventTayeUnlockForm,
+} from "@/components/events/event-taye-gate";
+import { reloadRoomPageAfterAccessGrant } from "@/lib/event-room-access-code-cookie";
+import { shouldHardReloadRoomAfterAccessGrant } from "@/lib/event-room-access-gate.util";
 
 const inviteStorageKey = (eventId: string) => `event-room-invite:${eventId}`;
 const accessCodeStorageKey = (eventId: string) =>
@@ -84,6 +90,12 @@ type AccessPayload = {
   reason?: string;
   pending?: boolean;
   gate?: GateHints;
+  taye?: {
+    enabled?: boolean;
+    type?: string;
+    partial?: boolean;
+    partnerSiteOrigin?: string | null;
+  };
 };
 
 type GateStep = "verify" | "details";
@@ -907,11 +919,14 @@ export function EventRoomAccessGate({
   isEventOver,
   children,
 }: Props) {
+  const reloadAfterGrantRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(true);
   const [accessMode, setAccessMode] = useState<AccessMode>("public");
   const [gate, setGate] = useState<GateHints | undefined>();
   const [pending, setPending] = useState(false);
+  const [tayeMeta, setTayeMeta] = useState<AccessPayload["taye"]>();
+  const hasChildren = children != null;
 
   const refreshAccess = useCallback(async () => {
     const inviteToken = getStoredEventRoomInviteToken(eventId);
@@ -923,7 +938,7 @@ export function EventRoomAccessGate({
       email: getStoredAccessEmail(eventId),
     });
     if (!res.success || !res.data) {
-      setAllowed(true);
+      setAllowed(false);
       setLoading(false);
       return;
     }
@@ -931,6 +946,7 @@ export function EventRoomAccessGate({
     const mode = data.accessMode ?? "public";
     setAccessMode(mode);
     setGate(data.gate);
+    setTayeMeta(data.taye);
     setPending(Boolean(data.pending));
     if (mode === "public") {
       setAllowed(true);
@@ -945,6 +961,18 @@ export function EventRoomAccessGate({
     void refreshAccess();
   }, [refreshAccess]);
 
+  const handleAccessGranted = useCallback(() => {
+    if (
+      shouldHardReloadRoomAfterAccessGrant(true, hasChildren) &&
+      !reloadAfterGrantRef.current
+    ) {
+      reloadAfterGrantRef.current = true;
+      reloadRoomPageAfterAccessGrant();
+      return;
+    }
+    void refreshAccess();
+  }, [hasChildren, refreshAccess]);
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -954,6 +982,22 @@ export function EventRoomAccessGate({
   }
 
   if (!allowed) {
+    if (tayeMeta?.enabled && tayeMeta.partial) {
+      return (
+        <EventTayePartialWaitRoom
+          partnerSiteOrigin={tayeMeta.partnerSiteOrigin}
+        />
+      );
+    }
+    if (tayeMeta?.enabled) {
+      return (
+        <EventTayeUnlockForm
+          eventId={eventId}
+          eventName={eventName}
+          onSuccess={() => void refreshAccess()}
+        />
+      );
+    }
     return (
       <EventRoomAccessForm
         eventId={eventId}
@@ -962,7 +1006,7 @@ export function EventRoomAccessGate({
         accessMode={accessMode}
         gate={gate}
         pending={pending}
-        onSuccess={() => void refreshAccess()}
+        onSuccess={() => handleAccessGranted()}
       />
     );
   }
