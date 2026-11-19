@@ -41,6 +41,14 @@ Added to Vercel **`tipmanna-live` Production** (names only; values not disclosed
 
 Prior production FE lacked Analytics v2 build flags (only legacy `NEXT_PUBLIC_TV_ANALYTICS_ENABLED`).
 
+## Production deployment
+Production deployment completed.
+Analytics SDK v2 enabled.
+Production ingestion and persistence verified.
+Frontend regression tests: 48/48 passed.
+No production-critical defects reported.
+Closure documentation merged.
+
 ## Database / infrastructure
 
 - No Analytics-required Prisma migrations for this release pair.
