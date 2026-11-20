@@ -1,6 +1,8 @@
-# Analytics production release — closure record (2026-11-19)
+﻿# Analytics production release — closure record (2026-11-19)
 
-**Final status:** **PRODUCTION DEPLOYED AND VERIFIED — PROJECT CLOSED**
+**Final status:** **`CLOSED — PRODUCTION VERIFIED`**
+
+**Master tracker:** [../ANALYTICS-PRODUCTION-MASTER-TRACKER.md](../ANALYTICS-PRODUCTION-MASTER-TRACKER.md)
 
 ## Release scope selected
 
@@ -8,10 +10,11 @@ Integrated production pair (not historical Wave 3 / TipLink acceptance pins as d
 
 | App | Release SHA | Hosting | Notes |
 |-----|-------------|---------|-------|
-| Backend | `5eb29d6a48cf74dc33f68ee768e6bc0d881df5b6` | Render `tipmanna-live` | Already live; includes Streaming A merge (PR #155). **No redeploy.** |
-| Frontend | `7faf1af6976d4f1eb4c8267d5ef2a3958a93144c` | Vercel project `tipmanna-live` | `origin/dev` tip; TipLink payment-return + audio + Analytics SDK lineage. |
+| Backend (Analytics-approved pin) | `5eb29d6a48cf74dc33f68ee768e6bc0d881df5b6` | Render `tipmanna-live` | Includes Streaming A merge (PR #155). Analytics ingest sources verified at this pin. |
+| Backend (current live) | `614267837b1c6dbfd93c75c6cb60c8ebba8bfcf1` | Render `tipmanna-live` | Deployed 2026-11-19 via PR #156 (`fix/taye-ac9-prod-dist-refresh`). **Dist-only** Taye AC9 prune-cron refresh; **no `src` Analytics changes** vs approved pin (identical git blobs for `tvAnalytics.controller.ts`, `analytics.schema.ts`, `tv-analytics-v2-persist.ts`). |
+| Frontend | `7faf1af6976d4f1eb4c8267d5ef2a3958a93144c` | Vercel project `tipmanna-live` | TipLink payment-return + audio + Analytics SDK lineage. |
 
-**Why this pair:** Production must not roll back to Wave 3-only pins. BE prod already runs `5eb29d6a`. FE prod previously ran `5d5eef5` (43d stale). Test01 already served `7faf1af` with Analytics flags. Core Analytics ingest sources unchanged vs Wave 3 BE pin.
+**Why this pair:** Production must not roll back to Wave 3-only pins. FE corrective Production deploy restores Analytics SDK v2 after an intervening older Production tree briefly superseded the Analytics-enabled release. Core Analytics ingest sources remain unchanged through the subsequent Taye dist refresh.
 
 ## Historical distinctions (unchanged)
 
@@ -24,7 +27,7 @@ Integrated production pair (not historical Wave 3 / TipLink acceptance pins as d
 
 ## Production configuration
 
-Added to Vercel **`tipmanna-live` Production** (names only; values not disclosed):
+Present on Vercel **`tipmanna-live` Production** (names only; values not disclosed):
 
 - `NEXT_PUBLIC_ANALYTICS_SDK_V2`
 - `NEXT_PUBLIC_ANALYTICS_SURFACE_TIPLINK_V2`
@@ -39,16 +42,6 @@ Added to Vercel **`tipmanna-live` Production** (names only; values not disclosed
 - `NEXT_PUBLIC_ANALYTICS_SURFACE_EXPLORE_FEED_V2`
 - `NEXT_PUBLIC_ANALYTICS_SURFACE_COMMUNITY_FEED_V2`
 
-Prior production FE lacked Analytics v2 build flags (only legacy `NEXT_PUBLIC_TV_ANALYTICS_ENABLED`).
-
-## Production deployment
-Production deployment completed.
-Analytics SDK v2 enabled.
-Production ingestion and persistence verified.
-Frontend regression tests: 48/48 passed.
-No production-critical defects reported.
-Closure documentation merged.
-
 ## Database / infrastructure
 
 - No Analytics-required Prisma migrations for this release pair.
@@ -59,10 +52,9 @@ Closure documentation merged.
 
 | Check | Result |
 |-------|--------|
-| Worktree HEAD before deploy | `7faf1af6976d4f1eb4c8267d5ef2a3958a93144c` |
-| `npm ci` | PASS |
-| Vitest analytics-sdk + TipLink payment/audio specs | **57/57 PASS** |
-| BE redeploy | **NOT REQUIRED** (SHA already live) |
+| Worktree HEAD for corrective FE deploy | `7faf1af6976d4f1eb4c8267d5ef2a3958a93144c` |
+| Vitest TipLink payment-return + audio + analytics-sdk | **48/48 PASS** |
+| BE Analytics-source redeploy for this closure | **NOT REQUIRED** (live SHA is descendant dist refresh; Analytics `src` identical) |
 
 ## Deployments
 
@@ -71,47 +63,66 @@ Closure documentation merged.
 | Field | Value |
 |-------|--------|
 | Service | `tipmanna-live.onrender.com` |
-| Action | None (already at release SHA) |
-| Health | `GET /health?deploy=1` → `status: OK`, `gitCommit: 5eb29d6a…` |
-| Previous known-good | Same SHA |
+| Analytics-approved pin | `5eb29d6a48cf74dc33f68ee768e6bc0d881df5b6` |
+| Current live SHA | `614267837b1c6dbfd93c75c6cb60c8ebba8bfcf1` |
+| Intervening change | PR [#156](https://github.com/telepse/tipmanna_server/pull/156) — rebuild committed `dist/` so Taye AC9 idempotency prune cron / sandbox capability ship |
+| Analytics impact | **None on source** — ingest/schema/persist blobs unchanged; live `OPTIONS /api/v1/tv/analytics` → 204 |
+| Health | `GET /health?deploy=1` → `status: OK`, `gitCommit: 61426783…` |
 
 ### Frontend
 
 | Field | Value |
 |-------|--------|
 | Project | Vercel `tipmanna-live` |
-| Previous production | `dpl_E9SaMBdRPP5m63pVujFr9Sa7gHj` · git `5d5eef56eb16ce3bd02b65fa8728399b6dd2800a` |
-| New production | **`dpl_GiYrn7un3LxZSsK6pLMtfrxtpZ4M`** |
-| Immutable URL | `https://tipmanna-live-1qe3966od-telepse-companys-projects.vercel.app` |
+| Intended Analytics Production deployment | **`dpl_9RLvNnZSqfZye6RkZP5Re3fbYMud`** |
+| Immutable URL | `https://tipmanna-live-lv6o67fyo-telepse-companys-projects.vercel.app` |
+| Source commit | `7faf1af6976d4f1eb4c8267d5ef2a3958a93144c` |
+| Created | 2026-11-19 13:14:10 GMT+0100 |
 | Production aliases | `https://www.tipmanna.tv`, `https://www.tipmanna.live`, `https://tipmanna.tv`, `https://tipmanna.live` |
+| Prior superseded Production | `dpl_7yKQV2cDJmxw1vR8hcViw6ks2Znd` (`amnhn4abf`) — older tree without Analytics `deploy-info` block (rollback target during corrective deploy) |
+| Earlier Analytics-enabled deploy (not current live) | `dpl_GiYrn7un3LxZSsK6pLMtfrxtpZ4M` |
 | Method | Exact SHA worktree → `vercel deploy --prod` (CLI; `VERCEL_GIT_COMMIT_SHA` unset in deploy-info — provenance = worktree HEAD + deployment id) |
 
 ## Production verification
 
 | Check | Result |
 |-------|--------|
-| BE health + SHA | **PASS** |
-| FE homepage (`www.tipmanna.tv` → `/explore`) | **PASS** HTTP 200 |
+| BE health | **PASS** (`status: OK`) |
+| FE domains → `dpl_9RLvNnZ…` | **PASS** |
 | FE `deploy-info` `analytics.sdkV2` | **PASS** `true` |
-| FE `deploy-info` git commit field | **NULL** (CLI deploy metadata limitation) — release SHA recorded above |
-| `POST /api/v1/tv/analytics` available | **PASS** (OPTIONS 204; empty body → 400 discriminator validation) |
-| Controlled v2 smoke (synthetic channel) | Schema accepted into persist path; **P2003** FK (expected — synthetic UUID not in prod DB). No real-user fixture used. |
-| TipLink Product / Wave 3 historical suites | **Not re-run** (no invalidating Analytics-core delta requiring full re-acceptance) |
+| FE homepage / explore | **PASS** HTTP 200 |
+| Controlled production v2 smoke | **PASS** — see below |
+| TipLink Product / Wave 3 historical suites | **Not re-run** (dispositions preserved) |
+
+### Controlled production Analytics event (authorised; do not repeat)
+
+| Field | Value |
+|-------|--------|
+| Endpoint | `POST https://tipmanna-live.onrender.com/api/v1/tv/analytics` |
+| EventChannel | `036fc50c-3c55-437b-b5e8-e692f001015c` |
+| Event | `share_click` (batch `v: 2`) |
+| Event UID | `b109c2ab-4a79-453a-9244-29acbd2d77dc` |
+| Session ID | `analytics-prod-closure-smoke-20261119` |
+| Request UTC | `2026-11-19T12:02:10.145Z` |
+| HTTP | **200** |
+| Ack | `accepted: 1`, `rejected: []`, `duplicates: []`, `cardsPersisted: 0` |
+| Persistence | Metrics `shares` **0 → 1** on the same EventChannel (independent of HTTP ack) |
 
 ## Rollback
 
 | Service | Rollback method |
 |---------|-----------------|
-| FE | Redeploy / promote previous `dpl_E9SaMBdRPP5m63pVujFr9Sa7gHj` (`5d5eef5`) |
-| BE | No change; if needed redeploy prior known Render SHA |
+| FE | Re-alias / promote `dpl_7yKQV2cDJmxw1vR8hcViw6ks2Znd` only if Analytics FE release must be reverted |
+| BE | No Analytics rollback indicated; PR #156 is intended Taye AC9 dist fix. If needed, redeploy prior Render SHA after owner approval |
 
 ## Outstanding non-blocking issues
 
 1. CLI production deploy does not populate `deploy-info.commit` — consider future git-connected production deploy for SHA telemetry.
-2. Synthetic analytics smoke did not yield `accepted>0` (intentional; avoids inventing production channel fixtures).
-3. Render health `deploymentEnvValid: false` / helper flags — pre-existing ops noise, not introduced by this release.
-4. Next.js 15.5.7 advisory noted at `npm ci` — tracked dependency hygiene; not a release gate here.
+2. Render health `deploymentEnvValid: false` / helper flags — pre-existing ops noise, not introduced by Analytics release.
+3. Live BE SHA advanced beyond Analytics-approved pin for Taye AC9 dist refresh; Analytics `src` identity confirmed — no Analytics rollback requested.
 
 ## Closure decision
 
-Analytics production application release for the selected integrated pair is **deployed** and **verified** for health, configuration, and ingestion path availability. Historical Wave 3 / TipLink Product dispositions remain as previously recorded.
+Tipmanna Analytics production release for the selected integrated pair is **deployed** and **verified** for FE SDK v2, production ingest/persistence, and documented scope boundaries. Historical Wave 3 / TipLink Product dispositions remain as previously recorded.
+
+**`CLOSED — PRODUCTION VERIFIED`**
