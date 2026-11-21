@@ -7,6 +7,7 @@ import {
 } from "@/lib/creator-profile-metadata";
 import { buildOrganizationJsonLd } from "@/lib/structured-data";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -75,7 +76,7 @@ export default async function CommunityJoinLayout({ params, children }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(orgJsonLd) }}
       />
       {children}
     </>

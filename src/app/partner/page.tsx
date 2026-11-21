@@ -34,10 +34,12 @@ import {
   buildOrganizationJsonLd,
   buildPartnerOffersJsonLd,
 } from "@/lib/structured-data";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { PARTNER_FAQS } from "@/constants";
 import { getPlanPricingAction } from "@/actions/plan-pricing";
 import { buildMarketingPricingCards } from "@/lib/public-plan-pricing";
 import { PartnerPricingSubscribeSection } from "@/components/partner/partner-pricing-subscribe-section";
+import { PageLinkedV2ChunkAnchor } from "@/lib/analytics-sdk/page-linked-v2-chunk-anchor";
 
 export const revalidate = 300;
 
@@ -107,18 +109,19 @@ export default async function PartnerPage() {
 
   return (
     <main id="main-content">
+      <PageLinkedV2ChunkAnchor />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(orgJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(offersJsonLd),
+          __html: safeJsonLdStringify(offersJsonLd),
         }}
       />
 

@@ -347,7 +347,7 @@ export const MessageHeader = ({
         >
           <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-lg">
             <ContentRoomSettings
-              isHost={eventOwner}
+              isHost={isEventOwner === user?.id}
               isCohost={tag === "COHOST"}
               eventId={eventId}
               eventHostId={isEventOwner}

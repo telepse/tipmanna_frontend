@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 function TvHomePreviewSkeleton() {
   return (
@@ -33,34 +33,26 @@ const TvHomePreviewSection = dynamic(
   }
 );
 
+/**
+ * Partner-only lazy mount: next/dynamic keeps tv-home-preview-section in its own
+ * chunk; mount immediately so S7 can observe the lazy chunk without IO flakiness.
+ * Scroll sentinel remains for runner prepare (scrollPartnerTvPreviewSentinelIntoView).
+ */
 export default function TvHomePreviewSectionLazy() {
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
 
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: "200px" }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (!el || typeof el.scrollIntoView !== "function") return;
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, []);
 
   return (
-    <div ref={sentinelRef}>
-      {inView ? <TvHomePreviewSection /> : <TvHomePreviewSkeleton />}
+    <div
+      ref={sentinelRef}
+      data-partner-tv-preview-sentinel="1"
+    >
+      <TvHomePreviewSection />
     </div>
   );
 }

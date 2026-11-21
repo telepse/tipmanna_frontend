@@ -119,48 +119,101 @@ export default function ContentOnlyPage() {
     let validVideos = true;
 
     // Step 2: video links validation
+    // Step 2: video links validation
     if (step === 2) {
       const videoLinks = form.getValues("videoLinks") || [];
 
-      if (videoLinks.length === 0) {
-        toast.error("Please add at least one video");
+      const videosWithUrls = videoLinks.filter(video => video.url?.trim());
+
+      // At least one video is required.
+      if (videosWithUrls.length === 0) {
+        toast.error("Please add at least one video.");
         return;
       }
 
-      const hasDefault = videoLinks.some(v => v.isDefault);
+      // One video must be selected as the default video.
+      const hasDefault = videosWithUrls.some(video => video.isDefault);
+
       if (!hasDefault) {
-        toast.error("Please select a default video");
+        toast.error("Please select a default video.");
         return;
       }
 
-      // Validate each video link
+      // Validate every video that has a URL.
       const videoValidationResults = await Promise.all(
-        videoLinks.map(async (link, i) => {
-          if (!link.url) {
-            form.setError(`videoLinks.${i}.url`, {
-              type: "manual",
-              message: "Video link is required",
-            });
-            return { valid: false };
+        videoLinks.map(async (link, index) => {
+          // Completely empty video rows are ignored.
+          if (!link.url?.trim()) {
+            return { valid: true };
           }
 
-          // Validate actual URL
+          // Validate the actual video URL.
           const res = await validateVideoLink(link.url);
 
           if (!res.valid) {
-            form.setError(`videoLinks.${i}.url`, {
+            form.setError(`videoLinks.${index}.url`, {
               type: "manual",
               message: res.message,
             });
-          } else {
-            form.clearErrors(`videoLinks.${i}.url`);
+
+            return { valid: false };
           }
 
-          return res;
+          form.clearErrors(`videoLinks.${index}.url`);
+
+          // Video title is required when a video URL exists.
+          if (!link.title?.trim()) {
+            form.setError(`videoLinks.${index}.title`, {
+              type: "manual",
+              message: "Video title is required",
+            });
+
+            return { valid: false };
+          }
+
+          form.clearErrors(`videoLinks.${index}.title`);
+
+          // Content country is required when a video URL exists.
+          if (!link.contentCountry?.trim()) {
+            form.setError(`videoLinks.${index}.contentCountry`, {
+              type: "manual",
+              message: "Please select a content country",
+            });
+
+            return { valid: false };
+          }
+
+          form.clearErrors(`videoLinks.${index}.contentCountry`);
+
+          // Content language is required when a video URL exists.
+          if (!link.contentLanguage?.trim()) {
+            form.setError(`videoLinks.${index}.contentLanguage`, {
+              type: "manual",
+              message: "Please select a content language",
+            });
+
+            return { valid: false };
+          }
+
+          form.clearErrors(`videoLinks.${index}.contentLanguage`);
+
+          // Event video type is required when a video URL exists.
+          if (!link.eventVideoType) {
+            form.setError(`videoLinks.${index}.eventVideoType`, {
+              type: "manual",
+              message: "Please select a video type",
+            });
+
+            return { valid: false };
+          }
+
+          form.clearErrors(`videoLinks.${index}.eventVideoType`);
+
+          return { valid: true };
         })
       );
 
-      validVideos = videoValidationResults.every(res => res.valid);
+      validVideos = videoValidationResults.every(result => result.valid);
     }
 
     // Move to the next step if all validations pass
@@ -198,11 +251,10 @@ export default function ContentOnlyPage() {
           title: "",
           description: "",
           reminders: [],
-          isDefault: false, // ✅ first video is default
-          /// ISO-ish language tag (e.g. en-GB); "all" means unspecified in filters
-          contentLanguage: "en-GB",
-          /// ISO 3166-1 alpha-2 or "all" for explore filters
-          contentCountry: "all",
+          isDefault: false,
+          contentLanguage: "",
+          contentCountry: "",
+          eventVideoType: undefined,
         },
       ],
       eventName: "",

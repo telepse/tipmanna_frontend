@@ -1,4 +1,5 @@
 import type { PaymentSurface, TvAnalyticsClipMode } from "./analytics-types";
+import { isTvSurfaceSdkCollectionActive } from "./analytics-sdk/surface-flags";
 import { getAnalyticsSessionId, getDeviceCategory } from "./analytics-session";
 import type {
   TvAnalyticsBatchBodyV1,
@@ -153,6 +154,7 @@ export function trackTvModeChange(
   to: TvAnalyticsClipMode,
   reason: string | null
 ): void {
+  if (isTvSurfaceSdkCollectionActive(ctx.surface)) return;
   enqueue({
     event: "mode_change",
     ts: Date.now(),
@@ -167,6 +169,7 @@ export function trackTvUserInteraction(
   kind: "pause" | "seek" | "click" | "play",
   detail: string | null
 ): void {
+  if (isTvSurfaceSdkCollectionActive(ctx.surface)) return;
   enqueue({
     event: "user_interaction",
     ts: Date.now(),

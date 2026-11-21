@@ -14,6 +14,7 @@ import {
   type RefObject,
   type CSSProperties,
   type ReactNode,
+  type SyntheticEvent,
 } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -43,6 +44,18 @@ import {
   isExploreNeverPlayingRecoveryEligible,
   reduceExploreNeverPlayingRecovery,
 } from "@/lib/explore-never-playing-recovery";
+import {
+  resolveExploreReelPlayerAudioProps,
+  resolveExploreReelTapAction,
+  shouldDeferProgrammaticUnmute,
+  shouldShowExploreTapForSound,
+  type ExploreReelTapAction,
+} from "@/lib/explore-reel-audio-policy";
+import {
+  EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS,
+  EXPLORE_ACTIVATION_READY_RETRY_MS,
+  shouldUnmuteOnExploreReelActivation,
+} from "@/lib/explore-reel-activation";
 import { AUTH_CHANGED_EVENT } from "@/lib/auth-events";
 import {
   CREATOR_USERNAME_CHANGED_EVENT,
@@ -108,14 +121,18 @@ import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import { buildExploreVideoHref } from "@/lib/explore-video-navigation";
 import type { RoomCharacter } from "@/types";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
-  trackTvVideoComplete,
-  trackTvVideoEnd,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-} from "@/lib/tvAnalytics";
+  flushExploreFeedAnalyticsBeforeContext,
+  initExploreFeedAnalyticsRuntime,
+  resolveExploreFeedAnalyticsSurface,
+  setExploreFeedAnalyticsContext,
+  trackExploreFeedVideoComplete,
+  trackExploreFeedVideoEnd,
+  trackExploreFeedVideoEncounter,
+  trackExploreFeedVideoStart,
+  emitExploreFeedElapsedWatchDuration,
+  isExploreFeedWatchDurationEnabled,
+  type ExploreFeedAnalyticsContext,
+} from "@/lib/analytics/explore-feed-analytics";
 import type { ExploreFeedOpenTarget } from "@/lib/explore-feed-open";
 import {
   resolveExploreOpenChannelRow,
@@ -440,12 +457,14 @@ type ExploreFeedSlideVideoProps = {
   onPlayerAspectInfo?: (info: YoutubeAspectInfo) => void;
   videoRef: RefObject<VideoPlayerRef | null>;
   onActivePlaying: () => void;
+  onPlaybackCompleteAnalytics?: (item: { id: string }) => void;
   onActiveReelEnded?: () => void;
   onActiveReelMuteChange?: (muted: boolean) => void;
   onPlayerError?: () => void;
   playerRetryKey?: number;
   onEngageUnlocked?: () => void;
   tipDrawerOpen?: boolean;
+  onActiveReelPlayStateChange?: (playing: boolean) => void;
 };
 
 function ExploreFeedSlideVideo({
@@ -462,12 +481,14 @@ function ExploreFeedSlideVideo({
   onPlayerAspectInfo,
   videoRef,
   onActivePlaying,
+  onPlaybackCompleteAnalytics,
   onActiveReelEnded,
   onActiveReelMuteChange,
   onPlayerError,
   playerRetryKey = 0,
   onEngageUnlocked,
   tipDrawerOpen = false,
+  onActiveReelPlayStateChange,
 }: ExploreFeedSlideVideoProps) {
   const posterObjectFitClass =
     fullPresentationFit === "contain" ? "object-contain" : "object-cover";
@@ -494,7 +515,21 @@ function ExploreFeedSlideVideo({
     return () => window.clearTimeout(tid);
   }, [inPreloadBand, slideIndex, activeIndex]);
 
+  const deferProgrammaticUnmute = useMemo(
+    () => shouldDeferProgrammaticUnmute(),
+    []
+  );
+  const exploreReelAudioProps = resolveExploreReelPlayerAudioProps({
+    defer: deferProgrammaticUnmute,
+    wantsSound: loadReelSoundPref(),
+  });
+
   const [isPaused, setIsPaused] = useState(false);
+  const [engagedThisReel, setEngagedThisReel] = useState(false);
+  const [isPlayerMuted, setIsPlayerMuted] = useState(
+    () => !loadReelSoundPref()
+  );
+  const [hasReachedPlaying, setHasReachedPlaying] = useState(false);
   const hasReachedPlayingRef = useRef(false);
   const isBufferingRef = useRef(false);
   const neverPlayingRecoveryRef = useRef(
@@ -508,6 +543,9 @@ function ExploreFeedSlideVideo({
 
   useEffect(() => {
     setIsPaused(false);
+    setEngagedThisReel(false);
+    setIsPlayerMuted(!loadReelSoundPref());
+    setHasReachedPlaying(false);
     hasReachedPlayingRef.current = false;
     isBufferingRef.current = false;
     neverPlayingRecoveryRef.current =
@@ -519,6 +557,54 @@ function ExploreFeedSlideVideo({
     }
     setPauseFlash(null);
   }, [activeIndex, item.id, playerRetryKey]);
+
+  // Scrubber unlock via onEngageUnlocked only — do NOT set engagedThisReel here
+  // (first tap on a muted playing reel must remain unmute_and_engage).
+  useEffect(() => {
+    if (!playbackActive || slideIndex !== activeIndex) return;
+
+    let cancelled = false;
+    let attempt = 0;
+    let retryTimer: number | undefined;
+
+    const runActivation = () => {
+      if (cancelled) return;
+      const p = videoRef.current;
+      if (!p?.isReady()) {
+        attempt += 1;
+        if (attempt < EXPLORE_ACTIVATION_READY_MAX_ATTEMPTS) {
+          retryTimer = window.setTimeout(
+            runActivation,
+            EXPLORE_ACTIVATION_READY_RETRY_MS
+          );
+        }
+        return;
+      }
+      onEngageUnlocked?.();
+      const wantsSound = loadReelSoundPref();
+      if (shouldUnmuteOnExploreReelActivation(wantsSound, deferProgrammaticUnmute)) {
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+      }
+    };
+
+    runActivation();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== undefined) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [
+    playbackActive,
+    slideIndex,
+    activeIndex,
+    videoRef,
+    onEngageUnlocked,
+    deferProgrammaticUnmute,
+    onActiveReelMuteChange,
+  ]);
 
   const observeNeverPlayingRecovery = useCallback(() => {
     if (slideIndex !== activeIndex) {
@@ -579,48 +665,8 @@ function ExploreFeedSlideVideo({
     slideIndex === activeIndex || (inPreloadBand && dwellOk);
   const poster = youtubePosterUrl(typeof item.url === "string" ? item.url : "");
 
-  const startPlaybackFromUserGesture = () => {
-    const soundPrefOn = loadReelSoundPref();
-    const p = slideIndex === activeIndex ? videoRef.current : null;
-    if (!p?.isReady()) return false;
-    onEngageUnlocked?.();
-    if (!soundPrefOn) {
-      p.unmute();
-      onActiveReelMuteChange?.(false);
-    }
-    p.play();
-    setIsPaused(false);
-    setShowTapToPlay(false);
-    return true;
-  };
-
-  const handleReelTap = () => {
-    if (!playbackActive) return;
-    const p = slideIndex === activeIndex ? videoRef.current : null;
-    if (!p?.isReady()) return;
-
-    if (!hasReachedPlayingRef.current) {
-      if (!startPlaybackFromUserGesture()) return;
-      setPauseFlash("play");
-      if (pauseFlashTimeoutRef.current) {
-        clearTimeout(pauseFlashTimeoutRef.current);
-      }
-      pauseFlashTimeoutRef.current = window.setTimeout(() => {
-        pauseFlashTimeoutRef.current = null;
-        setPauseFlash(null);
-      }, 450);
-      return;
-    }
-
-    if (isPaused) {
-      p.play();
-      setIsPaused(false);
-      setPauseFlash("play");
-    } else {
-      p.pause();
-      setIsPaused(true);
-      setPauseFlash("pause");
-    }
+  const flashTransportFeedback = useCallback((mode: "play" | "pause") => {
+    setPauseFlash(mode);
     if (pauseFlashTimeoutRef.current) {
       clearTimeout(pauseFlashTimeoutRef.current);
     }
@@ -628,6 +674,88 @@ function ExploreFeedSlideVideo({
       pauseFlashTimeoutRef.current = null;
       setPauseFlash(null);
     }, 450);
+  }, []);
+
+  const applyExploreReelTapAction = useCallback(
+    (action: ExploreReelTapAction): boolean => {
+      const p = slideIndex === activeIndex ? videoRef.current : null;
+      if (!p?.isReady()) return false;
+
+      if (action === "play_and_unmute") {
+        onEngageUnlocked?.();
+        setEngagedThisReel(true);
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+        p.play();
+        setIsPaused(false);
+        setShowTapToPlay(false);
+        flashTransportFeedback("play");
+        return true;
+      }
+
+      if (action === "unmute_and_engage") {
+        onEngageUnlocked?.();
+        setEngagedThisReel(true);
+        p.unmute();
+        onActiveReelMuteChange?.(false);
+        setIsPlayerMuted(false);
+        return true;
+      }
+
+      if (isPaused) {
+        p.play();
+        setIsPaused(false);
+        flashTransportFeedback("play");
+      } else {
+        p.pause();
+        setIsPaused(true);
+        flashTransportFeedback("pause");
+      }
+      return true;
+    },
+    [
+      slideIndex,
+      activeIndex,
+      videoRef,
+      onEngageUnlocked,
+      onActiveReelMuteChange,
+      isPaused,
+      flashTransportFeedback,
+    ]
+  );
+
+  const handleReelTap = () => {
+    if (!playbackActive) return;
+    const p = slideIndex === activeIndex ? videoRef.current : null;
+    if (!p?.isReady()) return;
+
+    const playerMuted = p.isMuted?.() ?? isPlayerMuted;
+    const action = resolveExploreReelTapAction({
+      hasReachedPlaying: hasReachedPlayingRef.current,
+      engagedThisReel,
+      playerMuted,
+    });
+    applyExploreReelTapAction(action);
+  };
+
+  const showTapForSound = shouldShowExploreTapForSound({
+    defer: deferProgrammaticUnmute,
+    wantsSound: loadReelSoundPref(),
+    playerMuted: isPlayerMuted,
+    isPlaying: playbackActive && !isPaused && hasReachedPlaying,
+    showTapToPlay,
+  });
+
+  const requestTapForSound = (e: SyntheticEvent) => {
+    e.stopPropagation();
+    const p = slideIndex === activeIndex ? videoRef.current : null;
+    if (!p?.isReady()) return;
+    onEngageUnlocked?.();
+    setEngagedThisReel(true);
+    p.unmute();
+    onActiveReelMuteChange?.(false);
+    setIsPlayerMuted(false);
   };
 
   return (
@@ -692,20 +820,24 @@ function ExploreFeedSlideVideo({
                 onClick={e => {
                   e.stopPropagation();
                   if (!hasReachedPlayingRef.current) {
-                    if (startPlaybackFromUserGesture()) {
-                      setPauseFlash("play");
-                      if (pauseFlashTimeoutRef.current) {
-                        clearTimeout(pauseFlashTimeoutRef.current);
-                      }
-                      pauseFlashTimeoutRef.current = window.setTimeout(() => {
-                        pauseFlashTimeoutRef.current = null;
-                        setPauseFlash(null);
-                      }, 450);
-                    }
+                    applyExploreReelTapAction("play_and_unmute");
                   }
                 }}
               >
                 Tap to play
+              </button>
+            </div>
+          ) : null}
+          {showTapForSound ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-24 z-[36] flex justify-center px-4">
+              <button
+                type="button"
+                data-testid="explore-tap-for-sound"
+                className="pointer-events-auto rounded-full bg-black/65 px-5 py-2.5 text-sm font-medium text-white shadow-lg"
+                onPointerDown={e => e.stopPropagation()}
+                onClick={requestTapForSound}
+              >
+                Tap for sound
               </button>
             </div>
           ) : null}
@@ -715,8 +847,10 @@ function ExploreFeedSlideVideo({
             videoUrl={item.url}
             playbackActive={playbackActive}
             disableGlobalAudioUnlock
-            initialMuted
-            restoreSessionSoundOnProgrammaticPlay={false}
+            initialMuted={exploreReelAudioProps.initialMuted}
+            restoreSessionSoundOnProgrammaticPlay={
+              exploreReelAudioProps.restoreSessionSoundOnProgrammaticPlay
+            }
             suppressLoadingChrome={!playbackActive}
             loadingBackdropClassName="bg-black"
             showLoadingLabel={false}
@@ -728,7 +862,12 @@ function ExploreFeedSlideVideo({
               if (slideIndex === activeIndex) onPlayerError?.();
             }}
             onMuteStateChange={
-              playbackActive ? onActiveReelMuteChange : undefined
+              playbackActive
+                ? muted => {
+                    setIsPlayerMuted(muted);
+                    onActiveReelMuteChange?.(muted);
+                  }
+                : undefined
             }
             onYoutubePlayerPhase={phase => {
               if (slideIndex !== activeIndex) return;
@@ -742,8 +881,10 @@ function ExploreFeedSlideVideo({
             onPlayStateChange={playing => {
               if (slideIndex === activeIndex) {
                 setIsPaused(!playing);
+                onActiveReelPlayStateChange?.(playing);
                 if (playing) {
                   hasReachedPlayingRef.current = true;
+                  setHasReachedPlaying(true);
                   setShowTapToPlay(false);
                   neverPlayingRecoveryRef.current =
                     INITIAL_EXPLORE_NEVER_PLAYING_RECOVERY_STATE;
@@ -763,11 +904,7 @@ function ExploreFeedSlideVideo({
               ) {
                 return;
               }
-              const scheduleItemId = `explore-${item.id}`;
-              trackTvVideoComplete(scheduleItemId, {
-                channelId: item.id,
-                mode: "EXPLORE",
-              });
+              onPlaybackCompleteAnalytics?.(item);
               onActiveReelEnded?.();
             }}
             onVideoAspectInfo={onPlayerAspectInfo}
@@ -1232,7 +1369,27 @@ export const ExploreFeedClient = forwardRef<
   const endOfFeedRef = useRef(false);
   const lastTrackedItemIdRef = useRef<string | null>(null);
   const segmentStartMsRef = useRef(0);
+  const [activeReelPlaying, setActiveReelPlaying] = useState(true);
+  const onActiveReelPlayStateChange = useCallback((playing: boolean) => {
+    setActiveReelPlaying(playing);
+  }, []);
   const lastChannelIdRef = useRef<string | undefined>(undefined);
+  const feedModeRef = useRef(feedMode);
+  feedModeRef.current = feedMode;
+
+  const buildExploreAnalyticsCtx = useCallback(
+    (item: {
+      id: string;
+      event?: { id?: string };
+      community?: { id?: string };
+    }): ExploreFeedAnalyticsContext => ({
+      eventId: item.event?.id ?? null,
+      channelId: item.id != null ? String(item.id) : null,
+      communityId: item.community?.id ? String(item.community.id) : null,
+      analyticsSurface: resolveExploreFeedAnalyticsSurface(feedModeRef.current),
+    }),
+    []
+  );
 
   const [items, setItems] = useState<any[]>(
     () => exploreBootRef.current!.items
@@ -1740,6 +1897,7 @@ export const ExploreFeedClient = forwardRef<
 
   useEffect(() => {
     setReelEngageUnlocked(false);
+    setActiveReelPlaying(true);
   }, [activeIndex]);
 
   const didMarkFirstPlayRef = useRef(false);
@@ -1756,14 +1914,35 @@ export const ExploreFeedClient = forwardRef<
     if (lastTrackedItemIdRef.current !== scheduleItemId) {
       lastTrackedItemIdRef.current = scheduleItemId;
       segmentStartMsRef.current = Date.now();
-      trackTvVideoEncounter(scheduleItemId, {
-        channelId: cur.id,
-        mode: "EXPLORE",
+      const ctx = buildExploreAnalyticsCtx(cur);
+      trackExploreFeedVideoEncounter(ctx, {
+        scheduleItemId,
+        channelId: String(cur.id),
         scheduleIndex: idx,
       });
-      trackTvVideoStart(scheduleItemId, "EXPLORE", idx, cur.id);
+      trackExploreFeedVideoStart(ctx, {
+        scheduleItemId,
+        channelId: String(cur.id),
+        scheduleIndex: idx,
+      });
     }
-  }, []);
+  }, [buildExploreAnalyticsCtx]);
+
+  const handleExplorePlaybackCompleteAnalytics = useCallback(
+    (item: {
+      id: string;
+      event?: { id?: string };
+      community?: { id?: string };
+    }) => {
+      const scheduleItemId = `explore-${item.id}`;
+      const ctx = buildExploreAnalyticsCtx(item);
+      trackExploreFeedVideoComplete(ctx, {
+        scheduleItemId,
+        channelId: String(item.id),
+      });
+    },
+    [buildExploreAnalyticsCtx]
+  );
 
   useEffect(() => {
     setExploreCommentOpen(false);
@@ -2306,7 +2485,7 @@ export const ExploreFeedClient = forwardRef<
   }, [items, scrollSyncEpoch, feedSurfaceActive]);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initExploreFeedAnalyticsRuntime();
   }, []);
 
   /** Initial boot + intentional reload when feedQueryKey changes (filters, mode, auth). */
@@ -2693,33 +2872,78 @@ export const ExploreFeedClient = forwardRef<
     const cur = items[activeIndex];
     if (!cur) return;
 
-    void flushTvAnalytics().then(() => {
+    const ctx = buildExploreAnalyticsCtx(cur);
+    void flushExploreFeedAnalyticsBeforeContext(ctx).then(() => {
       const prevId = lastTrackedItemIdRef.current;
       if (prevId && segmentStartMsRef.current > 0) {
         const sec = (Date.now() - segmentStartMsRef.current) / 1000;
-        trackTvVideoEnd(
-          prevId,
-          sec,
-          "slot_change",
-          "EXPLORE",
-          lastChannelIdRef.current
-        );
+        trackExploreFeedVideoEnd(ctx, {
+          scheduleItemId: prevId,
+          watchDurationSec: sec,
+          endReason: "slot_change",
+          channelId: lastChannelIdRef.current,
+        });
       }
       lastTrackedItemIdRef.current = null;
       segmentStartMsRef.current = 0;
       lastChannelIdRef.current = cur.id;
 
-      const eventIdSafe = cur.event?.id;
-      if (!eventIdSafe) return;
+      if (!cur.event?.id) return;
 
-      setTvAnalyticsContext({
-        eventId: eventIdSafe,
-        channelId: cur.id,
-        surface: feedMode === "community" ? "community_feed" : "explore_feed",
-        communityId: cur.community?.id ? cur.community.id : null,
-      });
+      setExploreFeedAnalyticsContext(ctx);
     });
-  }, [activeIndex, items, feedMode, feedSurfaceActive]);
+  }, [
+    activeIndex,
+    items,
+    feedMode,
+    feedSurfaceActive,
+    buildExploreAnalyticsCtx,
+  ]);
+
+  useEffect(() => {
+    if (!feedSurfaceActive || !activeReelPlaying) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    if (!isExploreFeedWatchDurationEnabled()) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    if (segmentStartMsRef.current <= 0) return;
+
+    const tick = window.setInterval(() => {
+      const active = items[activeIndexRef.current];
+      if (!active || !activeReelPlaying) return;
+      const ctx = buildExploreAnalyticsCtx(active);
+      emitExploreFeedElapsedWatchDuration(ctx, {
+        scheduleItemId,
+        segmentStartMs: segmentStartMsRef.current,
+        channelId: String(active.id),
+      });
+      void flushExploreFeedAnalyticsBeforeContext(ctx);
+    }, 30_000);
+
+    return () => clearInterval(tick);
+  }, [
+    feedSurfaceActive,
+    activeReelPlaying,
+    activeIndex,
+    items,
+    buildExploreAnalyticsCtx,
+  ]);
+
+  useEffect(() => {
+    if (activeReelPlaying || segmentStartMsRef.current <= 0) return;
+    const cur = items[activeIndex];
+    if (!cur?.event?.id) return;
+    const scheduleItemId =
+      lastTrackedItemIdRef.current ?? `explore-${String(cur.id)}`;
+    const ctx = buildExploreAnalyticsCtx(cur);
+    emitExploreFeedElapsedWatchDuration(ctx, {
+      scheduleItemId,
+      segmentStartMs: segmentStartMsRef.current,
+      channelId: String(cur.id),
+    });
+    void flushExploreFeedAnalyticsBeforeContext(ctx);
+  }, [activeReelPlaying, activeIndex, items, buildExploreAnalyticsCtx]);
 
   if (initialLoading) {
     return <ExploreFeedSkeleton />;
@@ -2959,6 +3183,9 @@ export const ExploreFeedClient = forwardRef<
                             onPlayerAspectInfo={onPlayerAspectInfo}
                             videoRef={videoRef}
                             onActivePlaying={handleExploreClipPlaying}
+                            onPlaybackCompleteAnalytics={
+                              handleExplorePlaybackCompleteAnalytics
+                            }
                             onActiveReelEnded={advanceReelAfterEnd}
                             onActiveReelMuteChange={setReelMuted}
                             onPlayerError={handleExplorePlayerError}
@@ -2968,6 +3195,9 @@ export const ExploreFeedClient = forwardRef<
                               i === activeIndex
                                 ? () => setReelEngageUnlocked(true)
                                 : undefined
+                            }
+                            onActiveReelPlayStateChange={
+                              onActiveReelPlayStateChange
                             }
                           />
                         </div>

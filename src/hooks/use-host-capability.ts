@@ -15,6 +15,7 @@ import { isHostLinkResolutionPending } from "@/lib/host-link-resolution";
 import {
   getCachedHostLink,
   getOrFetchHostLink,
+  setCachedHostLink,
   subscribeHostLinkCache,
 } from "@/lib/host-link-cache";
 import {
@@ -105,8 +106,7 @@ export function useHostCapability(options?: Options) {
       setLinkLoading(false);
       return;
     }
-    const token = authToken?.trim() || getAuthToken();
-    if (!token || !user.id) {
+    if (!user.id) {
       setLinkLoading(false);
       return;
     }
@@ -121,10 +121,31 @@ export function useHostCapability(options?: Options) {
     if (!canWriteRef.current) {
       setLinkLoading(true);
     }
-    const res = await getOrFetchHostLink(user.id, token);
-    if (res.success && res.data) {
-      setLink(res.data);
-    } else {
+
+    const token = authToken?.trim() || getAuthToken();
+    let resolved: HostLinkResponse | null = null;
+
+    if (token) {
+      const res = await getOrFetchHostLink(user.id, token);
+      if (res.success && res.data) {
+        resolved = res.data;
+      }
+    }
+
+    if (!resolved && isAuthenticated) {
+      const direct = await getHostLinkAction();
+      if (
+        detectEmailVerificationRequired(direct, {
+          accountType: "HOST",
+        })
+      ) {
+        setLinkLoading(false);
+        return;
+      }
+      if (direct.success && direct.data) {
+        resolved = direct.data;
+      }
+    } else if (!resolved && token) {
       const direct = await getHostLinkAction(token);
       if (
         detectEmailVerificationRequired(direct, {
@@ -134,8 +155,15 @@ export function useHostCapability(options?: Options) {
         setLinkLoading(false);
         return;
       }
-      setLink(null);
+      if (direct.success && direct.data) {
+        resolved = direct.data;
+      }
     }
+
+    if (resolved) {
+      setCachedHostLink(user.id, resolved);
+    }
+    setLink(resolved);
     setLinkLoading(false);
   }, [authToken, enabled, isAuthenticated, user?.id, user?.role]);
 

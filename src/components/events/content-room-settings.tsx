@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { AddProjectsModal } from "./add-projects-modal";
 import { AddPerformersModal } from "./add-performers-modal";
 import { SelectDefaultVideoModal } from "./select-default-video-modal";
+import { NativeBroadcastPanel } from "@/components/event-room/native-broadcast-panel";
+import { pickNativeBroadcastEventChannelId } from "@/lib/native-broadcast-channel";
 interface SectionItem {
   title: string;
   // icon: React.ReactNode;
@@ -71,6 +73,7 @@ export const ContentRoomSettings = ({
   const [projectsModalOpen, setProjectsModalOpen] = useState(false);
 
   const canManageChannel = isHost || isCohost;
+  const nativeBroadcastChannelId = pickNativeBroadcastEventChannelId(channels);
   const [visitStats, setVisitStats] = useState<{
     visits90d: number;
     visits7d: number;
@@ -139,6 +142,14 @@ export const ContentRoomSettings = ({
         </DialogHeader>
 
         <section className="flex flex-col gap-4">
+          {canManageChannel ? (
+            <NativeBroadcastPanel
+              eventId={eventId}
+              isHost={isHost}
+              isCohost={isCohost}
+              eventChannelId={nativeBroadcastChannelId}
+            />
+          ) : null}
           {canManageChannel ? (
             <div className="rounded-lg border bg-gray-50 px-3 py-2 text-xs">
               <p className="text-muted-foreground mb-1 font-medium tracking-wide uppercase">

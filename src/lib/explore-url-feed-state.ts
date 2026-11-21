@@ -49,7 +49,11 @@ export function parseExploreFeedUrlState(
   const trendCountry = fc?.trim() ?? "";
 
   const ftab = parseExploreFeedTab(sp.get("feedTab"));
-  const feedSubTab: ExploreFeedSubTab = ftab ?? "trends";
+  let feedSubTab: ExploreFeedSubTab = ftab ?? "trends";
+  // Wave 3 community_feed canonical route: `/explore?tab=community`
+  if (sp.get("tab") === "community" && ftab == null) {
+    feedSubTab = "community";
+  }
 
   const tvs = sp.get("tvSource")?.trim();
   const tvExploreSource = tvs || "tipmanna";

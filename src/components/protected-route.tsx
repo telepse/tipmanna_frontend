@@ -1,44 +1,85 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { LoaderCircle } from "lucide-react";
 
 import { RootState } from "@/redux/store";
+import { isProtectedRouteHydrationPending } from "@/lib/protected-route-session";
+import { safeInternalPath } from "@/lib/post-host-auth-destination";
 
 interface ProtectedRouteProps {
   children: ReactNode;
+}
+
+function currentReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  return safeInternalPath(
+    `${window.location.pathname}${window.location.search}`
+  );
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
-  const { user, token, isAuthenticated, requiresVerification } = useSelector(
+  const { persistAuthHydrationComplete, requiresVerification } = useSelector(
     (state: RootState) => state.auth
   );
 
   useEffect(() => {
-    /**
-     * Authorize strictly from Redux: right after login, `setCredentials` has run
-     * synchronously before navigation, while redux-persist may not have flushed
-     * `persist:root` yet, and `token` may be HttpOnly so `Cookies.get("token")` is
-     * empty. The old cookie↔persist “sync” deleted valid cookies and forced
-     * `/sign-in` — see host sign-in → dashboard flow.
-     */
-    const sessionOk =
-      isAuthenticated &&
-      !requiresVerification &&
-      Boolean(user?.id && token?.trim());
+    const cancel = { value: false };
 
-    if (!sessionOk) {
-      router.replace("/sign-in");
-      return;
-    }
+    const decide = async () => {
+      if (
+        isProtectedRouteHydrationPending({ persistAuthHydrationComplete })
+      ) {
+        return;
+      }
 
-    setChecking(false);
-  }, [isAuthenticated, requiresVerification, user, token, router]);
+      if (requiresVerification) {
+        if (!cancel.value) {
+          const returnTo = currentReturnPath();
+          const next = returnTo
+            ? `/sign-in?next=${encodeURIComponent(returnTo)}`
+            : "/sign-in";
+          router.replace(next);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/auth/session/status", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (cancel.value) return;
+        if (res.ok) {
+          const body = (await res.json()) as { authenticated?: boolean };
+          if (body.authenticated) {
+            setChecking(false);
+            return;
+          }
+        }
+      } catch {
+        /* fall through */
+      }
+
+      if (!cancel.value) {
+        const returnTo = currentReturnPath();
+        const next = returnTo
+          ? `/sign-in?next=${encodeURIComponent(returnTo)}`
+          : "/sign-in";
+        router.replace(next);
+      }
+    };
+
+    void decide();
+    return () => {
+      cancel.value = true;
+    };
+  }, [persistAuthHydrationComplete, requiresVerification, router]);
 
   if (checking) {
     return (

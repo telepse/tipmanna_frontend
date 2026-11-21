@@ -1,0 +1,13 @@
+---
+description: Explore homepage golden lock
+globs: src/components/explore/**, src/lib/explore-*.ts
+alwaysApply: false
+---
+
+Explore is the homepage. Follow **LOCKED EXPLORE CONTRACT** in `product-behaviors/explore-feed-product-behavior.md`.
+
+- Named bug + platform scope + lock text + contract tests in one change.
+- iOS-only fixes require a test proving non-iOS behavior unchanged (`explore-reel-audio-policy.spec.ts`).
+- Do not edit TV playback six or `session-audio.ts` for Explore-only work.
+
+See `docs/explore-lock/README.md`.

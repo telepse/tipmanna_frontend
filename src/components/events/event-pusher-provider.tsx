@@ -153,6 +153,7 @@ export function EventPusherProvider({
     publicChannel.bind("new-message", handleNewMessage);
     publicChannel.bind("host-message", handleNewMessage);
     privateChannel.bind("screen-settings-updated", handleScreenSettings);
+    publicChannel.bind("screen-display-state", handleScreenSettings);
 
     return () => {
       publicChannel.unbind("event-amount-updated", handleAmount);
@@ -161,6 +162,7 @@ export function EventPusherProvider({
       publicChannel.unbind("new-message", handleNewMessage);
       publicChannel.unbind("host-message", handleNewMessage);
       privateChannel.unbind("screen-settings-updated", handleScreenSettings);
+      publicChannel.unbind("screen-display-state", handleScreenSettings);
       unsubscribeChannel(publicName);
       unsubscribeChannel(privateName);
     };

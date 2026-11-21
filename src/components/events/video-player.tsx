@@ -298,6 +298,7 @@ const VideoPlayer = forwardRef<VideoPlayerRef, Props>(
       if (!p || typeof p.isMuted !== "function") return;
       const muted = p.isMuted();
       if (
+        restoreSessionSoundOnProgrammaticPlayRef.current &&
         persistSessionAudioRef.current &&
         shouldSuppressPlayerMuteSync(muted, readSessionMuted())
       ) {

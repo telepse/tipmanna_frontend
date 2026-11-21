@@ -10,6 +10,7 @@ import {
   eventTypeLabel,
 } from "@/lib/event-type-options";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 import { buildContentShareUrl } from "@/lib/public-video-url";
 
 type PageProps = { params: Promise<{ category: string }> };
@@ -90,7 +91,9 @@ export default async function DiscoverCategoryPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(collectionJsonLd),
+        }}
       />
       <header className="mx-auto max-w-6xl border-b px-4 py-4">
         <p className="text-muted-foreground text-xs">

@@ -66,6 +66,8 @@ import {
   updateHostProfileAction,
   verifyCodeAction,
 } from "@/actions/auth";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
+import { tryUploadImage } from "@/lib/cloudinary";
 import { setCredentials } from "@/features/auth-slice";
 import { performAuthLogout } from "@/lib/auth-logout";
 import { ApiError } from "@/types";
@@ -441,23 +443,18 @@ export const SettingsClient = () => {
 
     setIsUploading(true);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "tipmanna");
-
     try {
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/tipmanna/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      const data = await res.json();
-
-      if (data.secure_url) {
-        onChange(data.secure_url);
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+      const uploaded = await tryUploadImage(dataUrl);
+      if (uploaded.ok && uploaded.data.secure_url) {
+        onChange(uploaded.data.secure_url);
+      } else if (!uploaded.ok) {
+        toast.error(uploaded.message);
       }
     } catch (error) {
       console.error("Cloudinary upload error", error);
@@ -2731,7 +2728,9 @@ export const SettingsClient = () => {
 
                         await verifyCodeAction(
                           emailForm.watch("email"),
-                          emailCode
+                          emailCode,
+                          "TIPPER",
+                          getVisitorIdForAuthMerge(user)
                         );
 
                         dispatch(

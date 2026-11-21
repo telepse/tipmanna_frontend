@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { DiscoverPageClient } from "@/components/discover/discover-page-client";
 import { loadDiscoverCatalogServer } from "@/lib/discover-catalog-server";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 export const metadata: Metadata = {
   title: "Discover creators, programs, and live streams on Tipmanna",
@@ -37,7 +38,7 @@ export default async function DiscoverPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteJsonLd) }}
       />
       <Suspense fallback={null}>
         <DiscoverPageClient

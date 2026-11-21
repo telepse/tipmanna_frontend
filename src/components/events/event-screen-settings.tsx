@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getHostEventDetailsAction } from "@/actions/host";
+import { mapHostEventToScreenSettingsSnapshot } from "@/lib/host-event-screen-settings";
 import Image from "next/image";
 import { toast } from "react-toastify";
 import { incrementEventTargetAmountAction } from "@/actions/events";
@@ -23,6 +25,10 @@ import {
   normalizeScreenFunnelPosition,
   type ScreenFunnelPosition,
 } from "@/lib/screen-funnel-position";
+import {
+  hideProgressBarAmountFromShowToggle,
+  showAmountOnProgressBarToggleChecked,
+} from "@/lib/screen-display-progress-toggle";
 
 // Local imports
 import { SCREEN_BACKGROUNDS } from "@/lib/backgrounds";
@@ -83,6 +89,7 @@ interface Props {
   initialPerformers: { id?: string; name: string; amountReceived?: string }[];
   initialProjects: { id?: string; name: string; amountReceived?: string }[];
   eventId: string;
+  hostId?: string | null;
   sessions: Session[];
   activeSession: Session | null;
   refetchSessions: () => void;
@@ -115,6 +122,7 @@ export const EventScreenSettings = ({
   initialPerformers,
   initialProjects,
   eventId,
+  hostId = null,
   sessions,
   activeSession,
   refetchSessions,
@@ -140,58 +148,17 @@ export const EventScreenSettings = ({
   const [tipDisclosures, setTipDisclosures] = useState<TipUsageDisclosure[]>(
     []
   );
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const openFetchSessionRef = useRef(0);
 
   console.log("initialPerformers", initialPerformers);
   console.log("initialProjects", initialProjects);
 
-  const [newSessionName, setNewSessionName] = useState("");
-  const [newAmount, setNewAmount] = useState("");
   const [currentTargetAmount, setCurrentTargetAmount] =
     useState(initialAmountToRaise);
   const [targetIncrement, setTargetIncrement] = useState("");
   const [targetIncrementBusy, setTargetIncrementBusy] = useState(false);
-
-  const handleCreateSession = async () => {
-    if (!newSessionName || !newAmount) return;
-
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: newSessionName,
-            amountToRaise: Number(newAmount),
-          }),
-        }
-      );
-
-      setNewSessionName("");
-      setNewAmount("");
-
-      refetchSessions(); // 🔥 IMPORTANT
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleSetActiveSession = async (sessionId: string) => {
-    try {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/event-sessions/${eventId}/sessions/${sessionId}/activate`,
-        {
-          method: "PATCH",
-        }
-      );
-
-      refetchSessions(); // 🔥 IMPORTANT
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   // Initialize state when modal opens
   useEffect(() => {
@@ -225,18 +192,9 @@ export const EventScreenSettings = ({
     }
   };
 
-  useEffect(() => {
-    setBackground(initialBackground || "");
-    setMoneyFor(initialMoneyFor);
-    setShowLatest(initialShowLatest);
-    setHideProgressAmount(initialHideProgressAmount);
-    setShowPinnedOnScreen(initialShowPinnedOnScreen);
-    setFunnelPosition(normalizeScreenFunnelPosition(initialFunnelPosition));
-
-    if (initialTipDisclosures && initialTipDisclosures.length > 0) {
-      // Map backend disclosures to our internal format
-      const mappedDisclosures = initialTipDisclosures.map(disclosure => {
-        // For disclosures without customLabel, use the default label
+  const hydrateTipDisclosures = (source: TipUsageDisclosure[]) => {
+    if (source.length > 0) {
+      const mappedDisclosures = source.map(disclosure => {
         let customLabel = disclosure.customLabel;
         if (!customLabel && disclosure.usageType !== "CUSTOM") {
           customLabel =
@@ -247,50 +205,86 @@ export const EventScreenSettings = ({
                 | "COHOST_WELFARE"
             ];
         }
-
         return {
           ...disclosure,
           customLabel,
-          enabled: true, // All backend disclosures are enabled
+          enabled: true,
         };
       });
-
       setTipDisclosures(mappedDisclosures);
-    } else {
-      // Default: all three default types with default labels, all enabled
-      const defaultDisclosures: TipUsageDisclosure[] = [
-        {
-          usageType: "PERFORMER_WELFARE",
-          percentage: 50,
-          customLabel: "Performer Welfare",
-          enabled: true,
-        },
-        {
-          usageType: "HOST_WELFARE",
-          percentage: 20,
-          customLabel: "Host Welfare",
-          enabled: true,
-        },
-        {
-          usageType: "COHOST_WELFARE",
-          percentage: 30,
-          customLabel: "Co-host Welfare",
-          enabled: true,
-        },
-      ];
-
-      setTipDisclosures(defaultDisclosures);
+      return;
     }
-  }, [
-    open,
-    initialBackground,
-    initialMoneyFor,
-    initialShowLatest,
-    initialHideProgressAmount,
-    initialTipDisclosures,
-    initialShowPinnedOnScreen,
-    initialFunnelPosition,
-  ]);
+    setTipDisclosures([
+      {
+        usageType: "PERFORMER_WELFARE",
+        percentage: 50,
+        customLabel: "Performer Welfare",
+        enabled: true,
+      },
+      {
+        usageType: "HOST_WELFARE",
+        percentage: 20,
+        customLabel: "Host Welfare",
+        enabled: true,
+      },
+      {
+        usageType: "COHOST_WELFARE",
+        percentage: 30,
+        customLabel: "Co-host Welfare",
+        enabled: true,
+      },
+    ]);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+
+    const applyFromHostSnapshot = (
+      snap: ReturnType<typeof mapHostEventToScreenSettingsSnapshot>
+    ) => {
+      setBackground(snap.background);
+      setMoneyFor(snap.moneyFor);
+      setShowLatest(snap.showLatest);
+      setHideProgressAmount(snap.hideProgressAmount);
+      setShowPinnedOnScreen(snap.showPinnedOnScreen);
+      setFunnelPosition(snap.funnelPosition);
+      setPerformers(snap.performers);
+      setProjects(snap.projects);
+      hydrateTipDisclosures(snap.tipUsageDisclosure as TipUsageDisclosure[]);
+    };
+
+    if (hostId) {
+      const session = ++openFetchSessionRef.current;
+      setSnapshotLoading(true);
+      setSnapshotError(null);
+      void (async () => {
+        const res = await getHostEventDetailsAction(hostId, eventId);
+        if (openFetchSessionRef.current !== session) return;
+        if (!res.success || !res.data) {
+          setSnapshotError(
+            res.message ?? "Could not load saved screen settings"
+          );
+          setSnapshotLoading(false);
+          return;
+        }
+        applyFromHostSnapshot(
+          mapHostEventToScreenSettingsSnapshot(
+            res.data as Record<string, unknown>
+          )
+        );
+        setSnapshotLoading(false);
+      })();
+      return;
+    }
+
+    setBackground(initialBackground || "");
+    setMoneyFor(initialMoneyFor);
+    setShowLatest(initialShowLatest);
+    setHideProgressAmount(initialHideProgressAmount);
+    setShowPinnedOnScreen(initialShowPinnedOnScreen);
+    setFunnelPosition(normalizeScreenFunnelPosition(initialFunnelPosition));
+    hydrateTipDisclosures(initialTipDisclosures ?? []);
+  }, [open, hostId, eventId]);
 
   const handleLabelChange = (index: number, value: string) => {
     const newDisclosures = [...tipDisclosures];
@@ -466,6 +460,17 @@ export const EventScreenSettings = ({
     }
   };
 
+  const copyWatchScreenLink = async () => {
+    const url = `${window.location.origin}/watch/screen/${eventId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("TV Screen Link copied.");
+    } catch (err) {
+      console.error("Failed to copy:", err);
+      toast.error("Could not copy TV Screen Link.");
+    }
+  };
+
   const [showViewPerformerModal, setShowViewPerformerModal] = useState(false);
 
   const [selection, setSelection] = useState<"performer" | "project" | null>(
@@ -484,6 +489,15 @@ export const EventScreenSettings = ({
         <DialogHeader>
           <DialogTitle>Screen Display Settings</DialogTitle>
         </DialogHeader>
+
+        {snapshotLoading ? (
+          <p className="text-muted-foreground text-sm">
+            Loading saved settings…
+          </p>
+        ) : null}
+        {snapshotError ? (
+          <p className="text-destructive text-sm">{snapshotError}</p>
+        ) : null}
 
         {/* Background Selection */}
         <div className="space-y-3">
@@ -626,15 +640,18 @@ export const EventScreenSettings = ({
           />
         </div>
 
-        {/* Hide progress bar amount */}
+        {/* hideProgressBarAmount in API: true = hide amounts. UI label is "show". */}
         <div className="flex items-center justify-between">
           <Label htmlFor="hideProgressAmount">
             Show amount on progress bar
           </Label>
           <Switch
             id="hideProgressAmount"
-            checked={hideProgressAmount}
-            onCheckedChange={setHideProgressAmount}
+            checked={showAmountOnProgressBarToggleChecked(hideProgressAmount)}
+            onCheckedChange={show =>
+              setHideProgressAmount(hideProgressBarAmountFromShowToggle(show))
+            }
+            disabled={loading}
           />
         </div>
 
@@ -813,6 +830,15 @@ export const EventScreenSettings = ({
             className="w-full"
           >
             Copy Overlay Link
+          </Button>
+
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={copyWatchScreenLink}
+            className="w-full"
+          >
+            Copy TV Screen Link
           </Button>
 
           <Button

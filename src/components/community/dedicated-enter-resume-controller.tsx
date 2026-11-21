@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -12,11 +12,13 @@ import {
 } from "@/lib/pending-dedicated-enter";
 import type { RootState } from "@/redux/store";
 import { assertNotEmailVerificationRequiredFromResponse } from "@/lib/detect-email-verification-required";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 
 const apiBase = () => process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
 
 /** Resume dedicated-mode enter after PWA install on iOS. */
 export function DedicatedEnterResumeController() {
+  const pathname = usePathname() ?? "";
   const { installed } = useInstallPrompt();
   const sideChick = useSideChick();
   const router = useRouter();
@@ -24,6 +26,7 @@ export function DedicatedEnterResumeController() {
   const resumedRef = useRef(false);
 
   useEffect(() => {
+    if (isVenueChromeSuppressedPath(pathname)) return;
     if (!installed || !authToken || sideChick.loading) return;
     const pending = readPendingDedicatedEnter();
     if (!pending || resumedRef.current) return;
@@ -62,7 +65,7 @@ export function DedicatedEnterResumeController() {
         resumedRef.current = false;
       }
     })();
-  }, [authToken, installed, router, sideChick]);
+  }, [authToken, installed, pathname, router, sideChick]);
 
   return null;
 }

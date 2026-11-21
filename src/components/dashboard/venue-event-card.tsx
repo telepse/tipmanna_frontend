@@ -14,11 +14,15 @@ import { truncateText } from "@/lib/utils";
 import { ScreenDisplay } from "@/components/events/screen-display";
 import { EventScreenSettings } from "@/components/events/event-screen-settings";
 import { changeEventScreenSettings } from "@/actions/events";
+import { getHostEventDetailsAction } from "@/actions/host";
+import { mapHostEventToScreenSettingsSnapshot } from "@/lib/host-event-screen-settings";
 import { getEventSessionsAction } from "@/actions/community-host-dashboard";
 import { useHostSession } from "@/hooks/use-host-session";
 import { useRouter } from "next/navigation";
 import { TipUsageDisclosure } from "@/types/tipusagedisclosure.types";
 import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
+import { progressBarAmountVisible } from "@/lib/screen-display-progress-toggle";
+import { reconcileVenueScreenSettingsFromPersisted } from "@/lib/persisted-screen-settings";
 
 interface Performer {
   name: string;
@@ -87,6 +91,13 @@ export function VenueEventCard({
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLatest, setShowLatest] = useState(showLatestAmount);
+  const [hideProgressAmount, setHideProgressAmount] = useState(
+    hideProgressBarAmount
+  );
+  const [previewBackground, setPreviewBackground] = useState(eventBackground);
+  const [loading, setLoading] = useState(false);
 
   const fetchSessions = async () => {
     try {
@@ -109,22 +120,24 @@ export function VenueEventCard({
     fetchSessions();
   }, []);
 
+  useEffect(() => {
+    setShowLatest(showLatestAmount);
+    setHideProgressAmount(hideProgressBarAmount);
+    setPreviewBackground(eventBackground);
+  }, [showLatestAmount, hideProgressBarAmount, eventBackground]);
+
   const eventCode = hostSession?.eventCode;
+  const hostId = hostSession?.hostId ?? null;
   const eventSlug = hostSession?.eventSlug;
 
   const progress = Math.min((amountRaised / amountToRaise) * 100, 100);
-
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [showLatest, setShowLatest] = useState(false);
-  const [hideProgressAmount, setHideProgressAmount] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const DEFAULT_BG = "/default.png";
 
   const router = useRouter();
 
   const textColor =
-    eventBackground && eventBackground !== DEFAULT_BG
+    previewBackground && previewBackground !== DEFAULT_BG
       ? "text-black"
       : "text-white";
 
@@ -169,11 +182,39 @@ export function VenueEventCard({
       if (result.success) {
         toast.success("Event screen settings changed");
 
-        // Update local state with new values
-        setShowLatest(values.showLatest);
-        setHideProgressAmount(values.hideProgressAmount);
+        let reconciled = reconcileVenueScreenSettingsFromPersisted(
+          {
+            hideProgressBarAmount: values.hideProgressAmount,
+            showLatestAmount: values.showLatest,
+            eventBackground: values.background,
+          },
+          (result.data ?? {}) as {
+            hideProgressBarAmount?: boolean;
+            showLatestAmount?: boolean;
+            eventBackground?: string;
+          }
+        );
 
-        // Refresh the page to get updated data
+        if (hostId) {
+          const fresh = await getHostEventDetailsAction(hostId, id);
+          if (fresh.success && fresh.data) {
+            const snap = mapHostEventToScreenSettingsSnapshot(
+              fresh.data as Record<string, unknown>
+            );
+            reconciled = {
+              hideProgressBarAmount: snap.hideProgressAmount,
+              showLatestAmount: snap.showLatest,
+              eventBackground: snap.background,
+            };
+          }
+        }
+
+        setShowLatest(reconciled.showLatestAmount ?? values.showLatest);
+        setHideProgressAmount(
+          reconciled.hideProgressBarAmount ?? values.hideProgressAmount
+        );
+        setPreviewBackground(reconciled.eventBackground ?? values.background);
+        setSettingsOpen(false);
         router.refresh();
       } else {
         toast.error(result.message || "Failed to save settings");
@@ -183,7 +224,6 @@ export function VenueEventCard({
       toast.error("An error occurred while saving settings");
     } finally {
       setLoading(false);
-      setSettingsOpen(false);
     }
   };
 
@@ -200,9 +240,9 @@ export function VenueEventCard({
             amountRaised={amountRaised}
             eventCode={eventCode!}
             eventSlug={eventSlug!}
-            backgroundUrl={eventBackground}
-            showLatestAmount={showLatestAmount}
-            hideProgressBarAmount={hideProgressBarAmount}
+            backgroundUrl={previewBackground}
+            showLatestAmount={showLatest}
+            hideProgressBarAmount={hideProgressAmount}
             latestTipAmount={latestTipAmount}
             tipUsageDisclosure={tipUsageDisclosure}
             showPinnedOnScreen={showPinnedOnScreen}
@@ -217,22 +257,18 @@ export function VenueEventCard({
             <div
               className="flex h-[180px] w-full flex-col items-center justify-center gap-1 bg-cover bg-center bg-no-repeat p-4 sm:h-28 md:w-48"
               style={{
-                backgroundImage: `url(${eventBackground || "/default.png"})`,
+                backgroundImage: `url(${previewBackground || "/default.png"})`,
               }}
             >
               <h6
                 className={`text-center text-[12px] font-semibold ${textColor} md:text-[10px]`}
               >
-                {showLatestAmount
-                  ? "Latest amount sent"
-                  : "Together you've sent"}
+                {showLatest ? "Latest amount sent" : "Together you've sent"}
               </h6>
 
               <h4 className={`font-semibold ${textColor}`}>
                 &pound;
-                {showLatestAmount
-                  ? latestTipAmount
-                  : amountRaised.toLocaleString()}
+                {showLatest ? latestTipAmount : amountRaised.toLocaleString()}
               </h4>
 
               <p
@@ -252,9 +288,11 @@ export function VenueEventCard({
                     />
                   </div>
 
-                  <p className={`text-[8px] font-semibold ${textColor}`}>
-                    &pound;{amountRaised}
-                  </p>
+                  {progressBarAmountVisible(hideProgressAmount) ? (
+                    <p className={`text-[8px] font-semibold ${textColor}`}>
+                      &pound;{amountRaised}
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Target Icon */}
@@ -305,13 +343,14 @@ export function VenueEventCard({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onSave={handleSaveSettings}
-        initialBackground={eventBackground}
+        initialBackground={previewBackground}
         initialMoneyFor={moneyFor}
-        initialShowLatest={showLatestAmount}
-        initialHideProgressAmount={hideProgressBarAmount}
+        initialShowLatest={showLatest}
+        initialHideProgressAmount={hideProgressAmount}
         loading={loading}
         tipUsageDisclosure={tipUsageDisclosure as TipUsageDisclosure[]}
         eventId={id}
+        hostId={hostId}
         initialPerformers={performers}
         initialProjects={projects}
         sessions={sessions}

@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { patchCommunityRoomScreenSettingsAction } from "@/actions/community-host-dashboard";
+import {
+  getCommunityRoomScreenSettingsAction,
+  patchCommunityRoomScreenSettingsAction,
+} from "@/actions/community-host-dashboard";
 import { DashboardHeading } from "@/components/dashboard/dashboard-heading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useCommunityDisplayUpdated } from "@/hooks/use-community-display-updated";
+import { mapCommunityRoomScreenSettings } from "@/lib/community-room-display";
 
 export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
   const searchParams = useSearchParams();
@@ -20,7 +25,43 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
   const [showLatest, setShowLatest] = useState(false);
   const [hideProgress, setHideProgress] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  const applySettings = useCallback((raw: Record<string, unknown>) => {
+    const mapped = mapCommunityRoomScreenSettings(raw);
+    setBackground(mapped.background);
+    setMoneyFor(mapped.moneyFor);
+    setShowLatest(mapped.showLatest);
+    setHideProgress(mapped.hideProgressAmount);
+  }, []);
+
+  const reloadSettings = useCallback(async () => {
+    if (!communityId) return;
+    setLoadingSettings(true);
+    setLoadError(null);
+    try {
+      const res = await getCommunityRoomScreenSettingsAction(communityId);
+      if (!res.success) {
+        throw new Error(res.message ?? res.error ?? "Could not load settings");
+      }
+      applySettings((res.data ?? res) as Record<string, unknown>);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not load settings");
+    } finally {
+      setLoadingSettings(false);
+    }
+  }, [applySettings, communityId]);
+
+  useEffect(() => {
+    if (!communityId) return;
+    void reloadSettings();
+  }, [communityId, reloadSettings]);
+
+  useCommunityDisplayUpdated(communityId, () => {
+    void reloadSettings();
+  });
 
   const save = useCallback(async () => {
     if (!communityId) return;
@@ -36,15 +77,21 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
       if (!res.success) {
         throw new Error(res.message ?? res.error ?? "Save failed");
       }
-      setMsg(
-        "Saved. Viewers on the community channel may take a moment to refresh."
-      );
+      applySettings((res.data ?? res) as Record<string, unknown>);
+      setMsg("Saved. Community room display updated.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
-  }, [communityId, background, moneyFor, showLatest, hideProgress]);
+  }, [
+    communityId,
+    background,
+    moneyFor,
+    showLatest,
+    hideProgress,
+    applySettings,
+  ]);
 
   const backHref = `/host/${hostSlug}/host-community`;
 
@@ -80,6 +127,15 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
         <Link href={backHref}>Back</Link>
       </Button>
 
+      {loadingSettings ? (
+        <p className="text-muted-foreground mt-6 text-sm">
+          Loading saved settings…
+        </p>
+      ) : null}
+      {loadError ? (
+        <p className="text-destructive mt-6 text-sm">{loadError}</p>
+      ) : null}
+
       <div className="mt-6 max-w-md space-y-4">
         <div className="space-y-2">
           <Label htmlFor="bg">Background image URL</Label>
@@ -88,6 +144,7 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
             value={background}
             onChange={e => setBackground(e.target.value)}
             placeholder="https://..."
+            disabled={loadingSettings || saving}
           />
         </div>
         <div className="space-y-2">
@@ -96,6 +153,7 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
             id="mf"
             value={moneyFor}
             onChange={e => setMoneyFor(e.target.value)}
+            disabled={loadingSettings || saving}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -103,6 +161,7 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
             id="sla"
             checked={showLatest}
             onCheckedChange={setShowLatest}
+            disabled={loadingSettings || saving}
           />
           <Label htmlFor="sla">Show latest amount</Label>
         </div>
@@ -111,13 +170,14 @@ export function CommunityDisplayHostClient({ hostSlug }: { hostSlug: string }) {
             id="hp"
             checked={hideProgress}
             onCheckedChange={setHideProgress}
+            disabled={loadingSettings || saving}
           />
           <Label htmlFor="hp">Hide progress bar amount</Label>
         </div>
 
         <Button
           type="button"
-          disabled={saving}
+          disabled={saving || loadingSettings}
           onClick={() => void save()}
         >
           {saving ? "Saving…" : "Save"}

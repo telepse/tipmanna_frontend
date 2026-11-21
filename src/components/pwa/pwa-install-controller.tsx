@@ -10,7 +10,6 @@ import {
   hasPromptAFiredThisSession,
   hasPromptBFiredThisSession,
   isDashboardPath,
-  isScreenOverlayPath,
   isPwaAutoPromptSuppressed,
   markPromptAFiredThisSession,
   markPromptBFiredThisSession,
@@ -22,6 +21,7 @@ import {
   type PwaPreferenceSnapshot,
   type PromptPolicySnapshot,
 } from "@/lib/pwa-install-trigger";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 import {
   fetchPwaPreference,
   incrementPwaPaymentCount,
@@ -66,7 +66,8 @@ export function PwaInstallController() {
     async (trigger: PwaInstallTrigger, slot: "A" | "B") => {
       const pol = policyRef.current ?? (await loadPolicy());
       if (!pol.enabled || !pol.publishedAt) return;
-      if (isDashboardPath(pathname) || isScreenOverlayPath(pathname)) return;
+      if (isDashboardPath(pathname) || isVenueChromeSuppressedPath(pathname))
+        return;
 
       const pref = prefRef.current ?? (await refreshPreference());
       if (isPwaAutoPromptSuppressed(pref, installedRef.current)) return;
@@ -123,7 +124,7 @@ export function PwaInstallController() {
       !detectionSettled ||
       installed ||
       isDashboardPath(pathname) ||
-      isScreenOverlayPath(pathname)
+      isVenueChromeSuppressedPath(pathname)
     )
       return;
     let cancelled = false;
@@ -150,7 +151,11 @@ export function PwaInstallController() {
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (installed || isDashboardPath(pathname) || isScreenOverlayPath(pathname))
+    if (
+      installed ||
+      isDashboardPath(pathname) ||
+      isVenueChromeSuppressedPath(pathname)
+    )
       return;
 
     let elapsed = readDwellElapsedMs();

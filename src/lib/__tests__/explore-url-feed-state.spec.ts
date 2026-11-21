@@ -26,6 +26,11 @@ describe("explore-url-feed-state", () => {
     expect(state.includeEndedLive).toBe(true);
   });
 
+  it("maps tab=community to community feed sub-tab (Wave 3 acceptance route)", () => {
+    const state = parseExploreFeedUrlState(new URLSearchParams("tab=community"));
+    expect(state.feedSubTab).toBe("community");
+  });
+
   it("returns defaults when params are absent", () => {
     const state = parseExploreFeedUrlState(new URLSearchParams());
     expect(state.trendEventTypes).toEqual([]);

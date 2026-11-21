@@ -96,16 +96,18 @@ import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime"
 import { DefaultVideoSwitchPrompt } from "./default-video-switch-prompt";
 import { getCurrentUser } from "./event-room-client";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
+  flushChannelClientAnalyticsBeforeContext,
+  initChannelClientAnalyticsRuntime,
+  setChannelClientAnalyticsContext,
+  trackChannelClientVideoComplete,
+  trackChannelClientVideoEncounter,
+  trackChannelClientVideoStart,
+  trackChannelClientWatchDuration,
+} from "@/lib/analytics/channel-client-analytics";
+import {
   trackTvSaveClick,
   trackTvShareClick,
   trackTvUserInteraction,
-  trackTvVideoComplete,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
 } from "@/lib/tvAnalytics";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
@@ -582,39 +584,40 @@ export const ChannelClient = ({
   }, [playlist, currentContent]);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initChannelClientAnalyticsRuntime();
   }, []);
 
   useEffect(() => {
     if (!eventId) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: currentContent?.id ? String(currentContent.id) : null,
-        surface: "channel_client",
-        communityId:
-          (currentContent as { community?: { id?: string } })?.community?.id ??
-          null,
-      });
+    const ctx = {
+      eventId,
+      channelId: currentContent?.id ? String(currentContent.id) : null,
+      communityId:
+        (currentContent as { community?: { id?: string } })?.community?.id ??
+        null,
+    };
+    void flushChannelClientAnalyticsBeforeContext(ctx).then(() => {
+      setChannelClientAnalyticsContext(ctx);
     });
   }, [eventId, currentContent]);
 
   const emitEncounterOnVideoLoaded = useCallback(() => {
     if (!eventId || !currentContent?.id) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: String(currentContent.id),
-        surface: "channel_client",
-        communityId:
-          (currentContent as { community?: { id?: string } })?.community?.id ??
-          null,
-      });
-    });
-    trackTvVideoEncounter(`channel-client-${eventId}`, {
+    const ctx = {
+      eventId,
       channelId: String(currentContent.id),
-      mode: "LOCAL",
+      communityId:
+        (currentContent as { community?: { id?: string } })?.community?.id ??
+        null,
+    };
+    void flushChannelClientAnalyticsBeforeContext(ctx).then(() => {
+      setChannelClientAnalyticsContext(ctx);
+    });
+    trackChannelClientVideoEncounter(eventId, {
+      channelId: String(currentContent.id),
       scheduleIndex: Math.max(0, currentContentIndex),
+      isPlaying: isPlayingRef.current,
+      communityId: ctx.communityId,
     });
   }, [eventId, currentContent, currentContentIndex]);
 
@@ -622,7 +625,7 @@ export const ChannelClient = ({
     if (!eventId || !currentContent?.id) return;
     if (isPlaying && !prevPlayingForVideoStartRef.current) {
       const ch = String(currentContent.id);
-      trackTvVideoStart(ch, "LOCAL", Math.max(0, currentContentIndex), ch);
+      trackChannelClientVideoStart(ch, Math.max(0, currentContentIndex));
     }
     prevPlayingForVideoStartRef.current = isPlaying;
   }, [eventId, currentContent?.id, currentContentIndex, isPlaying]);
@@ -670,7 +673,7 @@ export const ChannelClient = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(ch, Math.min(sec, 600), "LOCAL", ch);
+          trackChannelClientWatchDuration(ch, Math.min(sec, 600), "LOCAL", ch);
         }
       }
       return;
@@ -685,7 +688,7 @@ export const ChannelClient = ({
       const sec = (now - watchSegStartRef.current) / 1000;
       watchSegStartRef.current = now;
       if (sec > 0.3) {
-        trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+        trackChannelClientWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
       }
     }, 15_000);
     const onVis = () => {
@@ -694,7 +697,7 @@ export const ChannelClient = ({
           const s = (Date.now() - watchSegStartRef.current) / 1000;
           watchSegStartRef.current = 0;
           if (s > 0.3) {
-            trackTvWatchDuration(ch, Math.min(s, 300), "LOCAL", ch);
+            trackChannelClientWatchDuration(ch, Math.min(s, 300), "LOCAL", ch);
           }
         }
       } else if (
@@ -712,7 +715,7 @@ export const ChannelClient = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+          trackChannelClientWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
         }
       }
     };
@@ -1220,7 +1223,10 @@ export const ChannelClient = ({
                 if (!currentContent?.id) return;
                 const ch = String(currentContent.id);
                 if (playbackSeekedForCompleteRef.current) return;
-                trackTvVideoComplete(ch, { channelId: ch, mode: "LOCAL" });
+                trackChannelClientVideoComplete(ch, {
+                  channelId: ch,
+                  mode: "LOCAL",
+                });
               }}
               onVideoLoaded={emitEncounterOnVideoLoaded}
             />

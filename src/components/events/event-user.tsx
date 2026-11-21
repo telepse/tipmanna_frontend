@@ -133,7 +133,12 @@ export const EventUser = ({ iTipped, eventId }: Props) => {
         pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
       if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(verifyEmail, code);
+      const res = await verifyCodeAction(
+        verifyEmail,
+        code,
+        "TIPPER",
+        getVisitorIdForAuthMerge(user)
+      );
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");
         return;

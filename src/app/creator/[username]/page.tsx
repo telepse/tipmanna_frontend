@@ -9,6 +9,7 @@ import {
   buildCreatorProfileJsonLd,
   buildCreatorProfileMetadata,
 } from "@/lib/creator-profile-metadata";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -71,7 +72,7 @@ export default async function HostCreatorPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(profileJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(profileJsonLd) }}
       />
       <HostCreatorPageClient profile={result.profile} />
     </>

@@ -7,7 +7,14 @@ import ExplorePageClient from "@/components/explore/explore-page-client";
 import { ExploreDiscoverSeoGate } from "@/components/explore/explore-discover-seo-gate";
 import { ExploreSsrBootStream } from "@/components/explore/explore-ssr-boot-stream";
 import { getCommunityAccessStateAction } from "@/actions/communities";
+import {
+  E2E_JOIN_COMMUNITY_ID,
+  E2E_JOIN_FORM_PUBLIC,
+} from "@/lib/e2e-explore-fixtures";
+import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
+import { PageLinkedV2ChunkAnchor } from "@/lib/analytics-sdk/page-linked-v2-chunk-anchor";
 
 function exploreSearchParamsKey(
   sp: Record<string, string | string[] | undefined>
@@ -40,6 +47,28 @@ export async function generateMetadata({
       title: "Tipmanna TV — Explore",
       description:
         "Watch and tip on trending community videos, live events, and creator content.",
+    };
+  }
+
+  const searchParamsKey = exploreSearchParamsKey(sp);
+  if (
+    joinId === E2E_JOIN_COMMUNITY_ID &&
+    isExploreE2eFixturesEnabled(searchParamsKey)
+  ) {
+    const name = E2E_JOIN_FORM_PUBLIC.name;
+    const description =
+      E2E_JOIN_FORM_PUBLIC.description?.trim() ||
+      "Join this community on Tipmanna TV to watch exclusive clips and connect with members.";
+    return {
+      title: `Join ${name} on Tipmanna`,
+      description,
+      openGraph: {
+        title: `Join ${name} on Tipmanna`,
+        description,
+        url: getPublicAbsoluteUrl(
+          `/explore?tab=join&joinCommunity=${encodeURIComponent(joinId)}&e2e=1`
+        ),
+      },
     };
   }
 
@@ -98,13 +127,14 @@ export default async function ExplorePage({ searchParams }: PageProps) {
 
   return (
     <>
+      <PageLinkedV2ChunkAnchor />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(websiteJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(exploreJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(exploreJsonLd) }}
       />
       <Suspense fallback={null}>
         <ExploreSsrBootStream searchParamsKey={searchParamsKey} />

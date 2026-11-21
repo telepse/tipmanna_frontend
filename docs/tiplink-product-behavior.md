@@ -1,5 +1,5 @@
 # TipLink product behavior
 
-**Canonical document (do not duplicate):** [product-behaviors/tiplink-product-behavior.md](../../product-behaviors/tiplink-product-behavior.md) at the repo root.
+**Canonical:** [product-behaviors/tiplink-product-behavior.md](../product-behaviors/tiplink-product-behavior.md)
 
-Update only the canonical file. This stub exists so older paths still resolve to one source of truth.
+Device matrix for social audio: [docs/tiplink-lock/DEVICE-MATRIX-CHECKLIST.md](./tiplink-lock/DEVICE-MATRIX-CHECKLIST.md).

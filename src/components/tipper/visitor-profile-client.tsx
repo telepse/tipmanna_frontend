@@ -16,6 +16,7 @@ import {
 } from "../ui/form";
 import { useForm } from "react-hook-form";
 import { loginVisitorAction, verifyCodeAction } from "@/actions/auth";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { toast } from "react-toastify";
@@ -127,7 +128,12 @@ export const VisitorProfileClient = ({
         pendingVerifyEmail.trim() || email.trim() || user?.email?.trim() || "";
       if (!verifyEmail) return;
 
-      const res = await verifyCodeAction(verifyEmail, code);
+      const res = await verifyCodeAction(
+        verifyEmail,
+        code,
+        "TIPPER",
+        getVisitorIdForAuthMerge(user)
+      );
       if (!res.success) {
         toast.error(res.message ?? "Verification failed");
         return;

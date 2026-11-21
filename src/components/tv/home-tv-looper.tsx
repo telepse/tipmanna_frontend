@@ -55,16 +55,18 @@ import {
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import { writeTvPlaybackSnapshot } from "@/lib/tv-playback-session";
 import {
-  flushTvAnalytics,
-  setTvAnalyticsContext,
+  syncTvLooperAnalyticsContext,
+  trackTvLooperVideoComplete,
+  trackTvLooperVideoEncounter,
+  trackTvLooperVideoEnd,
+  trackTvLooperVideoStart,
+} from "@/lib/analytics/tv-looper-analytics";
+import { createTvLooperWatchDurationScheduler } from "@/lib/analytics/tv-looper-periodic-watch-duration";
+import { useTvLooperPeriodicWatchDuration } from "@/lib/analytics/use-tv-looper-periodic-watch-duration";
+import {
   trackTvSaveClick,
   trackTvShareClick,
   trackTvUserInteraction,
-  trackTvVideoComplete,
-  trackTvVideoEnd,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
 } from "@/lib/tvAnalytics";
 import type { PaymentSurface } from "@/lib/analytics-types";
 import { useTV } from "../tv-provider";
@@ -224,6 +226,9 @@ export const HomeTvLooper = ({
   const pendingSeekTimeRef = useRef<number | null>(null);
   const lastSegmentChannelIdRef = useRef<string | undefined>(undefined);
   const segmentStartMsRef = useRef(0);
+  const watchDurationSchedulerRef = useRef(
+    createTvLooperWatchDurationScheduler()
+  );
   const videoErrorReloadsRef = useRef(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -636,48 +641,44 @@ export const HomeTvLooper = ({
     encounterLoggedForScheduleItemRef.current = null;
   }, [current?.id]);
 
+  const tvAnalyticsCtx = useMemo(
+    () => ({
+      eventId: currentEventId || null,
+      channelId: currentChannelId ?? null,
+      analyticsSurface,
+      communityId: scheduleSourceCommunityId ?? null,
+    }),
+    [
+      currentEventId,
+      currentChannelId,
+      analyticsSurface,
+      scheduleSourceCommunityId,
+    ]
+  );
+
   const emitEncounterWhenVideoLoads = useCallback(() => {
     if (!current?.id) return;
     if (encounterLoggedForScheduleItemRef.current === current.id) return;
     encounterLoggedForScheduleItemRef.current = current.id;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId: currentEventId || null,
-        channelId: currentChannelId ?? null,
-        surface: analyticsSurface,
-        communityId: scheduleSourceCommunityId ?? null,
+    void syncTvLooperAnalyticsContext(tvAnalyticsCtx).then(() => {
+      trackTvLooperVideoEncounter(tvAnalyticsCtx, {
+        mode,
+        scheduleIndex: currentIndex,
+        scheduleItemId: String(current.id),
       });
     });
-    trackTvVideoEncounter(`tv-surface-${analyticsSurface}`, {
-      channelId: currentChannelId,
-      mode,
-      scheduleIndex: currentIndex,
-    });
-  }, [
-    current?.id,
-    currentEventId,
-    currentChannelId,
-    analyticsSurface,
-    mode,
-    currentIndex,
-    scheduleSourceCommunityId,
-  ]);
+  }, [current?.id, tvAnalyticsCtx, mode, currentIndex]);
 
   useEffect(() => {
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId: currentEventId || null,
-        channelId: currentChannelId ?? null,
-        surface: analyticsSurface,
-        communityId: scheduleSourceCommunityId ?? null,
-      });
-    });
-  }, [
-    currentEventId,
-    currentChannelId,
-    analyticsSurface,
-    scheduleSourceCommunityId,
-  ]);
+    void syncTvLooperAnalyticsContext(tvAnalyticsCtx);
+  }, [tvAnalyticsCtx]);
+
+  useTvLooperPeriodicWatchDuration({
+    isPlaying,
+    tvAnalyticsCtx,
+    mode,
+    scheduler: watchDurationSchedulerRef.current,
+  });
 
   useEffect(() => {
     userSeekedForCompleteRef.current = false;
@@ -789,16 +790,17 @@ export const HomeTvLooper = ({
     const ch = lastSegmentChannelIdRef.current;
     if (id && segmentStartMsRef.current > 0) {
       const sec = (Date.now() - segmentStartMsRef.current) / 1000;
-      trackTvVideoEnd(id, sec, "ended", mode, ch);
-      trackTvWatchDuration(id, sec, mode, ch);
+      trackTvLooperVideoEnd(tvAnalyticsCtx, id, sec, "ended", mode, ch);
+      watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
       if (!userSeekedForCompleteRef.current) {
-        trackTvVideoComplete(id, { channelId: ch, mode });
+        trackTvLooperVideoComplete(tvAnalyticsCtx, id, { channelId: ch, mode });
       }
     }
     userSeekedForCompleteRef.current = false;
     lastTrackedItemIdRef.current = null;
     lastSegmentChannelIdRef.current = undefined;
     segmentStartMsRef.current = 0;
+    watchDurationSchedulerRef.current.reset();
     onVideoEnd();
   };
 
@@ -1482,7 +1484,9 @@ export const HomeTvLooper = ({
                         const prev = lastTrackedItemIdRef.current;
                         const sec =
                           (Date.now() - segmentStartMsRef.current) / 1000;
-                        trackTvVideoEnd(
+                        watchDurationSchedulerRef.current.flush(tvAnalyticsCtx);
+                        trackTvLooperVideoEnd(
+                          tvAnalyticsCtx,
                           prev,
                           sec,
                           "interrupted",
@@ -1493,12 +1497,18 @@ export const HomeTvLooper = ({
                       lastTrackedItemIdRef.current = id;
                       lastSegmentChannelIdRef.current = currentChannelId;
                       segmentStartMsRef.current = Date.now();
-                      trackTvVideoStart(
+                      trackTvLooperVideoStart(
+                        tvAnalyticsCtx,
                         id,
                         mode,
                         currentIndex,
                         currentChannelId
                       );
+                      watchDurationSchedulerRef.current.bindSegment({
+                        itemId: id,
+                        channelId: currentChannelId,
+                        mode,
+                      });
                     }
                   }}
                   onPause={() => notifyPlayerPaused()}

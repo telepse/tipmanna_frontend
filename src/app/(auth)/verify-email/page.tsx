@@ -12,6 +12,7 @@ import { toast } from "react-toastify";
 import OtpInput from "react-otp-input";
 import { Paragraph } from "@/components/shared/paragraph";
 import { resendCodeAction, verifyCodeAction } from "@/actions/auth";
+import { getVisitorIdForAuthMergeFromClient } from "@/lib/visitor-session";
 import { ApiError } from "@/types/api-error.types";
 import { parseAuthResponse } from "@/lib/auth-response";
 import { applyPrimaryAndHostSessions } from "@/lib/apply-auth-sessions";
@@ -107,7 +108,16 @@ function VerifyEmailContent() {
         return;
       }
 
-      const res = await verifyCodeAction(verifyEmail, code, accountType);
+      const visitorId =
+        accountType === "TIPPER"
+          ? getVisitorIdForAuthMergeFromClient()
+          : undefined;
+      const res = await verifyCodeAction(
+        verifyEmail,
+        code,
+        accountType,
+        visitorId
+      );
       if (!res.success) {
         toast.error(res.message);
         return;

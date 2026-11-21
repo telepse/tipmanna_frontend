@@ -3507,6 +3507,72 @@ function PlaylistsTabContent({
         </div>
       ) : null}
 
+      {playlists.length === 0 &&
+      tipLinks.length === 0 &&
+      draftTipLinks.length === 0 ? (
+        <EmptyTabMessage
+          title={isOwnProfile ? "Keep viewers watching." : undefined}
+          message={
+            isOwnProfile ? (
+              <>
+                Group your videos into <br className="sm:hidden" /> playlists or
+                create a Tiplink.
+              </>
+            ) : (
+              <>
+                No playlists or TipLinks here yet. <br className="sm:hidden" />{" "}
+                Discover more to watch.
+              </>
+            )
+          }
+          ctas={
+            !isOwnProfile
+              ? [
+                  {
+                    icon: <Tv className="size-3.5" />,
+                    label: "Watch Tipmanna TV",
+                    onClick: () => expressNavigateToTv(),
+                  },
+                ]
+              : [
+                  {
+                    label: "Create a playlist",
+                    onClick: () => onCreatePlaylist(),
+                  },
+                  {
+                    label: "Create tiplink",
+                    onClick: () => onTryOpenTipLink(),
+                  },
+                ]
+          }
+        />
+      ) : playlists.length === 0 ? null : (
+        <div className="space-y-2">
+          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
+            Playlists
+          </p>
+          <ul className="space-y-3">
+            {playlists.map(pl => (
+              <li key={pl.id}>
+                <Link
+                  href={`/playlist/${pl.id}`}
+                  className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
+                >
+                  <span className="font-semibold">{pl.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
+                    {pl.totalTipCount} tips
+                    {pl.kind === "community" && pl.communityName
+                      ? ` · c ${pl.communityName}`
+                      : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {tipLinks.length > 0 ? (
         <div className="space-y-2">
           <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
@@ -3592,72 +3658,6 @@ function PlaylistsTabContent({
           </ul>
         </div>
       ) : null}
-
-      {playlists.length === 0 &&
-      tipLinks.length === 0 &&
-      draftTipLinks.length === 0 ? (
-        <EmptyTabMessage
-          title={isOwnProfile ? "Keep viewers watching." : undefined}
-          message={
-            isOwnProfile ? (
-              <>
-                Group your videos into <br className="sm:hidden" /> playlists or
-                create a Tiplink.
-              </>
-            ) : (
-              <>
-                No playlists or TipLinks here yet. <br className="sm:hidden" />{" "}
-                Discover more to watch.
-              </>
-            )
-          }
-          ctas={
-            !isOwnProfile
-              ? [
-                  {
-                    icon: <Tv className="size-3.5" />,
-                    label: "Watch Tipmanna TV",
-                    onClick: () => expressNavigateToTv(),
-                  },
-                ]
-              : [
-                  {
-                    label: "Create a playlist",
-                    onClick: () => onCreatePlaylist(),
-                  },
-                  {
-                    label: "Create tiplink",
-                    onClick: () => onTryOpenTipLink(),
-                  },
-                ]
-          }
-        />
-      ) : playlists.length === 0 ? null : (
-        <div className="space-y-2">
-          <p className="text-muted-foreground px-2 text-xs font-semibold tracking-wide uppercase">
-            Playlists
-          </p>
-          <ul className="space-y-3">
-            {playlists.map(pl => (
-              <li key={pl.id}>
-                <Link
-                  href={`/playlist/${pl.id}`}
-                  className="hover:bg-muted/30 flex flex-col gap-1 rounded-lg border p-4 transition-colors"
-                >
-                  <span className="font-semibold">{pl.name}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {pl.videoCount} videos · {pl.pageVisitCount} visits ·{" "}
-                    {pl.totalTipCount} tips
-                    {pl.kind === "community" && pl.communityName
-                      ? ` · c ${pl.communityName}`
-                      : ""}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
