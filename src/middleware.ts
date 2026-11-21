@@ -12,45 +12,34 @@ function normalizeHostname(host: string | null): string {
 }
 
 export function middleware(request: NextRequest) {
-  const url = request.nextUrl.clone();
   const rawHost = request.headers.get("host");
   const hostname = normalizeHostname(rawHost);
+  const { pathname, search } = request.nextUrl;
 
+  // Host casing / port normalize — clone only when redirecting.
   if (rawHost && hostname !== rawHost.split(":")[0]) {
-    const dest = url.clone();
+    const dest = request.nextUrl.clone();
     const port = rawHost.includes(":") ? rawHost.split(":")[1] : "";
     dest.hostname = port ? `${hostname}:${port}` : hostname;
-    dest.protocol = url.protocol;
+    dest.protocol = request.nextUrl.protocol;
     return NextResponse.redirect(dest, 308);
   }
 
   // Legacy discovery host (.com) is a configurable redirect-only layer.
   // Root and marketing routes funnel to /partner; known content/entity paths
   // are path-preserving so accumulated SEO/backlink equity is retained.
+  // (.live → .tv and `/` → `/explore` live in next.config redirects — before Middleware.)
   if (isDiscoveryHost(hostname) && getLegacyRedirectMode() !== "off") {
-    const target = resolveLegacyRedirectTarget(url.pathname, url.search);
+    const target = resolveLegacyRedirectTarget(pathname, search);
     if (target) {
       return NextResponse.redirect(target, 301);
     }
   }
 
-  if (hostname === "tipmanna.live" || hostname === "www.tipmanna.live") {
-    const dest = url.clone();
-    dest.hostname =
-      hostname === "www.tipmanna.live" ? "www.tipmanna.tv" : "tipmanna.tv";
-    dest.protocol = "https:";
-    return NextResponse.redirect(dest, 308);
-  }
-
-  if (url.pathname === "/") {
-    url.pathname = "/explore";
-    return NextResponse.redirect(url, 308);
-  }
-
   const creatorRewrite = resolveCreatorAtRewriteUrl({
-    pathname: url.pathname,
-    search: url.search,
-    origin: url.origin,
+    pathname,
+    search,
+    origin: request.nextUrl.origin,
     forwardedHost: request.headers.get("x-forwarded-host"),
     forwardedProto: request.headers.get("x-forwarded-proto"),
   });

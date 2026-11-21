@@ -16,7 +16,11 @@ async function postBackendPresence(authHeader: string): Promise<boolean> {
   return res.ok;
 }
 
-/** Proxies tipper + active host presence pings (hostToken is HttpOnly). */
+/**
+ * Proxies tipper + active host presence pings (hostToken is HttpOnly).
+ * Host cookie/JWT renewal stays on HostDashboardSessionTouch + SessionActivityPinger;
+ * presence auth middleware still slides Host.lastActiveAt.
+ */
 export async function POST() {
   const cookieStore = await cookies();
   const tipperToken = cookieStore.get("token")?.value?.trim();
@@ -31,24 +35,7 @@ export async function POST() {
 
   if (hostToken) {
     try {
-      const touchRes = await fetch(`${apiBase()}/auth/session/touch`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${hostToken}`,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-      if (touchRes.ok) {
-        const body = (await touchRes.json()) as {
-          token?: string;
-          verified?: boolean;
-        };
-        if (body.verified !== false) {
-          const nextToken = body.token?.trim() || hostToken;
-          hostOk = await postBackendPresence(`Bearer ${nextToken}`);
-        }
-      }
+      hostOk = await postBackendPresence(`Bearer ${hostToken}`);
     } catch {
       /* fail open — host presence skipped */
     }
