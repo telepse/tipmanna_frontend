@@ -39,6 +39,11 @@ import {
 import { mergeEventRoomChannel } from "@/lib/content-channel-payload";
 import { useEventChannelCreatedRealtime } from "@/hooks/use-event-channel-created-realtime";
 import { useDefaultChannelRealtime } from "@/hooks/use-default-channel-realtime";
+import { useEventRoomChannelsPoll } from "@/hooks/use-event-room-channels-poll";
+import {
+  mergeDefaultChannelRealtimeUpdate,
+  mergePolledEventRoomChannels,
+} from "@/lib/event-room-viewer-delivery-merge";
 import { appendUniqueChatMessage } from "@/lib/append-unique-chat-message";
 import { normalizeScreenFunnelPosition } from "@/lib/screen-funnel-position";
 
@@ -185,6 +190,10 @@ export const EventRoomClient = ({
       isDefault: c.isDefault === true,
       durationSeconds:
         typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+      mediaSource:
+        c.mediaSource === "native" || c.mediaSource === "linked"
+          ? c.mediaSource
+          : undefined,
     }))
   );
 
@@ -198,6 +207,10 @@ export const EventRoomClient = ({
         isDefault: c.isDefault === true,
         durationSeconds:
           typeof c.durationSeconds === "number" ? c.durationSeconds : undefined,
+        mediaSource:
+          c.mediaSource === "native" || c.mediaSource === "linked"
+            ? c.mediaSource
+            : undefined,
       }))
     );
   }, [serverChannelKey, safeChannels]);
@@ -209,12 +222,11 @@ export const EventRoomClient = ({
   useEventChannelCreatedRealtime(eventId, handleChannelCreated);
 
   useDefaultChannelRealtime(eventId, payload => {
-    setChannelList(prev =>
-      prev.map(c => ({
-        ...c,
-        isDefault: String(c.id) === payload.channelId,
-      }))
-    );
+    setChannelList(prev => mergeDefaultChannelRealtimeUpdate(prev, payload));
+  });
+
+  useEventRoomChannelsPoll(eventId, rows => {
+    setChannelList(prev => mergePolledEventRoomChannels(prev, rows));
   });
 
   const safeEventSession = Array.isArray(EventSession) ? EventSession : [];
@@ -270,6 +282,30 @@ export const EventRoomClient = ({
     showPinnedOnScreen: initialShowPinnedOnScreen,
     funnelPosition: normalizeScreenFunnelPosition(initialFunnelPosition),
   });
+
+  useEffect(() => {
+    setScreenSettings(prev => ({
+      ...prev,
+      eventBackground,
+      hideProgressBarAmount,
+      showLatestAmount,
+      tipUsageDisclosure,
+      performers,
+      projects,
+      showPinnedOnScreen: initialShowPinnedOnScreen,
+      funnelPosition: normalizeScreenFunnelPosition(initialFunnelPosition),
+    }));
+  }, [
+    eventId,
+    eventBackground,
+    hideProgressBarAmount,
+    showLatestAmount,
+    tipUsageDisclosure,
+    performers,
+    projects,
+    initialShowPinnedOnScreen,
+    initialFunnelPosition,
+  ]);
 
   const [openDrawer, setOpenDrawer] = useState(false);
   const [openTipDrawerNonce, setOpenTipDrawerNonce] = useState(0);

@@ -1,6 +1,7 @@
 import { getPublicAbsoluteUrl } from "@/lib/site-config";
 import { getYoutubeThumbnail } from "@/lib/extractYoutubeID";
 import { buildContentShareUrl } from "@/lib/public-video-url";
+import { safeJsonLdStringify } from "@/lib/json-ld-safe";
 
 const EXPLORE_SEO_FEED_COUNT = 6;
 
@@ -67,7 +68,7 @@ export function ExploreSeoJsonLd({ items }: { items?: unknown[] | null }) {
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(feedItemListJsonLd),
+        __html: safeJsonLdStringify(feedItemListJsonLd),
       }}
     />
   );

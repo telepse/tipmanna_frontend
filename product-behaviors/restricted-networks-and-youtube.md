@@ -106,6 +106,8 @@ Other surfaces using `VideoPlayer` keep default programmatic session restore unl
 
 ## Cross-references
 
-- TV system (playback lock): `product-behaviors/tv-system-product-behavior.md`
-- Explore feed: `product-behaviors/explore-feed-product-behavior.md`
-- Media/audio policy: `product-behaviors/media-playback-and-audio-policy.md`
+Companion docs carry the same invariants in surface-specific form (shell section is outside the TV playback lock):
+
+- TV system (playback lock + shell notices): `product-behaviors/tv-system-product-behavior.md`
+- Explore feed (programmatic audio, never-PLAYING): `product-behaviors/explore-feed-product-behavior.md`
+- Media/audio policy (Explore opt-out of programmatic session restore): `product-behaviors/media-playback-and-audio-policy.md`

@@ -268,7 +268,7 @@ export function ScreenDisplayHud({
             />
           </div>
 
-          {!shouldShowProgressAmounts && showRaisedAmount ? (
+          {shouldShowProgressAmounts && showRaisedAmount ? (
             <Paragraph
               weight="bold"
               className={`${overlayText} ${variant === "overlay" ? "text-[2vmin]" : isMobile ? "text-xs" : "text-sm sm:text-base"}`}
@@ -291,7 +291,7 @@ export function ScreenDisplayHud({
             }
           />
 
-          {!shouldShowProgressAmounts && showRaisedAmount ? (
+          {shouldShowProgressAmounts && showRaisedAmount ? (
             <Paragraph
               weight="bold"
               className={`${overlayText} ${variant === "overlay" ? "text-[2vmin]" : isMobile ? "text-xs" : "text-sm sm:text-base"}`}
@@ -306,7 +306,7 @@ export function ScreenDisplayHud({
         <>
           <Paragraph
             weight="bold"
-            className={`${textColor} ${!shouldShowProgressAmounts ? "-mt-10 sm:-mt-12 lg:-mt-14" : "-mt-4"}`}
+            className={`${textColor} ${shouldShowProgressAmounts ? "-mt-10 sm:-mt-12 lg:-mt-14" : "-mt-4"}`}
           >
             tipmanna.com
           </Paragraph>

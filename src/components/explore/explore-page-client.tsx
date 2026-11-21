@@ -270,6 +270,15 @@ function initialFeedUrlStateFromKey(searchParamsKey: string) {
   return parseExploreFeedUrlState(new URLSearchParams(searchParamsKey));
 }
 
+function resolveExploreMainTabFromUrl(tabParam: string | null): ExploreMainTab {
+  if (tabParam === "discover") return "discover";
+  // Legacy / acceptance alias: community feed surface mounts on feed shell.
+  if (tabParam === "community") return "feed";
+  if (tabParam === "my-communities") return "my-communities";
+  if (tabParam === "join") return "join";
+  return "feed";
+}
+
 export interface ExplorePageClientProps {
   characters?: any[];
   characterSets?: any[];
@@ -346,16 +355,8 @@ export default function ExplorePageClient({
     userInfo: viewerUser,
   });
 
-  const [tab, setTab] = useState<ExploreMainTab>(
-    tabParam === "discover"
-      ? "discover"
-      : tabParam === "community"
-        ? "community"
-        : tabParam === "my-communities"
-          ? "my-communities"
-          : tabParam === "join"
-            ? "join"
-            : "feed"
+  const [tab, setTab] = useState<ExploreMainTab>(() =>
+    resolveExploreMainTabFromUrl(tabParam)
   );
 
   /**
@@ -730,16 +731,7 @@ export default function ExplorePageClient({
       leaveDiscoverForFeedRef.current = false;
     }
 
-    const fromUrl: ExploreMainTab =
-      tabParam === "discover"
-        ? "discover"
-        : tabParam === "community"
-          ? "community"
-          : tabParam === "my-communities"
-            ? "my-communities"
-            : tabParam === "join"
-              ? "join"
-              : "feed";
+    const fromUrl: ExploreMainTab = resolveExploreMainTabFromUrl(tabParam);
 
     if (localTabNavRef.current) {
       // External join links must apply even while a feed-local nav guard is active.
@@ -945,17 +937,7 @@ export default function ExplorePageClient({
         const poppedTab = new URLSearchParams(window.location.search).get(
           "tab"
         );
-        const fromUrl: ExploreMainTab =
-          poppedTab === "discover"
-            ? "discover"
-            : poppedTab === "community"
-              ? "community"
-              : poppedTab === "my-communities"
-                ? "my-communities"
-                : poppedTab === "join"
-                  ? "join"
-                  : "feed";
-        setTab(fromUrl);
+        setTab(resolveExploreMainTabFromUrl(poppedTab));
       }
     };
     window.addEventListener("popstate", onPopState);

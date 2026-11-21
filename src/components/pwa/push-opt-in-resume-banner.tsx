@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -15,10 +16,12 @@ import {
   shouldDeferPushUntilInstalled,
 } from "@/lib/pending-push-opt-in";
 import { fetchPushPromptPolicy } from "@/lib/pwa-install-trigger";
+import { isVenueChromeSuppressedPath } from "@/lib/watch-portal-flag";
 import type { RootState } from "@/redux/store";
 
 /** Tap-to-enable banner after iOS PWA install (Web Push requires user gesture). */
 export function PushOptInResumeBanner() {
+  const pathname = usePathname() ?? "";
   const { installed } = useInstallPrompt();
   const { state, subscribe, loading } = usePushPermission();
   const authToken = useSelector((s: RootState) => s.auth.token);
@@ -27,6 +30,10 @@ export function PushOptInResumeBanner() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    if (isVenueChromeSuppressedPath(pathname)) {
+      setVisible(false);
+      return;
+    }
     if (!installed || !isAuthenticated || !authToken) {
       setVisible(false);
       return;
@@ -36,9 +43,14 @@ export function PushOptInResumeBanner() {
       return;
     }
     setVisible(Boolean(readPendingPushOptIn()));
-  }, [authToken, installed, isAuthenticated]);
+  }, [authToken, installed, isAuthenticated, pathname]);
 
-  if (!visible || state === "subscribed" || state === "unsupported") {
+  if (
+    isVenueChromeSuppressedPath(pathname) ||
+    !visible ||
+    state === "subscribed" ||
+    state === "unsupported"
+  ) {
     return null;
   }
 

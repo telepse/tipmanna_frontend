@@ -1139,18 +1139,24 @@ export async function getEventRoomAccessAction(
   const { getEventRoomInviteToken } = await import(
     "@/lib/event-room-invite-cookie.server"
   );
+  const { getEventRoomAccessCredentialsFromCookies } = await import(
+    "@/lib/event-room-access-code-cookie.server"
+  );
+  const { resolveEventRoomAccessCredentialsForFetch } = await import(
+    "@/lib/event-room-access-code-cookie"
+  );
   const token = await getToken();
   const resolvedInvite =
     inviteToken?.trim() || (await getEventRoomInviteToken(eventId));
+  const fromCookies = await getEventRoomAccessCredentialsFromCookies(eventId);
+  const { applyEventRoomAccessCredentialHeaders } = await import(
+    "@/lib/event-room-access-code-cookie"
+  );
+  const resolved = resolveEventRoomAccessCredentialsForFetch(opts, fromCookies);
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   if (resolvedInvite) headers["x-event-room-invite-token"] = resolvedInvite;
-  if (opts?.accessCode?.trim()) {
-    headers["x-event-room-access-code"] = opts.accessCode.trim();
-  }
-  if (opts?.email?.trim()) {
-    headers["x-event-room-access-email"] = opts.email.trim();
-  }
+  applyEventRoomAccessCredentialHeaders(headers, resolved);
 
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access`,
@@ -1209,7 +1215,7 @@ export async function submitEventRoomAccessAction(
     headers["x-event-room-access-email"] = body.email.trim();
   }
 
-  return runServerFetch(
+  const result = await runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/events/${eventId}/room-access/submit`,
     {
       method: "POST",
@@ -1219,6 +1225,30 @@ export async function submitEventRoomAccessAction(
     },
     "submitEventRoomAccessAction"
   );
+
+  if (result.success && result.data) {
+    const data = result.data as { allowed?: boolean; accessMode?: string };
+    const { shouldPersistAccessCodeCookies } = await import(
+      "@/lib/event-room-access-code-cookie"
+    );
+    const { setEventRoomAccessCredentialCookies } = await import(
+      "@/lib/event-room-access-code-cookie.server"
+    );
+    if (
+      shouldPersistAccessCodeCookies({
+        accessCode: body.accessCode,
+        allowed: Boolean(data.allowed),
+        accessMode: data.accessMode,
+      })
+    ) {
+      await setEventRoomAccessCredentialCookies(eventId, {
+        accessCode: body.accessCode,
+        email: body.email,
+      });
+    }
+  }
+
+  return result;
 }
 
 export async function postEventRoomVisitAction(eventId: string, path: string) {

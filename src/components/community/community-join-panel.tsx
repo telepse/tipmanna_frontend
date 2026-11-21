@@ -19,6 +19,7 @@ import {
 } from "@/actions/communities";
 import {
   E2E_JOIN_COMMUNITY_ID,
+  E2E_JOIN_FEATURED_VIDEOS,
   E2E_JOIN_FORM_PUBLIC,
 } from "@/lib/e2e-explore-fixtures";
 import { isExploreE2eFixturesEnabled } from "@/lib/explore-e2e-fixtures-gate";
@@ -54,6 +55,10 @@ import {
 } from "@/lib/drawer-prefetch-cache";
 import { CommunityPublicMembersRoster } from "@/components/community/community-public-members-roster";
 import { invalidateCommunityPublicMembersCache } from "@/lib/community-public-members";
+import {
+  communityFeaturedOverlayPaymentSurface,
+  trackCommunityFeaturedOverlayOpen,
+} from "@/lib/analytics/community-featured-overlay-analytics";
 
 const communityFeatureOn =
   process.env.NEXT_PUBLIC_COMMUNITY_FEATURE_ENABLED === "true";
@@ -317,8 +322,13 @@ export function CommunityJoinPanel({
       const play = { eventId, channelId, ...meta };
       setOverlayPlay(play);
       syncOverlayPlayOnExploreJoin({ eventId, channelId });
+      trackCommunityFeaturedOverlayOpen({
+        eventId,
+        channelId,
+        communityId,
+      });
     },
-    [isDrawer]
+    [isDrawer, communityId]
   );
 
   useEffect(() => {
@@ -396,6 +406,7 @@ export function CommunityJoinPanel({
         communityId === E2E_JOIN_COMMUNITY_ID
       ) {
         setForm(E2E_JOIN_FORM_PUBLIC);
+        setFeaturedVideos([...E2E_JOIN_FEATURED_VIDEOS]);
         formLoadedForRef.current = communityId;
         return;
       }
@@ -808,12 +819,18 @@ export function CommunityJoinPanel({
                       className="relative aspect-[9/16] overflow-hidden rounded bg-neutral-100"
                       disabled={!eventId || !channelId}
                       onClick={() => {
-                        if (eventId && channelId) {
+                        if (!eventId || !channelId) return;
+                        if (isDrawer) {
                           playFeaturedFromDrawer(eventId, channelId, {
                             url: video.url,
                             title: video.title,
                           });
+                          return;
                         }
+                        openOverlayPlay(eventId, channelId, {
+                          url: video.url,
+                          title: video.title,
+                        });
                       }}
                       aria-label={`Play ${video.title}`}
                     >
@@ -970,6 +987,7 @@ export function CommunityJoinPanel({
           channelId={overlayPlay.channelId}
           seed={overlayPlay}
           onDismiss={dismissOverlayPlay}
+          paymentSurface={communityFeaturedOverlayPaymentSurface()}
         />
       ) : null}
       <TipperEmailOtpSignInDialog

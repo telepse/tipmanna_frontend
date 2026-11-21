@@ -1,0 +1,7 @@
+---
+description: TV playback contract rules
+globs: src/components/tv-provider.tsx, src/components/tv/**/*.tsx, src/lib/tv-autoplay.ts, src/hooks/use-tv-player-controls.ts
+alwaysApply: false
+---
+
+Follow **LOCKED PLAYBACK CONTRACT** in `product-behaviors/tv-system-product-behavior.md`. Run `src/lib/__tests__/tv-playback-contract.spec.ts` after any playback change.

@@ -113,6 +113,9 @@ export function SessionActivityPinger() {
       }
 
       const hadHostCookie = Boolean(getHostUserFromCookies()?.id);
+      if (!hadHostCookie) {
+        return;
+      }
 
       const runHostSessionTouch = () =>
         fetch("/api/auth/host-session/touch", {

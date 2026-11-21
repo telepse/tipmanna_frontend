@@ -82,6 +82,16 @@ import { exploreCommunityJoinHref } from "@/lib/community-links";
 import { JoinCommunityModal } from "@/components/community/join-community-modal";
 import { copyShareUrl } from "@/lib/copy-share-url";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
+import { loadReelSoundPref } from "@/lib/session-audio";
+import {
+  resolveTipLinkPlayerAudioProps,
+  resolveTipLinkSurfaceTapAction,
+  shouldDeferTipLinkProgrammaticUnmute,
+  shouldShowTipLinkOpenInBrowserBanner,
+  shouldShowTipLinkTapForSound,
+  TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY,
+} from "@/lib/tiplink-audio-policy";
+import { shouldForceTipLinkOpenInBrowserForPlayerError } from "@/lib/tiplink-payment-return";
 import {
   DRAWER_OVERLAY_Z_INDEX,
   DRAWER_Z_INDEX,
@@ -90,13 +100,13 @@ import {
 import { needsCreateHostAuth } from "@/lib/needs-create-host-auth";
 import { startContentOnlyCreateJourney } from "@/lib/start-content-only-create-journey";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
-} from "@/lib/tvAnalytics";
+  flushTiplinkAnalyticsBeforeContext,
+  initTiplinkAnalyticsRuntime,
+  setTiplinkAnalyticsContext,
+  trackTiplinkVideoEncounter,
+  trackTiplinkVideoStart,
+  trackTiplinkWatchDuration,
+} from "@/lib/analytics/tiplink-analytics";
 import {
   formatSaveVideoError,
   toggleChannelSaveForUser,
@@ -139,6 +149,10 @@ import { useVideoTipReminder } from "@/hooks/use-video-tip-reminder";
 import { VideoTipReminderOverlay } from "@/components/events/video-tip-reminder-overlay";
 import { getCurrentUser } from "../events/event-room-client";
 import { usePusherTracking } from "@/hooks/use-pusher-tracking";
+
+import { useCommentDrawerData } from "@/hooks/use-comment-drawer-data";
+import { toggleCommentLikeAction } from "@/actions/messages";
+import { Heart, Send } from "lucide-react";
 
 type TipLinkSignInPurpose = "create" | "saveVideo" | "saveHost";
 
@@ -276,6 +290,13 @@ export function TipLinkLandingClient({
   } | null>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  /** Hydration-safe: SSR/default = no defer / no banner until client UA read. */
+  const [audioGateReady, setAudioGateReady] = useState(false);
+  const [deferProgrammaticUnmute, setDeferProgrammaticUnmute] = useState(false);
+  const [showOpenInBrowserBanner, setShowOpenInBrowserBanner] = useState(false);
+  const [embedIdentityError, setEmbedIdentityError] = useState(false);
+  const [playerRemountKey, setPlayerRemountKey] = useState(0);
+  const playerRemountAttemptedRef = useRef(false);
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
   const [isTipDrawerOpen, setIsTipDrawerOpen] = useState(false);
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
@@ -348,6 +369,58 @@ export function TipLinkLandingClient({
   }, [trackActivity]);
 
   const [showOnlineCount, setShowOnlineCount] = useState(false);
+
+  const authUser = useSelector((state: RootState) => state.auth.user);
+
+  const {
+    drawerData: inlineCommentData,
+    loading: inlineCommentsLoading,
+    revalidate: revalidateInlineComments,
+  } = useCommentDrawerData(eventId, channelId, true);
+
+  const inlineComments = inlineCommentData?.comments ?? [];
+
+  const [inlineCommentText, setInlineCommentText] = useState("");
+  const [inlineLikeBusyId, setInlineLikeBusyId] = useState<string | null>(null);
+
+  const handleInlineAddComment = useCallback(() => {
+    if (!inlineCommentText.trim()) {
+      toast.error("Enter a comment first");
+      return;
+    }
+
+    // Reuse the existing, supported comment/tip workflow.
+    // CommentDrawer owns the text-tip draft and payment process.
+    setShowCommentDrawer(true);
+  }, [inlineCommentText]);
+
+  const handleInlineCommentLike = useCallback(
+    async (commentId: string) => {
+      if (!authUser || authUser.role === "VISITOR") {
+        setShowCommentDrawer(true);
+        toast.info("Sign in to like comments");
+        return;
+      }
+
+      setInlineLikeBusyId(commentId);
+
+      try {
+        const result = await toggleCommentLikeAction(commentId);
+
+        if (!result.success || !result.data) {
+          toast.error(result.message ?? "Could not update like");
+          return;
+        }
+
+        await revalidateInlineComments();
+      } catch {
+        toast.error("Could not update like");
+      } finally {
+        setInlineLikeBusyId(null);
+      }
+    },
+    [authUser, revalidateInlineComments]
+  );
 
   const {
     isFullView,
@@ -552,8 +625,30 @@ export function TipLinkLandingClient({
     videoRef,
     currentChannelId: channelId,
     onMuteChange: setIsMuted,
+    restoreEpoch: playerRemountKey,
   });
   useAutoDropTip(eventId, true);
+
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    setDeferProgrammaticUnmute(shouldDeferTipLinkProgrammaticUnmute(ua));
+    let dismissed = false;
+    try {
+      dismissed =
+        sessionStorage.getItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY) === "1";
+    } catch {
+      dismissed = false;
+    }
+    setShowOpenInBrowserBanner(
+      shouldShowTipLinkOpenInBrowserBanner(ua) && !dismissed
+    );
+    setAudioGateReady(true);
+  }, []);
+
+  const tipLinkAudioProps = resolveTipLinkPlayerAudioProps({
+    defer: deferProgrammaticUnmute,
+    wantsSound: audioGateReady ? loadReelSoundPref() : false,
+  });
 
   const { showFlashOverlay, handleTipNow, handleDismiss } = useVideoTipReminder(
     {
@@ -590,7 +685,7 @@ export function TipLinkLandingClient({
   const prevPlayingRef = useRef(false);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
+    initTiplinkAnalyticsRuntime();
   }, []);
 
   useEffect(() => {
@@ -601,13 +696,13 @@ export function TipLinkLandingClient({
 
   useEffect(() => {
     if (!eventId || !channelId) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId,
-        surface: "tiplink",
-        communityId: event.communityId,
-      });
+    const ctx = {
+      eventId,
+      channelId,
+      communityId: event.communityId,
+    };
+    void flushTiplinkAnalyticsBeforeContext(ctx).then(() => {
+      setTiplinkAnalyticsContext(ctx);
     });
   }, [channelId, event.communityId, eventId]);
 
@@ -786,16 +881,17 @@ export function TipLinkLandingClient({
 
   const emitEncounter = useCallback(() => {
     if (!eventId || !channelId) return;
-    trackTvVideoEncounter(`tiplink-${tipLink.slug}`, {
+    trackTiplinkVideoEncounter(tipLink.slug, {
+      eventId,
       channelId,
-      mode: "LOCAL",
-      scheduleIndex: 0,
+      communityId: event.communityId,
+      isPlaying,
     });
-  }, [channelId, eventId, tipLink.slug]);
+  }, [channelId, event.communityId, eventId, isPlaying, tipLink.slug]);
 
   useEffect(() => {
     if (isPlaying && !prevPlayingRef.current) {
-      trackTvVideoStart(channelId, "LOCAL", 0, channelId);
+      trackTiplinkVideoStart(channelId);
     }
     prevPlayingRef.current = isPlaying;
   }, [channelId, isPlaying]);
@@ -807,7 +903,7 @@ export function TipLinkLandingClient({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(
+          trackTiplinkWatchDuration(
             channelId,
             Math.min(sec, 600),
             "LOCAL",
@@ -855,6 +951,26 @@ export function TipLinkLandingClient({
     setIsMuted(next);
   }, [isMuted]);
 
+  const unmuteFromUserGesture = useCallback(() => {
+    videoRef.current?.unmute();
+    setIsMuted(false);
+  }, []);
+
+  const handleTipLinkPlayerError = useCallback((errorCode?: number) => {
+    if (!shouldForceTipLinkOpenInBrowserForPlayerError(errorCode)) return;
+    setEmbedIdentityError(true);
+    setShowOpenInBrowserBanner(true);
+    try {
+      sessionStorage.removeItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!playerRemountAttemptedRef.current) {
+      playerRemountAttemptedRef.current = true;
+      setPlayerRemountKey(key => key + 1);
+    }
+  }, []);
+
   const togglePlayPause = useCallback(() => {
     if (isPlaying) videoRef.current?.pause();
     else videoRef.current?.play();
@@ -872,13 +988,55 @@ export function TipLinkLandingClient({
     });
   }, [isMobileSurface]);
 
+  const dismissOpenInBrowserBanner = useCallback(() => {
+    try {
+      sessionStorage.setItem(TIPLINK_OPEN_BROWSER_BANNER_DISMISS_KEY, "1");
+    } catch {
+      /* ignore quota / private mode */
+    }
+    setShowOpenInBrowserBanner(false);
+  }, []);
+
+  const copyTipLinkForBrowser = useCallback(async () => {
+    const url =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `${getPrimaryOrigin()}/l/${tipLink.slug}`;
+    try {
+      await copyShareUrl(url);
+      toast.success("Link copied — paste in Safari or Chrome");
+    } catch {
+      toast.info("Copy the address bar URL and open it in Safari or Chrome");
+    }
+  }, [tipLink.slug]);
+
   const handlePlayerSurfaceClick = useCallback(() => {
-    if (isDocked) {
+    const action = resolveTipLinkSurfaceTapAction({
+      isDocked,
+      playerMuted: isMuted,
+    });
+    if (action === "scroll_to_video") {
       scrollToInlineVideo();
       return;
     }
+    if (action === "unmute") {
+      unmuteFromUserGesture();
+      return;
+    }
     togglePlayPause();
-  }, [isDocked, scrollToInlineVideo, togglePlayPause]);
+  }, [
+    isDocked,
+    isMuted,
+    scrollToInlineVideo,
+    unmuteFromUserGesture,
+    togglePlayPause,
+  ]);
+
+  const showTapForSound = shouldShowTipLinkTapForSound({
+    playerMuted: isMuted,
+    isPlaying,
+    isDocked,
+  });
 
   const preservePlaybackBeforeLayout = useCallback(() => {
     const t = videoRef.current?.getCurrentTime();
@@ -1439,11 +1597,16 @@ export function TipLinkLandingClient({
         </div>
       ) : null}
       <VideoPlayer
+        key={`tiplink-yt-${playerRemountKey}`}
         ref={videoRef}
         videoUrl={channel.url}
-        initialMuted={isMuted}
+        initialMuted={tipLinkAudioProps.initialMuted}
+        restoreSessionSoundOnProgrammaticPlay={
+          tipLinkAudioProps.restoreSessionSoundOnProgrammaticPlay
+        }
         onMuteStateChange={setIsMuted}
         onPlayStateChange={setIsPlaying}
+        onError={handleTipLinkPlayerError}
         playbackActive
         fullPresentationFit={playerPresentationFit}
         onVideoLoaded={emitEncounter}
@@ -1454,13 +1617,30 @@ export function TipLinkLandingClient({
         aria-label={
           isDocked
             ? "Scroll to video"
-            : isPlaying
-              ? "Pause video"
-              : "Play video"
+            : isMuted
+              ? "Unmute video"
+              : isPlaying
+                ? "Pause video"
+                : "Play video"
         }
         className="absolute inset-0 z-[50] cursor-pointer bg-transparent"
         onClick={handlePlayerSurfaceClick}
       />
+      {showTapForSound ? (
+        <div className="pointer-events-none absolute inset-0 z-[53] flex items-center justify-center px-4">
+          <button
+            type="button"
+            data-testid="tiplink-tap-for-sound"
+            className="pointer-events-auto rounded-full bg-black/65 px-5 py-2.5 text-sm font-medium text-white shadow-lg"
+            onClick={e => {
+              e.stopPropagation();
+              unmuteFromUserGesture();
+            }}
+          >
+            Tap for sound
+          </button>
+        </div>
+      ) : null}
       <div
         id="global-animation-layer"
         className={cn("pointer-events-none absolute inset-0", TV_RAIL_Z_INDEX)}
@@ -1694,6 +1874,49 @@ export function TipLinkLandingClient({
             {renderPlayerAnchor()}
           </section>
 
+          {showOpenInBrowserBanner ? (
+            <section
+              data-testid="tiplink-open-in-browser-banner"
+              className="rounded-2xl border border-amber-400/30 bg-amber-500/15 px-4 py-3 text-sm text-amber-50"
+            >
+              <p className="font-medium">
+                {embedIdentityError
+                  ? "Video needs Safari or Chrome after payment"
+                  : "Sound and tipping work best in Safari or Chrome"}
+              </p>
+              <p className="mt-1 text-xs text-amber-100/90">
+                {embedIdentityError
+                  ? "This in-app browser blocked the video player (YouTube 153). Use ··· → Open in Safari/Chrome, or copy the link — playback will resume from where you tipped."
+                  : "You are in an in-app browser. Use ··· → Open in Safari/Chrome, or copy this link and paste it in your browser."}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-full"
+                  onClick={() => {
+                    void copyTipLinkForBrowser();
+                  }}
+                >
+                  Copy link
+                </Button>
+                <button
+                  type="button"
+                  className="text-xs text-amber-100/80 underline-offset-2 hover:underline"
+                  onClick={dismissOpenInBrowserBanner}
+                >
+                  Dismiss
+                </button>
+              </div>
+              <p className="mt-2 break-all select-all text-[11px] text-amber-100/70">
+                {typeof window !== "undefined"
+                  ? window.location.href
+                  : `${getPrimaryOrigin()}/l/${tipLink.slug}`}
+              </p>
+            </section>
+          ) : null}
+
           {!hideScrollContent ? (
             <>
               <section className="space-y-3 text-sm text-white/80">
@@ -1923,6 +2146,136 @@ export function TipLinkLandingClient({
                   </p>
                 </section>
               ) : null}
+
+              {/* INLINE COMMENTS — directly underneath the pitch */}
+              <section
+                id="tiplink-comments"
+                className="mt-4 space-y-4 rounded-2xl border border-white/10 bg-black/25 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Comments
+                    </h2>
+                    <p className="mt-1 text-xs text-white/60">
+                      Join the conversation about this video.
+                    </p>
+                  </div>
+
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+                    {inlineCommentData?.metrics?.commentCount ??
+                      inlineComments.length}
+                  </span>
+                </div>
+
+                {/* Comment input */}
+                <form
+                  className="flex items-center gap-2"
+                  onSubmit={event => {
+                    event.preventDefault();
+                    handleInlineAddComment();
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={inlineCommentText}
+                    onChange={event => setInlineCommentText(event.target.value)}
+                    placeholder="Write a comment..."
+                    aria-label="Write a comment"
+                    maxLength={2000}
+                    className="focus:border-primary h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/40"
+                  />
+
+                  <button
+                    type="submit"
+                    className="bg-primary inline-flex h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-black transition hover:opacity-90"
+                  >
+                    <Send className="size-4" />
+                    <span className="hidden sm:inline">Add comment</span>
+                    <span className="sm:hidden">Add</span>
+                  </button>
+                </form>
+
+                {/* Existing comments */}
+                <div className="space-y-3">
+                  {inlineCommentsLoading && inlineComments.length === 0 ? (
+                    <div
+                      className="space-y-3"
+                      aria-busy="true"
+                    >
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="h-16 animate-pulse rounded-xl border border-white/10 bg-white/5"
+                        />
+                      ))}
+                    </div>
+                  ) : inlineComments.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center">
+                      <MessageCircleMore className="mx-auto mb-2 size-7 text-white/40" />
+                      <p className="text-sm text-white/70">
+                        Be the first to comment.
+                      </p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Share your thoughts with the community.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {inlineComments.map(comment => (
+                        <li
+                          key={comment.id}
+                          className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold text-white">
+                              {comment.username}
+                            </p>
+
+                            <time className="shrink-0 text-[10px] text-white/40">
+                              {new Date(comment.createdAt).toLocaleDateString()}
+                            </time>
+                          </div>
+
+                          <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-white/80">
+                            {comment.message}
+                          </p>
+
+                          <button
+                            type="button"
+                            disabled={inlineLikeBusyId === comment.id}
+                            onClick={() =>
+                              void handleInlineCommentLike(comment.id)
+                            }
+                            className={`mt-3 inline-flex items-center gap-1.5 text-xs transition ${
+                              comment.likedByMe
+                                ? "text-primary"
+                                : "text-white/50 hover:text-white"
+                            } disabled:opacity-50`}
+                            aria-label={`Like comment by ${comment.username}`}
+                          >
+                            <Heart
+                              className="size-4"
+                              fill={comment.likedByMe ? "currentColor" : "none"}
+                            />
+                            {comment.likeCount}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {inlineComments.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCommentDrawer(true)}
+                      className="w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+                    >
+                      Open full comments
+                    </button>
+                  ) : null}
+                </div>
+              </section>
 
               <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <p className="mb-3 text-center text-sm text-white/60">

@@ -1,6 +1,10 @@
 "use server";
 
-import { runServerFetch } from "@/lib/action-fetch";
+import { actionFail, runServerFetch } from "@/lib/action-fetch";
+import {
+  BACKEND_API_URL_NOT_CONFIGURED,
+  resolveServerBackendApiBase,
+} from "@/lib/server-backend-api-url";
 import { serverAuthHeaders, serverHostAuthHeaders } from "@/lib/server-auth";
 import type { SignupSurface } from "@/lib/signup-attribution";
 
@@ -111,8 +115,13 @@ export async function loginOrRegisterHostAction(
 export async function verifyCodeAction(
   email: string,
   code: string,
-  accountType: "TIPPER" | "HOST" = "TIPPER"
+  accountType: "TIPPER" | "HOST" = "TIPPER",
+  visitorId?: string
 ) {
+  const vid =
+    accountType === "TIPPER" && visitorId?.trim()
+      ? visitorId.trim()
+      : undefined;
   return runServerFetch(
     `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/verify-code`,
     {
@@ -120,7 +129,12 @@ export async function verifyCodeAction(
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email, code, accountType }),
+      body: JSON.stringify({
+        email,
+        code,
+        accountType,
+        ...(vid ? { visitorId: vid } : {}),
+      }),
       cache: "no-store",
     },
     "verifyCodeAction",
@@ -135,8 +149,12 @@ export async function loginHostAction(values: {
   password: string;
   visitorId?: string;
 }) {
+  const apiBase = resolveServerBackendApiBase();
+  if (!apiBase) {
+    return actionFail(BACKEND_API_URL_NOT_CONFIGURED, "loginHostAction");
+  }
   return runServerFetch(
-    `${process.env.NEXT_PUBLIC_BACKEND_API_URL}/auth/login-host`,
+    `${apiBase}/auth/login-host`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

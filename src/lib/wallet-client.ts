@@ -45,6 +45,16 @@ export async function verifyWalletTokenRequest(token: string): Promise<{
   return res.data ?? {};
 }
 
+export class WalletDebitRequestError extends Error {
+  readonly httpStatus?: number;
+
+  constructor(message: string, httpStatus?: number) {
+    super(message);
+    this.name = "WalletDebitRequestError";
+    this.httpStatus = httpStatus;
+  }
+}
+
 export async function debitWalletRequest(body: {
   pin: string;
   amount: number;
@@ -72,7 +82,10 @@ export async function debitWalletRequest(body: {
 }): Promise<{ transactionId: string; newBalance: string }> {
   const res = await debitWalletAction(body);
   if (!res.success || !res.data) {
-    throw new Error(res.error || "Wallet payment failed");
+    throw new WalletDebitRequestError(
+      res.error || "Wallet payment failed",
+      res.httpStatus
+    );
   }
   return res.data;
 }

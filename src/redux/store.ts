@@ -2,8 +2,10 @@ import {
   configureStore,
   combineReducers,
   createListenerMiddleware,
+  type Reducer,
 } from "@reduxjs/toolkit";
 import { persistReducer, persistStore } from "redux-persist";
+import createTransform from "redux-persist/lib/createTransform";
 import storage from "redux-persist/lib/storage";
 
 // Local imports
@@ -56,14 +58,21 @@ const rootReducer = combineReducers({
   tip: tipReducer,
 });
 
+const stripPersistedAuthToken = createTransform(
+  (inbound: { token?: string | null }) => ({ ...inbound, token: null }),
+  outbound => outbound,
+  { whitelist: ["auth"] }
+);
+
 // Redux Persist configuration
 const persistConfig = {
   key: "root",
   storage,
   whitelist: ["auth", "tip"],
+  transforms: [stripPersistedAuthToken],
 };
 
-const persistedReducer = persistReducer(persistConfig, rootReducer);
+const persistedReducer = persistReducer(persistConfig, rootReducer as Reducer);
 
 // Configure store
 export const store = configureStore({

@@ -37,19 +37,23 @@ describe("transparent screen overlay", () => {
   });
 
   it("PWA and push auto-prompt suppressed on overlay path", () => {
-    const trigger = readSrc("lib/pwa-install-trigger.ts");
-    expect(trigger).toContain("isScreenOverlayPath");
+    const flag = readSrc("lib/watch-portal-flag.ts");
+    expect(flag).toMatch(/overlay/);
     expect(readSrc("components/pwa/pwa-install-controller.tsx")).toContain(
-      "isScreenOverlayPath"
+      "isVenueChromeSuppressedPath"
     );
     expect(readSrc("components/pwa/push-prompt-controller.tsx")).toContain(
-      "isScreenOverlayPath"
+      "isVenueChromeSuppressedPath"
+    );
+    expect(readSrc("components/pwa/push-opt-in-resume-banner.tsx")).toContain(
+      "isVenueChromeSuppressedPath"
     );
   });
 
-  it("room pusher does not bind public screen-display-state", () => {
+  it("room pusher mirrors public screen-display-state for host indicator sync", () => {
     const provider = readSrc("components/events/event-pusher-provider.tsx");
-    expect(provider).not.toContain('bind("screen-display-state"');
+    expect(provider).toContain('bind("screen-display-state"');
+    expect(provider).toContain('bind("screen-settings-updated"');
   });
 
   it("overlay layout sets transparent root before paint", () => {
@@ -62,12 +66,12 @@ describe("transparent screen overlay", () => {
 
   it("suppresses global toast and nav progress chrome on overlay path", () => {
     expect(readSrc("components/layout/app-toast-container.tsx")).toContain(
-      "isScreenOverlayPath"
+      "isVenueChromeSuppressedPath"
     );
     const nav = readSrc(
       "components/navigation/navigation-progress-provider.tsx"
     );
-    expect(nav).toContain("isScreenOverlayPath");
+    expect(nav).toContain("isVenueChromeSuppressedPath");
     expect(nav).toMatch(/showProgressBar/);
   });
 

@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getTipLinkPreviewAction } from "@/actions/tiplink";
 import { TipLinkLandingClient } from "@/components/tiplink/tiplink-landing-client";
 import { TipLinkLoadRetry } from "@/components/tiplink/tiplink-load-retry";
+import { TipLinkPreviewPageShell } from "@/components/tiplink/tiplink-preview-page-shell";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 
 type Props = {
@@ -38,6 +39,7 @@ export default async function TipLinkPreviewPage({ params }: Props) {
     }
     return (
       <div className="min-h-screen bg-black">
+        <TipLinkPreviewPageShell />
         <TipLinkLoadRetry message={res.message ?? res.error ?? undefined} />
       </div>
     );
@@ -49,11 +51,14 @@ export default async function TipLinkPreviewPage({ params }: Props) {
   const characters = eventCatalog.tippingCharacters;
 
   return (
-    <TipLinkLandingClient
-      payload={payload}
-      characters={characters}
-      characterSets={characterSets}
-      preview
-    />
+    <>
+      <TipLinkPreviewPageShell />
+      <TipLinkLandingClient
+        payload={payload}
+        characters={characters}
+        characterSets={characterSets}
+        preview
+      />
+    </>
   );
 }

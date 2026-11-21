@@ -55,6 +55,7 @@ import {
   updateTipperAction,
   verifyCodeAction,
 } from "@/actions/auth";
+import { getVisitorIdForAuthMerge } from "@/lib/visitor-session";
 import Cookies from "js-cookie";
 import OtpInput from "react-otp-input";
 import { useMediaQuery } from "react-responsive";
@@ -1152,7 +1153,9 @@ export const TipperBanner = ({
                             // Verify the code
                             await verifyCodeAction(
                               emailForm.watch("email"),
-                              emailCode
+                              emailCode,
+                              "TIPPER",
+                              getVisitorIdForAuthMerge(user)
                             );
 
                             // Update email in redux

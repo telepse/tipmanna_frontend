@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { authCookieSecureFromRequest } from "@/lib/auth-cookie-options";
+
 import {
   clearHostSessionCookies,
   verifyHostSessionWithBackend,
@@ -17,7 +19,8 @@ function setHostSessionCookies(
   res: NextResponse,
   token: string,
   user: Record<string, unknown>,
-  days: number
+  days: number,
+  secure: boolean
 ): NextResponse {
   const maxAge = days * 24 * 60 * 60;
   const hostSessionExpiresAt = new Date(
@@ -26,7 +29,7 @@ function setHostSessionCookies(
 
   res.cookies.set("hostToken", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge,
@@ -46,7 +49,7 @@ function setHostSessionCookies(
     }),
     {
       httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
+      secure,
       sameSite: "lax",
       path: "/",
       maxAge,
@@ -92,7 +95,13 @@ export async function POST(req: NextRequest) {
     ).catch(() => undefined);
 
     const res = NextResponse.json({ ok: true, hostSessionExpiresAt });
-    return setHostSessionCookies(res, token, user, days);
+    return setHostSessionCookies(
+      res,
+      token,
+      user,
+      days,
+      authCookieSecureFromRequest(req)
+    );
   } catch {
     return NextResponse.json(
       { error: "Failed to set host session" },
@@ -101,9 +110,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
-  return clearHostSessionCookies(res);
+  return clearHostSessionCookies(res, authCookieSecureFromRequest(req));
 }
 
 /**
@@ -121,7 +130,11 @@ export async function GET(req: NextRequest) {
   }
 
   if (verify) {
-    return verifyHostSessionWithBackend(hostToken, hostUserRaw);
+    return verifyHostSessionWithBackend(
+      hostToken,
+      hostUserRaw,
+      authCookieSecureFromRequest(req)
+    );
   }
 
   try {

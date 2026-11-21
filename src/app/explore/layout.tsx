@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { ExploreV2PageLink } from "./explore-v2-page-link.client";
 import { getPrimaryOrigin } from "@/lib/site-config";
 
 const title = "Tipmanna TV — Community-powered realtime media 💎";
@@ -41,5 +42,10 @@ export default function ExploreLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <ExploreV2PageLink />
+      {children}
+    </>
+  );
 }

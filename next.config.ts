@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { getWave1ConfigRedirects } from "./src/lib/config-redirects";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -17,6 +18,46 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
+  },
+  /**
+   * Wave 1A: high-volume redirects before Middleware (Next.js order:
+   * headers → redirects → middleware). permanent: true → 308.
+   */
+  async redirects() {
+    return getWave1ConfigRedirects();
+  },
+  /** Finish B Phase 0: one HTTPS ngrok origin; proxy API to disposable 8014. */
+  async rewrites() {
+    if (process.env.FINISH_B_PHASE0_API_PROXY !== "1") return [];
+    const target =
+      process.env.FINISH_B_PHASE0_API_PROXY_TARGET?.trim() ||
+      "http://127.0.0.1:8014";
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${target.replace(/\/$/, "")}/api/v1/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value:
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://js.stripe.com https://embed.tawk.to; connect-src 'self' https: wss:; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' https:; frame-src https://js.stripe.com https://www.youtube.com https://player.vimeo.com; report-uri /api/csp-report",
+          },
+        ],
+      },
+    ];
   },
   images: {
     formats: ["image/avif", "image/webp"],

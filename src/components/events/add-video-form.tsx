@@ -525,10 +525,13 @@ export function AddVideoForm({
                 name="url"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className={labelClass}>Video URL</FormLabel>
+                    <FormLabel className={labelClass}>
+                      Video URL{" "}
+                      <span className="text-[10px]">Youtube Link</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="https://..."
+                        placeholder="https://youtube.com/watch?v=..."
                         className={inputClass}
                         {...field}
                       />

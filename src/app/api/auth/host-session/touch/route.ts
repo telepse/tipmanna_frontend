@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { authCookieSecureFromRequest } from "@/lib/auth-cookie-options";
+
 import { verifyHostSessionWithBackend } from "../verify-host-session";
 
 /** Slide the host session cookie window; rotate host JWT when backend requests it. */
@@ -14,7 +16,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const verified = await verifyHostSessionWithBackend(hostToken, hostUserRaw);
+  const verified = await verifyHostSessionWithBackend(
+    hostToken,
+    hostUserRaw,
+    authCookieSecureFromRequest(req)
+  );
   if (verified.status !== 200) {
     return verified;
   }

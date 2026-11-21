@@ -4,6 +4,11 @@
  * Includes in-flight deduplication and 429 exponential backoff.
  */
 
+import {
+  BACKEND_API_URL_NOT_CONFIGURED,
+  isMalformedBackendActionUrl,
+} from "@/lib/server-backend-api-url";
+
 /** Next.js extends fetch RequestInit — keep explicit for server-action caching */
 export type ServerActionFetchInit = RequestInit & {
   next?: { revalidate?: number | false; tags?: string[] };
@@ -459,6 +464,10 @@ export async function runServerFetch<T = unknown>(
     "X-Tipmanna-Host-Auth-Missing" in hdrs
   ) {
     return hostSessionRequiredActionFail<T>();
+  }
+
+  if (isMalformedBackendActionUrl(url)) {
+    return actionFail<T>(BACKEND_API_URL_NOT_CONFIGURED, context);
   }
 
   const key = requestDedupeKey(url, init);

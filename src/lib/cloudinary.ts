@@ -2,20 +2,28 @@
 
 import axios from "axios";
 
+import { getCloudinarySignAction } from "@/actions/uploads";
 import { compressImageForUpload } from "@/lib/compress-image-for-upload";
 
-const cloud_name = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
-const cloud_secret = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
-
 export const uploadImage = async (icon: string) => {
+  const signRes = await getCloudinarySignAction();
+  if (!signRes.success || !signRes.data) {
+    throw new Error(signRes.message ?? "Could not authorize upload");
+  }
+
+  const { cloudName, apiKey, timestamp, signature, folder } = signRes.data;
+
   try {
     const compressed = await compressImageForUpload(icon);
     const formData = new FormData();
-    formData.append("upload_preset", cloud_secret);
     formData.append("file", compressed);
+    formData.append("api_key", apiKey);
+    formData.append("timestamp", String(timestamp));
+    formData.append("signature", signature);
+    formData.append("folder", folder);
 
     const { data } = await axios.post(
-      `https://api.cloudinary.com/v1_1/${cloud_name}/image/upload`,
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
       formData
     );
     return data;

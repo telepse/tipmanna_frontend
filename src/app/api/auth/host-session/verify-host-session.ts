@@ -1,18 +1,23 @@
 import { NextResponse } from "next/server";
 
+import { authCookieSecureDefault } from "@/lib/auth-cookie-options";
+
 const MAX_AGE_DAYS = 7;
 
-export function clearHostSessionCookies(res: NextResponse): NextResponse {
+export function clearHostSessionCookies(
+  res: NextResponse,
+  secure = authCookieSecureDefault()
+): NextResponse {
   res.cookies.set("hostToken", "", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
   });
   res.cookies.set("hostUser", "", {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge: 0,
@@ -39,7 +44,8 @@ export function shouldClearHostCookies(code: string): boolean {
  */
 export async function verifyHostSessionWithBackend(
   hostToken: string,
-  hostUserRaw: string
+  hostUserRaw: string,
+  secure = authCookieSecureDefault()
 ): Promise<NextResponse> {
   let hostUser: HostUserCookie;
   try {
@@ -96,7 +102,9 @@ export async function verifyHostSessionWithBackend(
         { active: false, code, hostId: hostUser.id ?? null },
         { status: touchRes.status === 401 ? 401 : 403 }
       );
-      return shouldClearHostCookies(code) ? clearHostSessionCookies(res) : res;
+      return shouldClearHostCookies(code)
+        ? clearHostSessionCookies(res, secure)
+        : res;
     }
 
     const body = (await touchRes.json()) as {
@@ -135,14 +143,14 @@ export async function verifyHostSessionWithBackend(
   });
   res.cookies.set("hostToken", nextHostToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge,
   });
   res.cookies.set("hostUser", JSON.stringify(hostUser), {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     path: "/",
     maxAge,

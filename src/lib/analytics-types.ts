@@ -10,6 +10,8 @@ export type PaymentSurface =
   | "community_tv_looper"
   | "community_room"
   | "tiplink"
+  | "tv_fullscreen"
+  | "community_featured_overlay"
   | "unknown";
 
 /** TV analytics clip mode (reels / explore feed uses EXPLORE). */

@@ -1,6 +1,20 @@
+/**
+ * Literal retained in client JS when NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES=1 at
+ * compile time (Wave 3 runtime chunk scan / deploy-info substantiation).
+ */
+export const EXPLORE_E2E_FIXTURES_CLIENT_BUILD_ANCHOR =
+  "tipmanna-explore-e2e-fixtures-client-build-v1";
+
 /** Build-time gate for deterministic Explore E2E fixtures (never query-only). */
 export function isExploreE2eFixturesEnvEnabled(): boolean {
   return process.env.NEXT_PUBLIC_ENABLE_EXPLORE_E2E_FIXTURES === "1";
+}
+
+/** Anchor string baked into client bundles when the build flag is on; else null. */
+export function exploreE2eFixturesClientBuildAnchor(): string | null {
+  return isExploreE2eFixturesEnvEnabled()
+    ? EXPLORE_E2E_FIXTURES_CLIENT_BUILD_ANCHOR
+    : null;
 }
 
 /**

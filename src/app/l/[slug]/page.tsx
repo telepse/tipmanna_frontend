@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { getPublicTipLinkAction } from "@/actions/tiplink";
 import { TipLinkLandingClient } from "@/components/tiplink/tiplink-landing-client";
 import { TipLinkLoadRetry } from "@/components/tiplink/tiplink-load-retry";
+import { TipLinkPublicPageShell } from "@/components/tiplink/tiplink-public-page-shell";
 import { parseEventCharacterCatalog } from "@/lib/parse-event-character-catalog";
 import { getPrimaryOrigin } from "@/lib/site-config";
 import { buildVideoObjectJsonLd } from "@/lib/structured-data";
@@ -62,7 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     alternates: { canonical: url },
     openGraph: {
       title: `${channel.title} by ${displayName} ${displayHandle}`,
-      description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares \nWatch, ${ctaSectionLabel}, Support.\nTiplink by ${displayName} ${displayHandle} ${tipLink.pitch}`,
+      description: `${tipLink.pageVisitCount} visits ${tipLink.videoTipCount} tips ${metrics.shares} shares \nWatch, ${ctaSectionLabel}, Support. \nTiplink by ${displayName} ${displayHandle} ${tipLink.pitch}`,
       url,
       ...buildOgImageMetadata(image),
       type: "video.other",
@@ -86,6 +87,7 @@ export default async function TipLinkPage({ params }: Props) {
     }
     return (
       <div className="min-h-screen bg-black">
+        <TipLinkPublicPageShell />
         <TipLinkLoadRetry message={res.message ?? res.error ?? undefined} />
       </div>
     );
@@ -112,6 +114,7 @@ export default async function TipLinkPage({ params }: Props) {
 
   return (
     <>
+      <TipLinkPublicPageShell />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

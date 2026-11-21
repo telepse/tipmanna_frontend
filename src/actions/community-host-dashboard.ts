@@ -39,6 +39,20 @@ export async function getCommunityAnalyticsVideoRollupsAction(
   );
 }
 
+export async function getCommunityRoomScreenSettingsAction(
+  communityId: string
+) {
+  return runServerFetch(
+    api(`/communities/${encodeURIComponent(communityId)}/screen-settings`),
+    {
+      method: "GET",
+      headers: await serverHostAuthHeaders(),
+      cache: "no-store",
+    },
+    "getCommunityRoomScreenSettingsAction"
+  );
+}
+
 export async function patchCommunityRoomScreenSettingsAction(
   communityId: string,
   body: {

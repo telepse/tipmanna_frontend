@@ -1,0 +1,7 @@
+---
+description: TV golden lock — do not edit playback six without named bug + contract + user confirmation
+globs: src/components/tv/**/*.tsx, src/components/tv-provider.tsx, src/lib/tv-autoplay.ts, src/lib/tv-player-resume.ts, src/hooks/use-tv-player-controls.ts
+alwaysApply: false
+---
+
+See `docs/tv-lock/README.md`. Never edit `tv-provider`, `tv-looper`, `tv-player`, `tv-autoplay`, `tv-player-resume`, or `use-tv-player-controls` except for a user-named playback bug with `tv-playback-contract.spec.ts` and product-behavior updates in the same change.

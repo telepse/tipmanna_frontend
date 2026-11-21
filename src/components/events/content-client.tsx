@@ -88,16 +88,18 @@ import { ChannelProgressBar } from "./channel-progress-bar";
 import { SaveEventId } from "./save-event-id";
 import { getCurrentUser } from "./event-room-client";
 import {
-  flushTvAnalytics,
-  initTvAnalyticsRuntime,
-  setTvAnalyticsContext,
+  flushContentClientAnalyticsBeforeContext,
+  initContentClientAnalyticsRuntime,
+  setContentClientAnalyticsContext,
+  trackContentClientVideoComplete,
+  trackContentClientVideoEncounter,
+  trackContentClientVideoStart,
+  trackContentClientWatchDuration,
+} from "@/lib/analytics/content-client-analytics";
+import {
   trackTvSaveClick,
   trackTvShareClick,
   trackTvUserInteraction,
-  trackTvVideoComplete,
-  trackTvVideoEncounter,
-  trackTvVideoStart,
-  trackTvWatchDuration,
 } from "@/lib/tvAnalytics";
 import { toast } from "react-toastify";
 import { cn } from "@/lib/utils";
@@ -548,51 +550,72 @@ export const ContentClient = ({
   }, [playlist, currentContent]);
 
   useEffect(() => {
-    initTvAnalyticsRuntime();
-  }, []);
+    initContentClientAnalyticsRuntime(paymentSurfaceProp);
+  }, [paymentSurfaceProp]);
 
   useEffect(() => {
     if (!eventId) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: currentContent?.id ? String(currentContent.id) : null,
-        surface: "content_client",
-        communityId: currentContentCommunityId,
-      });
+    const ctx = {
+      eventId,
+      channelId: currentContent?.id ? String(currentContent.id) : null,
+      communityId: currentContentCommunityId,
+      surface: paymentSurfaceProp,
+    };
+    void flushContentClientAnalyticsBeforeContext(ctx).then(() => {
+      setContentClientAnalyticsContext(ctx);
     });
-  }, [eventId, currentContent?.id, currentContentCommunityId]);
+  }, [
+    eventId,
+    currentContent?.id,
+    currentContentCommunityId,
+    paymentSurfaceProp,
+  ]);
 
   const emitEncounterOnVideoLoaded = useCallback(() => {
     if (!eventId || !currentContent?.id) return;
-    void flushTvAnalytics().then(() => {
-      setTvAnalyticsContext({
-        eventId,
-        channelId: String(currentContent.id),
-        surface: "content_client",
-        communityId: currentContentCommunityId,
-      });
-    });
-    trackTvVideoEncounter(`content-client-${eventId}`, {
+    const ctx = {
+      eventId,
       channelId: String(currentContent.id),
-      mode: "LOCAL",
+      communityId: currentContentCommunityId,
+      surface: paymentSurfaceProp,
+    };
+    void flushContentClientAnalyticsBeforeContext(ctx).then(() => {
+      setContentClientAnalyticsContext(ctx);
+    });
+    trackContentClientVideoEncounter(eventId, {
+      channelId: String(currentContent.id),
       scheduleIndex: Math.max(0, currentContentIndex),
+      isPlaying,
+      communityId: currentContentCommunityId,
+      surface: paymentSurfaceProp,
     });
   }, [
     eventId,
     currentContent?.id,
     currentContentCommunityId,
     currentContentIndex,
+    isPlaying,
+    paymentSurfaceProp,
   ]);
 
   useEffect(() => {
     if (!eventId || !currentContent?.id) return;
     if (isPlaying && !prevPlayingForVideoStartRef.current) {
       const ch = String(currentContent.id);
-      trackTvVideoStart(ch, "LOCAL", Math.max(0, currentContentIndex), ch);
+      trackContentClientVideoStart(
+        ch,
+        Math.max(0, currentContentIndex),
+        paymentSurfaceProp
+      );
     }
     prevPlayingForVideoStartRef.current = isPlaying;
-  }, [eventId, currentContent?.id, currentContentIndex, isPlaying]);
+  }, [
+    eventId,
+    currentContent?.id,
+    currentContentIndex,
+    isPlaying,
+    paymentSurfaceProp,
+  ]);
 
   useEffect(() => {
     prevPlayingForVideoStartRef.current = false;
@@ -637,7 +660,13 @@ export const ContentClient = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(ch, Math.min(sec, 600), "LOCAL", ch);
+          trackContentClientWatchDuration(
+            ch,
+            Math.min(sec, 600),
+            "LOCAL",
+            ch,
+            paymentSurfaceProp
+          );
         }
       }
       return;
@@ -652,7 +681,13 @@ export const ContentClient = ({
       const sec = (now - watchSegStartRef.current) / 1000;
       watchSegStartRef.current = now;
       if (sec > 0.3) {
-        trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+        trackContentClientWatchDuration(
+          ch,
+          Math.min(sec, 300),
+          "LOCAL",
+          ch,
+          paymentSurfaceProp
+        );
       }
     }, 15_000);
     const onVis = () => {
@@ -661,7 +696,13 @@ export const ContentClient = ({
           const s = (Date.now() - watchSegStartRef.current) / 1000;
           watchSegStartRef.current = 0;
           if (s > 0.3) {
-            trackTvWatchDuration(ch, Math.min(s, 300), "LOCAL", ch);
+            trackContentClientWatchDuration(
+              ch,
+              Math.min(s, 300),
+              "LOCAL",
+              ch,
+              paymentSurfaceProp
+            );
           }
         }
       } else if (
@@ -679,11 +720,17 @@ export const ContentClient = ({
         const sec = (Date.now() - watchSegStartRef.current) / 1000;
         watchSegStartRef.current = 0;
         if (sec > 0.3) {
-          trackTvWatchDuration(ch, Math.min(sec, 300), "LOCAL", ch);
+          trackContentClientWatchDuration(
+            ch,
+            Math.min(sec, 300),
+            "LOCAL",
+            ch,
+            paymentSurfaceProp
+          );
         }
       }
     };
-  }, [eventId, currentContent?.id, isPlaying]);
+  }, [eventId, currentContent?.id, isPlaying, paymentSurfaceProp]);
 
   const [openPlaylist, setOpenPlaylist] = useState(false);
   const [openCommunityModal, setOpenCommunityModal] = useState(false);
@@ -1218,7 +1265,13 @@ export const ContentClient = ({
                 if (!currentContent?.id) return;
                 const ch = String(currentContent.id);
                 if (playbackSeekedForCompleteRef.current) return;
-                trackTvVideoComplete(ch, { channelId: ch, mode: "LOCAL" });
+                trackContentClientVideoComplete(ch, {
+                  channelId: ch,
+                  mode: "LOCAL",
+                  surface: paymentSurfaceProp,
+                  eventId,
+                  communityId: currentContentCommunityId,
+                });
                 if (isPlaylistWatchMode && nextContent) {
                   navigatePlaylistContent(nextContent);
                 }
