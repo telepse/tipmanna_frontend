@@ -71,7 +71,7 @@ export const InviteModal = ({ open, onClose, onSuccess }: Props) => {
     acceptedTerms: boolean;
   }) => {
     if (!values.acceptedTerms) {
-      toast.error("You must agree to the terms and privacy policy");
+      toast.error("You must agree to the terms and conditions and privacy policy");
       return;
     }
     try {

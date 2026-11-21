@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { PolicyBanner } from "@/components/banners/policy-banner";
 import Footer from "@/components/shared/footer";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
+import { LEGAL_ROUTES } from "@/lib/legal-routes";
 
 export default function PrivacyPolicy() {
   return (
@@ -28,7 +31,15 @@ export default function PrivacyPolicy() {
             services.
           </Paragraph>
           <Paragraph size="sm">
-            Please read this Privacy Policy carefully.
+            Please read this Privacy Policy carefully. Your use of Tipmanna is
+            also governed by the{" "}
+            <Link
+              href={LEGAL_ROUTES.serviceTerms}
+              className="text-primary underline underline-offset-2"
+            >
+              Tipmanna Service Terms and Conditions
+            </Link>
+            .
           </Paragraph>
         </div>
 
@@ -794,8 +805,13 @@ export default function PrivacyPolicy() {
 
           <Paragraph size="sm">
             For more information, please read the{" "}
-            <strong>Tipmanna Cookie Policy</strong> and use our available cookie
-            or privacy controls.
+            <Link
+              href={LEGAL_ROUTES.cookiePolicy}
+              className="text-primary underline underline-offset-2"
+            >
+              Tipmanna Cookie Policy
+            </Link>{" "}
+            and use our available cookie or privacy controls.
           </Paragraph>
         </div>
 
