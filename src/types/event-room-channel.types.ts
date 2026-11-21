@@ -7,4 +7,6 @@ export interface EventRoomVideoChannel {
   title?: string;
   isDefault?: boolean;
   durationSeconds?: number;
+  /** Present on full channel rows from the events API; omitted on restricted placeholders. */
+  mediaSource?: "linked" | "native";
 }
