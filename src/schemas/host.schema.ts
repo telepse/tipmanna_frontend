@@ -30,7 +30,7 @@ export const hostSignUpSchema = z
     password: z.string().min(8, "Password must be at least 8 characters long"),
     confirmPassword: z.string().min(8, "Confirm password is required"),
     acceptedTerms: z.boolean().refine(val => val === true, {
-      message: "You must agree to the terms and privacy policy",
+      message: "You must agree to the terms and conditions and privacy policy",
     }),
   })
   .refine(data => data.password === data.confirmPassword, {
