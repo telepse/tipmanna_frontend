@@ -55,6 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventTipLinkTab } from "@/components/tiplink/event-tiplink-tab";
 import { EventTayeApiTab } from "@/components/host/event-taye-api-tab";
 import { VideoSurfaceBanMenu } from "@/components/host/video-surface-ban-menu";
+import { ContentDeleteRequestDialog } from "@/components/account/content-delete-request-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -68,7 +69,6 @@ import {
 import { RootState } from "@/redux/store";
 import { extractYoutubeID } from "@/lib/extractYoutubeID";
 import {
-  deleteHostEventDetailsAction,
   deleteHostEventMessageAction,
   postHostEventMessageAction,
   sendHostEventReportAction,
@@ -743,33 +743,8 @@ export const EventDetailClient = ({
     }
   };
 
-  // const [isDeleting, setIsDeleting] = useState(false);
-  // const router = useRouter();
-
-  // const handleDeleteEvent = async () => {
-  //   try {
-  //     setIsDeleting(true);
-
-  //     await deleteHostEventDetailsAction({
-  //       hostId: user.id,
-  //       eventId,
-  //       token,
-  //     });
-
-  //     toast.success("Event deleted.");
-
-  //   } catch (error) {
-  //     console.error(error);
-
-  //     toast.error(
-  //       error instanceof Error
-  //         ? error.message
-  //         : "Failed to delete event."
-  //     );
-  //   } finally {
-  //     setIsDeleting(false);
-  //   }
-  // };
+  const [openContentDelete, setOpenContentDelete] = useState(false);
+  // Event Delete uses V2 soft-delete request dialog (not legacy host DELETE).
 
   console.log({
     watchedEventDate,
@@ -809,29 +784,20 @@ export const EventDetailClient = ({
 
             <Button
               variant="destructive"
-              onClick={() => {}}
+              onClick={() => setOpenContentDelete(true)}
               className="w-auto"
+              aria-label="Request soft-deletion of this event"
             >
               Delete Event
             </Button>
 
-            {/*
-    <Button
-      variant="destructive"
-      onClick={handleDeleteEvent}
-      disabled={isDeleting}
-      className="w-full sm:w-auto"
-    >
-      {isDeleting ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Deleting...
-        </>
-      ) : (
-        "Delete Event"
-      )}
-    </Button>
-    */}
+            <ContentDeleteRequestDialog
+              open={openContentDelete}
+              onOpenChange={setOpenContentDelete}
+              contentType="event"
+              contentId={eventId}
+              contentLabel={eventName}
+            />
           </div>
         </div>
 

@@ -88,6 +88,8 @@ import {
   parseAuthResponse,
 } from "@/lib/auth-response";
 
+import { accountDeletedMessageFromAuthFailure } from "@/lib/account-deleted-auth-message";
+
 import { HostAuthHandoffBanner } from "@/components/auth/host-auth-handoff-banner";
 
 import {
@@ -679,6 +681,16 @@ export const SigninForm = ({
       });
 
       if (!res.success) {
+        const deletedMsg = accountDeletedMessageFromAuthFailure({
+          message: res.message,
+          httpStatus: res.httpStatus,
+          validationBody: res.validationBody,
+        });
+        if (deletedMsg) {
+          toast.error(deletedMsg);
+          return;
+        }
+
         if (isUnverifiedHostMessage(res.message)) {
           toast.info("Verify your email to continue — we sent you a code.");
 
@@ -758,7 +770,12 @@ export const SigninForm = ({
             });
 
       if (!res.success) {
-        toast.error(res.message);
+        const deletedMsg = accountDeletedMessageFromAuthFailure({
+          message: res.message,
+          httpStatus: res.httpStatus,
+          validationBody: res.validationBody,
+        });
+        toast.error(deletedMsg ?? res.message);
         return;
       }
 
@@ -819,12 +836,7 @@ export const SigninForm = ({
         return;
       }
 
-      const verifyRes = await verifyCodeAction(
-        email,
-        tipperCode,
-        "TIPPER",
-        visitorIdForMerge
-      );
+      const verifyRes = await verifyCodeAction(email, tipperCode);
 
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");
