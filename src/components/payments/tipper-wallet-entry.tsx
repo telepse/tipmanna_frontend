@@ -24,6 +24,7 @@ import {
   setWalletPinRequest,
   type WalletStatusResponse,
 } from "@/lib/wallet-client";
+import { shouldRequestTipQuoteForWalletDebit } from "@/lib/wallet-tip-quote";
 import {
   clearWalletDebitPendingIdempotency,
   planWalletDebitIdempotencyKey,
@@ -100,7 +101,7 @@ type Props = {
   onWalletDebitSuccess: () => void;
   /** e.g. TV: freeze playback offset before Stripe redirect */
   onBeforeStripeWalletRedirect?: () => void;
-  /** When set (event room + tip customization), wallet debit must match server quote. */
+  /** When set (live tip customization quote context), wallet debit must match server quote. */
   ensureTipQuoteId?: () => Promise<string | undefined>;
   videoFeatureCardId?: string;
   performerId?: string | null;
@@ -456,10 +457,8 @@ export function TipperWalletDialog({
         debitIdentity
       );
       if (
-        ensureTipQuoteId &&
-        (paymentSurface === "event_room" ||
-          paymentSurface === "community_room") &&
-        mode === "tip"
+        shouldRequestTipQuoteForWalletDebit(ensureTipQuoteId, mode) &&
+        ensureTipQuoteId
       ) {
         if (!tipQuoteId) {
           tipQuoteId = await ensureTipQuoteId();
