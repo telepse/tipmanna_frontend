@@ -245,6 +245,32 @@ describe("runServerFetch perAttemptTimeoutMs", () => {
     vi.useRealTimers();
   });
 
+  it("propagates structured 422 native-activation eligibility errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            code: "NO_QUALIFYING_PACK_ORDER",
+            message:
+              "No paid streaming pack on this host. Complete pack checkout first, then activate credits.",
+          },
+          422
+        )
+      )
+    );
+
+    const result = await runServerFetch(
+      "http://example.test/events/e1/broadcasts/native-activation",
+      { method: "POST", body: "{}" },
+      "activateNativeStreamingWalletAction"
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.httpStatus).toBe(422);
+    expect(result.error).toContain("Complete pack checkout first");
+  });
+
   it("propagates non-sensitive explore coalesce headers into fetchMeta", async () => {
     const res = jsonResponse({ items: [], seed: "s" });
     res.headers.set("x-explore-coalesce-stage", "coalesced_recent_cache");
