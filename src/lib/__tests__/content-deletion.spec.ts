@@ -79,6 +79,22 @@ describe("content-deletion helpers", () => {
     expect(e.bullets.join(" ")).toMatch(/Permanent purge is not available/i);
   });
 
+  it("event explainer documents channel cascade; channel notes event coverage", () => {
+    const eventText = contentDeletionExplainers("event").bullets.join(" ");
+    expect(eventText).toMatch(/soft-deletes every channel/i);
+    const channelText = contentDeletionExplainers("channel").bullets.join(" ");
+    expect(channelText).toMatch(/parent event/i);
+  });
+
+  it("tiplink and playlist explainers mark V2 path vs legacy DELETE", () => {
+    expect(contentDeletionExplainers("tiplink").bullets.join(" ")).toMatch(
+      /V2 soft-delete/i
+    );
+    expect(contentDeletionExplainers("playlist").bullets.join(" ")).toMatch(
+      /V2 soft-delete/i
+    );
+  });
+
   it("V2 content paths never include legacy tipper delete or purge", () => {
     const id = "77521173-847e-4380-bdb3-5355bf278425";
     const urls = [
@@ -103,9 +119,29 @@ describe("content deletion source contracts", () => {
     );
     expect(eventDetail).toContain("ContentDeleteRequestDialog");
     expect(eventDetail).toContain('contentType="event"');
+    expect(eventDetail).toContain('contentType="channel"');
+    expect(eventDetail).toContain("setChannelDeleteTarget");
     expect(eventDetail).not.toMatch(/onClick=\{\(\) => \{\}\}/);
     expect(eventDetail).not.toMatch(/deleteHostEventDetailsAction\s*\(/);
     expect(eventDetail).toContain("setOpenContentDelete(true)");
+  });
+
+  it("tiplink and playlist UIs open V2 dialog (not legacy DELETE actions)", () => {
+    const root = resolve(process.cwd(), "src");
+    const tipLinkTab = readFileSync(
+      resolve(root, "components/tiplink/event-tiplink-tab.tsx"),
+      "utf8"
+    );
+    const playlists = readFileSync(
+      resolve(root, "components/dashboard/host-playlists-client.tsx"),
+      "utf8"
+    );
+    expect(tipLinkTab).toContain("ContentDeleteRequestDialog");
+    expect(tipLinkTab).toContain('contentType="tiplink"');
+    expect(tipLinkTab).not.toMatch(/deleteTipLinkAction\s*\(/);
+    expect(playlists).toContain("ContentDeleteRequestDialog");
+    expect(playlists).toContain('contentType="playlist"');
+    expect(playlists).not.toMatch(/deleteHostPlaylistAction\s*\(/);
   });
 
   it("host settings and tipper menu discover /account/delete", () => {

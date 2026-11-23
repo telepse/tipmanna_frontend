@@ -158,4 +158,33 @@ describe("deletion server actions", () => {
     expect(res.httpStatus).toBe(400);
     expect(runServerFetch).not.toHaveBeenCalled();
   });
+
+  it.each(["channel", "tiplink", "playlist"] as const)(
+    "content create posts V2 path for %s with host auth",
+    async type => {
+      cookiesGet.mockImplementation((name: string) =>
+        name === "hostToken" ? { value: "host-jwt" } : undefined
+      );
+      runServerFetch.mockResolvedValue({
+        success: true,
+        data: {
+          requestId: "77521173-847e-4380-bdb3-5355bf278425",
+          status: "pending",
+        },
+        error: null,
+      });
+      const res = await createContentDeletionRequestAction({
+        type,
+        id: "77521173-847e-4380-bdb3-5355bf278425",
+        agree: true,
+      });
+      expect(res.success).toBe(true);
+      const [url, init] = runServerFetch.mock.calls[0] ?? [];
+      expect(String(url)).toContain("/deletion/content/requests");
+      expect(String(url).toLowerCase()).not.toContain("purge");
+      expect(JSON.parse(String((init as { body?: string }).body)).type).toBe(
+        type
+      );
+    }
+  );
 });

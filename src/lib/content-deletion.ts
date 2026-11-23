@@ -99,15 +99,41 @@ export function contentDeletionExplainers(type: ContentDeletionType): {
       : type === "playlist"
         ? "playlist"
         : type;
+  const bullets: string[] = [
+    `This requests soft-deletion of this ${label} only — your host account stays active.`,
+    "Processing runs in the background with request status you can track and cancel while still cancellable.",
+    "Duplicate submissions reuse your existing open request for this content.",
+    "Permanent purge is not available. Financial records are not settled or wiped by this action.",
+    "You can only delete content you own. Other hosts' content is never accessible here.",
+  ];
+  if (type === "event") {
+    bullets.splice(
+      1,
+      0,
+      "Deleting an event also soft-deletes every channel that belongs to that event. Standalone channel deletion is unnecessary once an event deletion request is pending or completed."
+    );
+  } else if (type === "channel") {
+    bullets.splice(
+      1,
+      0,
+      "This deletes this channel only. If the parent event is already pending or completed for deletion, its channels are covered by that event request — do not expect a separate channel delete to succeed in that case."
+    );
+  } else if (type === "tiplink") {
+    bullets.splice(
+      1,
+      0,
+      "This uses the V2 soft-delete request lifecycle (not the legacy immediate TipLink DELETE). The tip link is archived for product access after processing completes."
+    );
+  } else if (type === "playlist") {
+    bullets.splice(
+      1,
+      0,
+      "This uses the V2 soft-delete request lifecycle (not the legacy immediate playlist DELETE). The playlist is soft-archived after processing completes."
+    );
+  }
   return {
     title: `Request ${label} deletion`,
-    bullets: [
-      `This requests soft-deletion of this ${label} only — your host account stays active.`,
-      "Processing runs in the background with request status you can track and cancel while still cancellable.",
-      "Duplicate submissions reuse your existing open request for this content.",
-      "Permanent purge is not available. Financial records are not settled or wiped by this action.",
-      "You can only delete content you own. Other hosts' content is never accessible here.",
-    ],
+    bullets,
   };
 }
 

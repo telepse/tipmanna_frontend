@@ -744,7 +744,11 @@ export const EventDetailClient = ({
   };
 
   const [openContentDelete, setOpenContentDelete] = useState(false);
-  // Event Delete uses V2 soft-delete request dialog (not legacy host DELETE).
+  const [channelDeleteTarget, setChannelDeleteTarget] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+  // Event/channel Delete uses V2 soft-delete request dialog (not legacy host DELETE).
 
   console.log({
     watchedEventDate,
@@ -798,6 +802,17 @@ export const EventDetailClient = ({
               contentId={eventId}
               contentLabel={eventName}
             />
+            {channelDeleteTarget ? (
+              <ContentDeleteRequestDialog
+                open={Boolean(channelDeleteTarget)}
+                onOpenChange={open => {
+                  if (!open) setChannelDeleteTarget(null);
+                }}
+                contentType="channel"
+                contentId={channelDeleteTarget.id}
+                contentLabel={channelDeleteTarget.label}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -1825,6 +1840,20 @@ export const EventDetailClient = ({
                             eventId={eventId}
                             channelId={content.id}
                           />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            aria-label={`Request soft-deletion of channel ${content.title || content.id}`}
+                            onClick={() =>
+                              setChannelDeleteTarget({
+                                id: content.id,
+                                label: content.title || "Channel",
+                              })
+                            }
+                          >
+                            Delete channel
+                          </Button>
                           <VideoSurfaceBanMenu
                             eventId={eventId}
                             channelId={content.id}
