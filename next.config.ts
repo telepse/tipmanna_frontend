@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { getWave1ConfigRedirects } from "./src/lib/config-redirects";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -17,6 +18,13 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
+  },
+  /**
+   * Wave 1A: high-volume redirects before Middleware (Next.js order:
+   * headers → redirects → middleware). permanent: true → 308.
+   */
+  async redirects() {
+    return getWave1ConfigRedirects();
   },
   /** Finish B Phase 0: one HTTPS ngrok origin; proxy API to disposable 8014. */
   async rewrites() {

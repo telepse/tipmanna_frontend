@@ -11,10 +11,11 @@ import { HostDashboardGate } from "@/components/auth/host-dashboard-gate";
 import { HostSessionProvider } from "@/contexts/host-session-context";
 import { DashboardFooter } from "@/components/footer/dashboard-footer";
 import { SidebarWrapper } from "@/components/dashboard/sidebar-wrapper";
+import { LEGAL_ROUTES } from "@/lib/legal-routes";
 
 const legalLinks = [
-  { href: "#", label: "Privacy Policy" },
-  { href: "#", label: "Terms & Condition" },
+  { href: LEGAL_ROUTES.privacyPolicy, label: "Privacy Policy" },
+  { href: LEGAL_ROUTES.serviceTerms, label: "Terms & Conditions" },
 ];
 
 const currentYear = new Date().getFullYear();

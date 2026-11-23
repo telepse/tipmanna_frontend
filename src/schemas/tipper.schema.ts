@@ -14,7 +14,7 @@ export const tipperSignUpSchema = z.object({
     .min(2, "Email address is required")
     .transform(v => normalizeEmail(v)),
   acceptedTerms: z.boolean().refine(val => val === true, {
-    message: "You must agree to the terms and privacy policy",
+    message: "You must agree to the terms and conditions and privacy policy",
   }),
 });
 
