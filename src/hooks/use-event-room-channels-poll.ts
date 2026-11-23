@@ -28,6 +28,12 @@ function normalizeChannelRows(data: unknown): EventRoomVideoChannel[] {
     }));
 }
 
+function isDocumentVisible(): boolean {
+  return (
+    typeof document === "undefined" || document.visibilityState === "visible"
+  );
+}
+
 /** LIVE-010 / D33: refresh channel URLs when Pusher is missed (15s idle poll). */
 export function useEventRoomChannelsPoll(
   eventId: string | undefined,
@@ -40,24 +46,43 @@ export function useEventRoomChannelsPoll(
   useEffect(() => {
     if (!eventId?.trim()) return;
 
+    const trimmedEventId = eventId.trim();
     let cancelled = false;
+    let inFlight = false;
 
     const refresh = async () => {
-      const res = await getEventChannels(eventId.trim());
-      if (cancelled || !res.success || !res.data) return;
-      const rows = normalizeChannelRows(res.data);
-      if (rows.length > 0) {
-        onChannelsRef.current(rows);
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const res = await getEventChannels(trimmedEventId);
+        if (cancelled || !res.success || !res.data) return;
+        const rows = normalizeChannelRows(res.data);
+        if (rows.length > 0) {
+          onChannelsRef.current(rows);
+        }
+      } finally {
+        inFlight = false;
       }
     };
 
-    const id = window.setInterval(() => {
+    const tick = () => {
+      if (!isDocumentVisible()) return;
       void refresh();
-    }, intervalMs);
+    };
+
+    const id = window.setInterval(tick, intervalMs);
+
+    const onVisibilityChange = () => {
+      if (!isDocumentVisible()) return;
+      // Prompt refresh on return-to-visible; single-flight skips if already in flight.
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [eventId, intervalMs]);
 }

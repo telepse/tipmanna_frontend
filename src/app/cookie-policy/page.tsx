@@ -1,8 +1,12 @@
+import Link from "next/link";
+
 import { PolicyBanner } from "@/components/banners/policy-banner";
+import { ServiceTermsBanner } from "@/components/banners/service-terms-banner";
 import Footer from "@/components/shared/footer";
 import { NavbarShell } from "@/components/shared/navbar-shell";
 import { Paragraph } from "@/components/shared/paragraph";
 import { Title } from "@/components/shared/title";
+import { LEGAL_ROUTES } from "@/lib/legal-routes";
 
 export default function CookiePolicy() {
   return (
@@ -12,6 +16,8 @@ export default function CookiePolicy() {
       <PolicyBanner title="Tipmanna Cookie Policy" />
 
       <section className="section mini-wrapper">
+        <ServiceTermsBanner className="mb-6" />
+
         <Paragraph size="sm">
           <strong>Last updated: 7 September 2026</strong>
         </Paragraph>
@@ -21,7 +27,20 @@ export default function CookiePolicy() {
         </Paragraph>
         <Paragraph size="sm">
           It should be read together with the{" "}
-          <strong>Tipmanna Privacy Policy</strong>.
+          <Link
+            href={LEGAL_ROUTES.privacyPolicy}
+            className="text-primary underline underline-offset-2"
+          >
+            Tipmanna Privacy Policy
+          </Link>{" "}
+          and the{" "}
+          <Link
+            href={LEGAL_ROUTES.serviceTerms}
+            className="text-primary underline underline-offset-2"
+          >
+            Tipmanna Service Terms and Conditions
+          </Link>
+          .
         </Paragraph>
 
         <div className="space-y-2">

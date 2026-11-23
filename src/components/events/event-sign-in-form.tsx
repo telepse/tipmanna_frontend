@@ -93,7 +93,9 @@ export const EventSignInForm = ({ role, tag, onNext }: Props) => {
     acceptedTerms: boolean;
   }) => {
     if (authState === "signUp" && !values.acceptedTerms) {
-      toast.error("You must agree to the terms and privacy policy");
+      toast.error(
+        "You must agree to the terms and conditions and privacy policy"
+      );
       return;
     }
     try {

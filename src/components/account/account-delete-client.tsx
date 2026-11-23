@@ -218,11 +218,11 @@ export function AccountDeleteClient({ accountLabel }: Props) {
           transfer or forfeit balances through this page.
         </Paragraph>
         <Paragraph size="sm">
-          <strong>Account deletion is not content deletion.</strong> Hosts
-          request deletion of an individual event from that event&apos;s manage
-          page (soft-delete request with its own status and cancel). This page
-          does not delete other people&apos;s content or shared assets you do
-          not solely control.
+          <strong>Account deletion is not content deletion.</strong> Removing an
+          individual event, channel, tip link or playlist is a separate host
+          content soft-delete flow (each with its own request status and
+          cancel). This page does not delete other people&apos;s content or
+          shared assets you do not solely control.
         </Paragraph>
         <Paragraph size="sm">
           After you submit, the request moves through statuses such as{" "}

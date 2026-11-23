@@ -18,6 +18,7 @@ import { FooterLinks } from "./footer-links";
 import { SocialIcon } from "./social-icon";
 import { useAppRouter } from "@/components/navigation/navigation-progress-provider";
 import { useCreateDialogHost } from "@/components/home/create-dialog-host";
+import { LEGAL_ROUTES } from "@/lib/legal-routes";
 
 const supportLinks = [
   { href: "/partner#faq", label: "FAQ" },
@@ -25,8 +26,9 @@ const supportLinks = [
 ];
 
 const legalLinks = [
-  { href: "#", label: "Privacy Policy" },
-  { href: "#", label: "Terms & Condition" },
+  { href: LEGAL_ROUTES.privacyPolicy, label: "Privacy Policy" },
+  { href: LEGAL_ROUTES.cookiePolicy, label: "Cookie Policy" },
+  { href: LEGAL_ROUTES.serviceTerms, label: "Terms & Conditions" },
 ];
 
 const paymentOptions = [
@@ -204,7 +206,7 @@ export default function Footer() {
           &copy;{currentYear} Tipmanna. All rights reserved.
         </Paragraph>
 
-        <div className="-mt-4 flex gap-4 sm:mt-0">
+        <div className="-mt-4 flex flex-wrap gap-4 sm:mt-0">
           {legalLinks.map((item, index) => (
             <Link
               href={item.href}
