@@ -218,10 +218,19 @@ export function AccountDeleteClient({ accountLabel }: Props) {
           transfer or forfeit balances through this page.
         </Paragraph>
         <Paragraph size="sm">
-          <strong>Account deletion is not content deletion.</strong> Removing an
-          individual event, channel, tip link or playlist is a separate host
-          content flow. This page does not delete other people&apos;s content or
-          shared assets you do not solely control.
+          <strong>Account deletion is not content deletion.</strong> Hosts
+          request deletion of an individual event, channel, tip link, or
+          playlist from that content&apos;s manage surface (soft-delete request
+          with its own status and cancel). This page does not delete other
+          people&apos;s content or shared assets you do not solely control.
+        </Paragraph>
+        <Paragraph size="sm">
+          After you submit, the request moves through statuses such as{" "}
+          <strong>pending</strong>, <strong>processing</strong>,{" "}
+          <strong>held</strong>, <strong>blocked</strong>,{" "}
+          <strong>completed</strong>, or <strong>cancelled</strong>. You can
+          cancel while the request is still cancellable. Soft-delete marks the
+          account deleted for product access; it is not a permanent purge.
         </Paragraph>
         <Paragraph size="sm">
           Permanent purge is not available here and cannot be requested from

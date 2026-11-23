@@ -1160,6 +1160,33 @@ export const SettingsClient = () => {
                   </Form>
                 </section>
 
+                {/* Danger zone — V2 soft-delete account request (discoverability) */}
+                <section
+                  className="rounded-xl border border-red-200 bg-red-50/40 p-4 sm:p-6"
+                  data-testid="host-account-deletion-nav"
+                >
+                  <div className="mb-3 space-y-1">
+                    <h3 className="text-lg font-semibold text-red-950">
+                      Account deletion
+                    </h3>
+                    <p className="text-muted-foreground text-sm">
+                      Request soft-deletion of this host account. Individual
+                      events are deleted separately from each event&apos;s manage
+                      page. Permanent purge is not available.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    variant="destructive"
+                    size="sm"
+                    className="h-9"
+                  >
+                    <Link href="/account/delete">
+                      Go to account deletion request
+                    </Link>
+                  </Button>
+                </section>
+
                 <HostYoutubeChannelsSettings />
 
                 <SubscriptionPageBlock

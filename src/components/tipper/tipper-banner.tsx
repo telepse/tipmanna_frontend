@@ -2,6 +2,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Third-party imports
@@ -51,7 +52,6 @@ import { RootState, type AppDispatch } from "@/redux/store";
 import { EditProfileFormData, editProfileSchema } from "@/schemas";
 import {
   changeEmailAction,
-  deleteTipperAction,
   updateTipperAction,
   verifyCodeAction,
 } from "@/actions/auth";
@@ -99,7 +99,6 @@ export const TipperBanner = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const [isEditable, setIsEditable] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [tawkLoaded, setTawkLoaded] = useState(false);
 
@@ -545,36 +544,9 @@ export const TipperBanner = ({
     router.push("/sign-in");
   };
 
-  const handleDeleteAccount = async () => {
-    if (!token) {
-      toast.error("Invalid or expired token");
-      return;
-    }
-
-    try {
-      setIsDeleting(true);
-
-      const res = await deleteTipperAction(token);
-
-      if (!res.success) {
-        toast.error(res.message);
-        return;
-      }
-
-      toast.success("Your account has been deleted successfully.");
-
-      // Clear Redux state & cookies
-      await performAuthLogout(dispatch);
-
-      // Redirect to sign-in
-      router.push("/sign-in");
-    } catch (err: unknown) {
-      console.error(err);
-      toast.error("Failed to delete account. Please try again.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  /** Legacy immediate `/auth/delete-tipper` is no longer invoked from this menu.
+   * Tippers use the V2 soft-delete request page (`/account/delete`).
+   * The legacy auth delete action remains exported for compatibility only. */
 
   const isMobile = useMediaQuery({
     query: "(max-width: 500px)",
@@ -876,30 +848,35 @@ export const TipperBanner = ({
                 open={openDeleteModal}
                 onOpenChange={setOpenDeleteModal}
               >
-                <DialogContent className="max-w-sm space-y-4">
+                <DialogContent
+                  className="max-w-sm space-y-4"
+                  data-testid="tipper-account-deletion-nav"
+                >
                   <DialogHeader>
-                    <DialogTitle>Delete Account</DialogTitle>
+                    <DialogTitle>Request account deletion</DialogTitle>
                     <DialogDescription>
-                      Are you sure you want to delete your account? This action
-                      cannot be undone.
+                      Tipmanna uses a soft-delete request with status tracking
+                      and cancellation while still cancellable. This is not an
+                      immediate irreversible wipe, and permanent purge is not
+                      available from this flow.
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className="mt-4 flex justify-end gap-4">
+                  <div className="mt-4 flex flex-col-reverse justify-end gap-3 sm:flex-row">
                     <Button
                       variant="outline"
                       onClick={() => setOpenDeleteModal(false)}
                     >
-                      Go Back
+                      Go back
                     </Button>
                     <Button
+                      asChild
                       variant="destructive"
-                      onClick={async () => {
-                        setOpenDeleteModal(false); // close modal
-                        await handleDeleteAccount();
-                      }}
+                      onClick={() => setOpenDeleteModal(false)}
                     >
-                      Continue
+                      <Link href="/account/delete">
+                        Continue to deletion request
+                      </Link>
                     </Button>
                   </div>
                 </DialogContent>
