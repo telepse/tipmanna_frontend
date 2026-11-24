@@ -9,6 +9,7 @@ const catalog: EnrichedRoomCharacter[] = [
     name: "Confetti",
     iconUrl: "/c.png",
     price: 5,
+    styleName: "Confetti",
     tipItemId: "11111111-1111-1111-1111-111111111111",
     tipKind: "default",
     displayLabel: "Confetti",
