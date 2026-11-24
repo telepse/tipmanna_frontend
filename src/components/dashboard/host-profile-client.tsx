@@ -44,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 
 import { PayoutSummaryCard } from "../host/payout-summary-card";
+import { HostStreamingWalletPanel } from "@/components/host/host-streaming-wallet-panel";
 
 import { HostPayoutRequestStatusPanel } from "@/components/dashboard/host-payout-request-status";
 import { HostConnectPayoutPanel } from "@/components/dashboard/host-connect-payout-panel";
@@ -802,6 +803,20 @@ export const HostProfileClient = () => {
           forceMount
         >
           <div className="bg-card space-y-5 rounded-xl border p-4 shadow-sm sm:p-6">
+            <HostStreamingWalletPanel />
+
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+              <p className="text-muted-foreground">
+                Manage native streaming packs and broadcast consoles.
+              </p>
+              <Link
+                href={`/host/${eventSlug}/streaming`}
+                className="text-primary font-medium underline-offset-2 hover:underline"
+              >
+                Open native streaming →
+              </Link>
+            </div>
+
             {/* Current subscription */}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
