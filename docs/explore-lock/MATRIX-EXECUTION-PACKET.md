@@ -7,10 +7,10 @@ Run before minting `docs/explore-lock/benchmarks/YYYY-MM-DD-audio/`.
 | Field | Value |
 |-------|--------|
 | Branch | `dev` (includes PR #112 merge `f15ebfd`) |
-| Build | Record commit SHA: `________` |
-| URL | Vercel **dev** or preview: `________` |
-| Tester | `________` |
-| Date | `________` |
+| Build | Record commit SHA: `fdbfa9eaf2747addcb8eb06065a5d5cf2f9ec94f` |
+| URL | Vercel **dev** or preview: `https://tipmanna-fj3ffgvfq-test01.vercel.app/` |
+| Tester | Taiwo Oladeji / Emediong Udoh (see checklist) |
+| Date | 24 November 2026 |
 
 ## Procedure
 
