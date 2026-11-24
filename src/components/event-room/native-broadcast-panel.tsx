@@ -37,6 +37,7 @@ import {
   showPublisherSurface,
   startAcceptedMessage,
 } from "@/lib/native-broadcast-panel-status";
+import { formatNativeBroadcastActionError } from "@/lib/native-broadcast-action-error";
 
 type Props = {
   eventId: string;
@@ -141,7 +142,7 @@ export function NativeBroadcastPanel({
         if (opts?.silent) {
           setPollStale(true);
         } else {
-          setError(e instanceof Error ? e.message : "status_unavailable");
+          setError(formatNativeBroadcastActionError(e));
         }
         return null;
       } finally {
@@ -240,7 +241,7 @@ export function NativeBroadcastPanel({
           setMessage(startAcceptedMessage(updated));
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "action_failed");
+        setError(formatNativeBroadcastActionError(e));
       } finally {
         setLoading(false);
       }
@@ -274,7 +275,10 @@ export function NativeBroadcastPanel({
           starts stay disabled.
         </p>
         <ol className="text-muted-foreground mt-2 list-decimal space-y-0.5 pl-4 text-xs">
-          <li>Start preview → Activate credits → Create intent → Preflight</li>
+          <li>
+            Start preview → Activate credits (requires paid pack or Host Premium)
+            → Create intent → Preflight
+          </li>
           <li>Claim publisher → Join provider room → Start (mock worker)</li>
           <li>Stop when finished; leave provider room and stop preview</li>
         </ol>
