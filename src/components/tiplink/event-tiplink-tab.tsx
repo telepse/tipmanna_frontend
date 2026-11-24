@@ -9,12 +9,12 @@ import { toast } from "react-toastify";
 
 import {
   createTipLinkDraftAction,
-  deleteTipLinkAction,
   suggestTipLinkSlugAction,
   suggestTipLinkStoreLinksAction,
   updateTipLinkAction,
   type TipLinkSummary,
 } from "@/actions/tiplink";
+import { ContentDeleteRequestDialog } from "@/components/account/content-delete-request-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -566,16 +566,11 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
     bannerPreview,
   ]);
 
-  const remove = async (id: string) => {
-    const res = await deleteTipLinkAction(id);
-    if (!res.success) {
-      toast.error(res.message ?? "Delete failed");
-      return;
-    }
-    toast.success("TipLink deleted");
-    if (editing?.id === id) setEditing(null);
-    await refresh();
-  };
+  // Intended GA path: V2 ContentDeleteRequestDialog (not legacy deleteTipLinkAction).
+  const [tipLinkDeleteTarget, setTipLinkDeleteTarget] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
 
   if (loading) {
     return (
@@ -587,6 +582,20 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
 
   return (
     <div className="space-y-6">
+      {tipLinkDeleteTarget ? (
+        <ContentDeleteRequestDialog
+          open={Boolean(tipLinkDeleteTarget)}
+          onOpenChange={open => {
+            if (!open) {
+              setTipLinkDeleteTarget(null);
+              void refresh();
+            }
+          }}
+          contentType="tiplink"
+          contentId={tipLinkDeleteTarget.id}
+          contentLabel={tipLinkDeleteTarget.label}
+        />
+      ) : null}
       <div className="bg-muted/30 rounded-lg border p-4 text-sm">
         {eligibility?.firstFreeAvailable ? (
           <p>
@@ -675,7 +684,13 @@ export function EventTipLinkTab({ eventId, contents }: Props) {
                     <Button
                       size="sm"
                       variant="destructive"
-                      onClick={() => void remove(row.id)}
+                      aria-label={`Request soft-deletion of tip link ${row.title}`}
+                      onClick={() =>
+                        setTipLinkDeleteTarget({
+                          id: row.id,
+                          label: row.title,
+                        })
+                      }
                     >
                       <Trash2 className="size-4" />
                     </Button>

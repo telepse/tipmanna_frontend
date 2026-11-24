@@ -836,12 +836,7 @@ export const SigninForm = ({
         return;
       }
 
-      const verifyRes = await verifyCodeAction(
-        email,
-        tipperCode,
-        "TIPPER",
-        visitorIdForMerge
-      );
+      const verifyRes = await verifyCodeAction(email, tipperCode);
 
       if (!verifyRes.success) {
         toast.error(verifyRes.message ?? "Verification failed");

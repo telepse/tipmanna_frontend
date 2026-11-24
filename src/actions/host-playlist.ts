@@ -146,6 +146,12 @@ export async function updateHostPlaylistAction(
   return result;
 }
 
+/**
+ * Legacy immediate playlist DELETE (`DELETE /host/playlists/:id`).
+ * Host playlist UI now uses V2 `ContentDeleteRequestDialog` /
+ * `createContentDeletionRequestAction` — do not wire both paths from the same
+ * control. Kept for compatibility with any remaining non-GA callers.
+ */
 export async function deleteHostPlaylistAction(id: string) {
   const result = await runServerFetch<{ ok: boolean }>(
     `${base()}/host/playlists/${encodeURIComponent(id)}`,
