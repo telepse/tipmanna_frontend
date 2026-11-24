@@ -1313,11 +1313,11 @@ export function TipLinkLandingClient({
             className="rounded-md bg-white px-3 py-1"
             onClick={togglePlayPause}
           >
-            {isPlaying ? (
-              <Pause className="size-4 text-black" />
-            ) : (
-              <Play className="size-4 text-black" />
-            )}
+            {
+              isPlaying ? (
+                <div className="flex items-center gap-1"><Pause className="size-4 text-black" /> <span className="text-black text-[10px] sm:text-xs">Pause</span></div>
+              ): <div className="flex items-center gap-1"><Play className="size-4 text-black" /> <span className="text-black text-[10px] sm:text-xs">Play</span></div>
+            }
           </button>
           <button
             type="button"
@@ -1325,11 +1325,15 @@ export function TipLinkLandingClient({
             onClick={toggleMute}
           >
             {isMuted ? (
+              <div className="flex items-center gap-1">
               <VolumeX
-                className={`size-4 ${isMuted ? "text-destructive" : "text-black"}`}
-              />
-            ) : (
+                className={`size-4 ${isMuted ? "text-destructive" : "text-black"}`} />
+
+                <span className="text-black text-[10px] sm:text-xs">Unmute</span></div>
+              ) : (
+              <div className="flex items-center gap-1">
               <Volume2 className="size-4 text-black" />
+              <span className="text-black text-[10px] sm:text-xs">Mute</span></div>
             )}
           </button>
         </div>
@@ -1340,7 +1344,10 @@ export function TipLinkLandingClient({
             onClick={enterImmersive}
             aria-label="Enlarge video"
           >
+            <div className="flex items-center gap-1">
             <Maximize2 className="size-4" />
+            <span className="text-white text-[10px] sm:text-xs">Enlarge</span>
+            </div>
           </button>
         ) : null}
       </div>
@@ -2148,7 +2155,7 @@ export function TipLinkLandingClient({
               ) : null}
 
               {/* INLINE COMMENTS — directly underneath the pitch */}
-              <section
+              {/* <section
                 id="tiplink-comments"
                 className="mt-4 space-y-4 rounded-2xl border border-white/10 bg-black/25 p-4"
               >
@@ -2168,7 +2175,6 @@ export function TipLinkLandingClient({
                   </span>
                 </div>
 
-                {/* Comment input */}
                 <form
                   className="flex items-center gap-2"
                   onSubmit={event => {
@@ -2196,7 +2202,6 @@ export function TipLinkLandingClient({
                   </button>
                 </form>
 
-                {/* Existing comments */}
                 <div className="space-y-3">
                   {inlineCommentsLoading && inlineComments.length === 0 ? (
                     <div
@@ -2275,7 +2280,7 @@ export function TipLinkLandingClient({
                     </button>
                   ) : null}
                 </div>
-              </section>
+              </section> */}
 
               <section className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <p className="mb-3 text-center text-sm text-white/60">
