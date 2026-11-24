@@ -9,12 +9,12 @@ import Link from "next/link";
 
 import {
   createHostPlaylistAction,
-  deleteHostPlaylistAction,
   listHostPlaylistsAction,
   type HostPlaylistItemInput,
   type HostPlaylistSummary,
 } from "@/actions/host-playlist";
 import { getMyCommunitiesAction } from "@/actions/communities";
+import { ContentDeleteRequestDialog } from "@/components/account/content-delete-request-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -248,24 +248,11 @@ export function HostPlaylistsClient() {
     }
   };
 
-  const onDelete = async (id: string) => {
-    if (!window.confirm("Delete this playlist?")) return;
-    const res = await deleteHostPlaylistAction(id);
-    if (!res.success) {
-      if (handleSubscriptionActionError(res, { focusTier: "premium" })) {
-        return;
-      }
-      toast.error(
-        subscriptionActionErrorMessage(
-          res.validationBody,
-          res.message ?? "Could not delete playlist"
-        )
-      );
-      return;
-    }
-    toast.success("Playlist deleted");
-    await load();
-  };
+  // Intended GA path: V2 ContentDeleteRequestDialog (not legacy deleteHostPlaylistAction).
+  const [playlistDeleteTarget, setPlaylistDeleteTarget] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
 
   if (loading) {
     return (
@@ -278,6 +265,20 @@ export function HostPlaylistsClient() {
   return (
     <div className="space-y-6">
       {SubscriptionPromptModal}
+      {playlistDeleteTarget ? (
+        <ContentDeleteRequestDialog
+          open={Boolean(playlistDeleteTarget)}
+          onOpenChange={open => {
+            if (!open) {
+              setPlaylistDeleteTarget(null);
+              void load();
+            }
+          }}
+          contentType="playlist"
+          contentId={playlistDeleteTarget.id}
+          contentLabel={playlistDeleteTarget.label}
+        />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-muted-foreground text-sm">
           Curate 3–10 videos into shareable playlists. Community playlists are
@@ -335,9 +336,15 @@ export function HostPlaylistsClient() {
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => void onDelete(pl.id)}
+                  aria-label={`Request soft-deletion of playlist ${pl.name}`}
+                  onClick={() =>
+                    setPlaylistDeleteTarget({
+                      id: pl.id,
+                      label: pl.name,
+                    })
+                  }
                 >
                   <Trash2 className="size-4" />
                 </Button>

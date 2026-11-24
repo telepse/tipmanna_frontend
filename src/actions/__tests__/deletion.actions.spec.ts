@@ -15,7 +15,9 @@ vi.mock("next/headers", () => ({
 
 import {
   createAccountDeletionRequestAction,
+  createContentDeletionRequestAction,
   getAccountDeletionPreflightAction,
+  getContentDeletionPreflightAction,
   getDeletionCapabilitiesAction,
   getOwnDeletionRequestAction,
 } from "../deletion";
@@ -96,4 +98,93 @@ describe("deletion server actions", () => {
     expect(res.httpStatus).toBe(400);
     expect(runServerFetch).not.toHaveBeenCalled();
   });
+
+  it("content preflight requires hostToken (not tipper token alone)", async () => {
+    cookiesGet.mockImplementation((name: string) =>
+      name === "token" ? { value: "tipper-jwt" } : undefined
+    );
+    const res = await getContentDeletionPreflightAction({
+      type: "event",
+      id: "77521173-847e-4380-bdb3-5355bf278425",
+    });
+    expect(res.httpStatus).toBe(401);
+    expect(runServerFetch).not.toHaveBeenCalled();
+  });
+
+  it("content create posts V2 content path with host auth", async () => {
+    cookiesGet.mockImplementation((name: string) =>
+      name === "hostToken" ? { value: "host-jwt" } : undefined
+    );
+    runServerFetch.mockResolvedValue({
+      success: true,
+      data: {
+        requestId: "77521173-847e-4380-bdb3-5355bf278425",
+        status: "processing",
+      },
+      error: null,
+    });
+    const res = await createContentDeletionRequestAction({
+      type: "event",
+      id: "77521173-847e-4380-bdb3-5355bf278425",
+      agree: true,
+      clientKey: "fe-content-test",
+    });
+    expect(res.success).toBe(true);
+    const [url, init] = runServerFetch.mock.calls[0] ?? [];
+    expect(String(url)).toContain("/deletion/content/requests");
+    expect(String(url)).not.toContain("delete-tipper");
+    expect(String(url).toLowerCase()).not.toContain("purge");
+    expect(
+      (init as { headers?: { Authorization?: string } }).headers?.Authorization
+    ).toBe("Bearer host-jwt");
+    expect(JSON.parse(String((init as { body?: string }).body))).toEqual({
+      type: "event",
+      id: "77521173-847e-4380-bdb3-5355bf278425",
+      agree: true,
+      clientKey: "fe-content-test",
+    });
+  });
+
+  it("content create rejects cross-type garbage without calling API", async () => {
+    cookiesGet.mockImplementation((name: string) =>
+      name === "hostToken" ? { value: "host-jwt" } : undefined
+    );
+    const res = await createContentDeletionRequestAction({
+      // @ts-expect-error intentional invalid type for guard test
+      type: "message",
+      id: "77521173-847e-4380-bdb3-5355bf278425",
+      agree: true,
+    });
+    expect(res.httpStatus).toBe(400);
+    expect(runServerFetch).not.toHaveBeenCalled();
+  });
+
+  it.each(["channel", "tiplink", "playlist"] as const)(
+    "content create posts V2 path for %s with host auth",
+    async type => {
+      cookiesGet.mockImplementation((name: string) =>
+        name === "hostToken" ? { value: "host-jwt" } : undefined
+      );
+      runServerFetch.mockResolvedValue({
+        success: true,
+        data: {
+          requestId: "77521173-847e-4380-bdb3-5355bf278425",
+          status: "pending",
+        },
+        error: null,
+      });
+      const res = await createContentDeletionRequestAction({
+        type,
+        id: "77521173-847e-4380-bdb3-5355bf278425",
+        agree: true,
+      });
+      expect(res.success).toBe(true);
+      const [url, init] = runServerFetch.mock.calls[0] ?? [];
+      expect(String(url)).toContain("/deletion/content/requests");
+      expect(String(url).toLowerCase()).not.toContain("purge");
+      expect(JSON.parse(String((init as { body?: string }).body)).type).toBe(
+        type
+      );
+    }
+  );
 });
