@@ -19,10 +19,31 @@ export type TipQuoteContext = {
   surface: string;
 };
 
+/**
+ * Live tip layout always yields a quote context for the actual payment surface.
+ * Backend requires tipQuoteId on every surface when an event has live tip config.
+ */
+export function resolveLiveTipQuoteContext(params: {
+  eventId: string;
+  surface: string;
+  configVersion: number;
+  textUnitPrice: number;
+  catalog: EnrichedRoomCharacter[];
+}): TipQuoteContext {
+  return {
+    eventId: params.eventId,
+    configVersion: params.configVersion,
+    textUnitPrice: params.textUnitPrice,
+    catalog: params.catalog,
+    surface: params.surface,
+  };
+}
+
 export function useTipPresentation(
   eventId: string | undefined,
   baseCharacters: RoomCharacter[],
   opts?: {
+    /** @deprecated Unused for live configs; tip customization flag already gates live layout. Kept for call-site compatibility. */
     quoteLock?: boolean;
     paymentSurface?: string;
     initialTipConfig?: ActiveTipConfigResponse | null;
@@ -40,7 +61,6 @@ export function useTipPresentation(
   eliteCharacterIds?: string[];
 } {
   const tipCfg = useTipConfig(eventId, { initial: opts?.initialTipConfig });
-  const quoteLock = Boolean(opts?.quoteLock);
   const surface = opts?.paymentSurface ?? "event_room";
 
   return useMemo(() => {
@@ -81,16 +101,13 @@ export function useTipPresentation(
       tipCfg.version,
       eliteRoomChars
     );
-    const quoteCtx: TipQuoteContext | null =
-      quoteLock && (surface === "event_room" || surface === "community_room")
-        ? {
-            eventId,
-            configVersion: p.configVersion,
-            textUnitPrice: p.textUnitPrice,
-            catalog: p.allEnriched,
-            surface,
-          }
-        : null;
+    const quoteCtx = resolveLiveTipQuoteContext({
+      eventId,
+      surface,
+      configVersion: p.configVersion,
+      textUnitPrice: p.textUnitPrice,
+      catalog: p.allEnriched,
+    });
 
     return {
       strip: p.sectionStrip,
@@ -103,5 +120,5 @@ export function useTipPresentation(
       payLabel: p.ctaPayLabel,
       eliteCharacterIds: tipCfg.config.eliteCharacterIds,
     };
-  }, [baseCharacters, eventId, quoteLock, surface, tipCfg]);
+  }, [baseCharacters, eventId, surface, tipCfg]);
 }
