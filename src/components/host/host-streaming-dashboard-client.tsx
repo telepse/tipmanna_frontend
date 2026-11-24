@@ -8,6 +8,7 @@ import {
   streamingPackCheckoutAction,
   streamingPackOrderStatusAction,
 } from "@/actions/streaming-stripe";
+import { HostStreamingWalletPanel } from "@/components/host/host-streaming-wallet-panel";
 import { useHostSession } from "@/hooks/use-host-session";
 import { unwrapPaginatedList } from "@/lib/unwrap-paginated-list";
 import type { Event } from "@/types";
@@ -191,15 +192,13 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
       </div>
 
       <section className="space-y-2 rounded-md border bg-white p-4">
-        <h2 className="text-sm font-semibold">
-          Streaming credits (Stripe test)
-        </h2>
+        <h2 className="text-sm font-semibold">Purchase streaming credits</h2>
         <p className="text-muted-foreground text-xs">
-          Pack checkout uses{" "}
-          <code className="text-[11px]">STRIPE_PRICE_STREAMING_PACK_240</code>{" "}
-          on the staging API. After payment, open a broadcast console and use{" "}
-          <strong>Activate credits</strong> for the one-time pack activation
-          bonus (not Host Premium — that path is for subscribers only).
+          Buy a 240-credit pack for live native streaming. After payment returns
+          here, fulfilment is confirmed from the server ledger. Open a broadcast
+          console and use <strong>Activate credits</strong> once for the pack
+          activation bonus (Host Premium subscribers use the subscription path
+          instead).
         </p>
         <div className="flex flex-wrap gap-2">
           <button
@@ -208,19 +207,23 @@ export function HostStreamingDashboardClient({ hostSlug }: Props) {
             disabled={packBusy || !hostSession.isActive}
             onClick={() => void startPackCheckout()}
           >
-            {packBusy ? "Opening checkout…" : "Buy 240-credit pack (£10 test)"}
+            {packBusy ? "Opening checkout…" : "Buy 240-credit pack"}
           </button>
           <Link
             className="rounded border px-2 py-1 text-xs hover:bg-gray-50"
             href={`/host/${hostSlug}/host-premium`}
           >
-            Host Premium subscription (invoice.paid path)
+            Host Premium subscription
           </Link>
         </div>
         {packMessage ? (
-          <p className="text-muted-foreground text-xs">{packMessage}</p>
+          <p className="text-muted-foreground text-xs" role="status">
+            {packMessage}
+          </p>
         ) : null}
       </section>
+
+      <HostStreamingWalletPanel />
 
       {loading ? <p className="text-sm">Loading events…</p> : null}
       {error ? (
