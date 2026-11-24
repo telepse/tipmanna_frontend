@@ -2,7 +2,7 @@
 
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -162,12 +162,30 @@ self.addEventListener("notificationclick", (event: NotificationEvent) => {
   );
 });
 
+/**
+ * Next.js Server Actions POST to the page URL with a `Next-Action` header.
+ * Serwist's default document/RSC NetworkFirst strategies can surface Workbox
+ * `no-response` for those POSTs when the network attempt fails or times out.
+ * Force NetworkOnly for Server Action POSTs before defaultCache (E3).
+ */
+const serverActionNetworkOnly = {
+  matcher({ request, sameOrigin }: { request: Request; sameOrigin: boolean }) {
+    return (
+      sameOrigin &&
+      request.method === "POST" &&
+      Boolean(request.headers.get("Next-Action"))
+    );
+  },
+  method: "POST" as const,
+  handler: new NetworkOnly(),
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  runtimeCaching: [serverActionNetworkOnly, ...defaultCache],
   fallbacks: {
     entries: [
       {
