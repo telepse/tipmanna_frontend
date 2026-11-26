@@ -9,6 +9,12 @@ import {
   type DeletionBlocker,
   type DeletionCapabilities,
 } from "@/lib/account-deletion";
+import {
+  CONTENT_DELETION_V2_PATHS,
+  isContentDeletionType,
+  type ContentDeletionRequestResult,
+  type ContentDeletionType,
+} from "@/lib/content-deletion";
 import { cookies } from "next/headers";
 
 const apiBase = () =>
@@ -23,6 +29,16 @@ async function resolveAccountAuthToken(): Promise<string | null> {
     const host = store.get("hostToken")?.value?.trim();
     if (host) return host;
     return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Content deletion is host-only on the V2 API. */
+async function resolveHostAuthToken(): Promise<string | null> {
+  try {
+    const store = await cookies();
+    return store.get("hostToken")?.value?.trim() || null;
   } catch {
     return null;
   }
@@ -176,5 +192,97 @@ export async function cancelOwnDeletionRequestAction(requestId: string) {
       cache: "no-store",
     },
     "cancelOwnDeletionRequestAction"
+  );
+}
+
+export async function getContentDeletionPreflightAction(input: {
+  type: string;
+  id: string;
+}) {
+  if (!isContentDeletionType(input.type) || !isSafeOwnRequestId(input.id)) {
+    return {
+      data: null,
+      error: "Invalid content",
+      success: false,
+      message: "Invalid content type or id",
+      httpStatus: 400,
+    };
+  }
+  const token = await resolveHostAuthToken();
+  if (!token) {
+    return {
+      data: null,
+      error: "Unauthorized",
+      success: false,
+      message: "Host sign-in required for content deletion",
+      httpStatus: 401,
+    };
+  }
+  const url = deletionUrl(
+    CONTENT_DELETION_V2_PATHS.preflight(input.type, input.id)
+  );
+  return runServerFetch<{ ok: boolean; blockers: DeletionBlocker[] }>(
+    url,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    },
+    "getContentDeletionPreflightAction"
+  );
+}
+
+export async function createContentDeletionRequestAction(input: {
+  type: ContentDeletionType;
+  id: string;
+  agree: boolean;
+  clientKey?: string;
+}) {
+  if (!isContentDeletionType(input.type) || !isSafeOwnRequestId(input.id)) {
+    return {
+      data: null as ContentDeletionRequestResult | null,
+      error: "Invalid content",
+      success: false,
+      message: "Invalid content type or id",
+      httpStatus: 400,
+    };
+  }
+  const token = await resolveHostAuthToken();
+  if (!token) {
+    return {
+      data: null as ContentDeletionRequestResult | null,
+      error: "Unauthorized",
+      success: false,
+      message: "Host sign-in required for content deletion",
+      httpStatus: 401,
+    };
+  }
+  if (!input.agree) {
+    return {
+      data: null,
+      error: "Agreement required",
+      success: false,
+      message: "You must confirm before requesting content deletion",
+      httpStatus: 400,
+    };
+  }
+  const url = deletionUrl(CONTENT_DELETION_V2_PATHS.requests);
+  return runServerFetch<ContentDeletionRequestResult>(
+    url,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: input.type,
+        id: input.id,
+        agree: true,
+        ...(input.clientKey ? { clientKey: input.clientKey } : {}),
+      }),
+      cache: "no-store",
+    },
+    "createContentDeletionRequestAction"
   );
 }

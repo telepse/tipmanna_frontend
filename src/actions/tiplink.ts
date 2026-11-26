@@ -294,6 +294,12 @@ export async function updateTipLinkAction(
   return res;
 }
 
+/**
+ * Legacy immediate TipLink DELETE (`DELETE /host/tiplinks/:id`).
+ * Host TipLink UI now uses V2 `ContentDeleteRequestDialog` /
+ * `createContentDeletionRequestAction` — do not wire both paths from the same
+ * control. Kept for compatibility with any remaining non-GA callers.
+ */
 export async function deleteTipLinkAction(id: string) {
   const res = await runServerFetch<{ message: string }>(
     `${base()}/host/tiplinks/${encodeURIComponent(id)}`,
